@@ -1,10 +1,10 @@
-import { GraduationCap } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Field } from "@/components/ui/label";
+import { InlineError } from "@/components/shared/EmptyState";
+import { AuthLayout } from "./AuthLayout";
 import { getErrorMessage } from "@/api/client";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -35,61 +35,45 @@ export function RegisterPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <div className="w-full max-w-sm">
-        <div className="mb-6 flex flex-col items-center gap-2">
-          <div className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-            <GraduationCap className="size-5" />
-          </div>
-          <span className="text-lg font-semibold">Study</span>
-        </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Create your account</CardTitle>
-            <CardDescription>Set up your personal study dashboard</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  autoComplete="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="password">Password</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  autoComplete="new-password"
-                  required
-                  minLength={8}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-                <p className="text-xs text-muted-foreground">At least 8 characters.</p>
-              </div>
-              {error && <p className="text-sm text-destructive">{error}</p>}
-              <Button type="submit" className="w-full" disabled={isSubmitting}>
-                {isSubmitting ? "Creating account..." : "Create account"}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-
-        <p className="mt-4 text-center text-sm text-muted-foreground">
+    <AuthLayout
+      title="Create your account"
+      description="Set up your personal study space."
+      footer={
+        <>
           Already have an account?{" "}
-          <Link to="/login" className="font-medium text-primary hover:underline">
+          <Link to="/login" className="font-medium text-accent underline-offset-4 hover:underline">
             Log in
           </Link>
-        </p>
-      </div>
-    </div>
+        </>
+      }
+    >
+      <form onSubmit={handleSubmit} className="space-y-5">
+        <Field label="Email" htmlFor="email">
+          <Input
+            id="email"
+            type="email"
+            autoComplete="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+        </Field>
+        <Field label="Password" htmlFor="password" hint="At least 8 characters.">
+          <Input
+            id="password"
+            type="password"
+            autoComplete="new-password"
+            required
+            minLength={8}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+        </Field>
+        <InlineError>{error}</InlineError>
+        <Button type="submit" className="w-full" size="lg" disabled={isSubmitting}>
+          {isSubmitting ? "Creating account..." : "Create account"}
+        </Button>
+      </form>
+    </AuthLayout>
   );
 }

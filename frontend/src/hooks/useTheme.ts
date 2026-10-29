@@ -12,9 +12,9 @@ function applyTheme(theme: Theme) {
 export function useTheme() {
   const [theme, setThemeState] = useState<Theme>(() => {
     try {
-      return (localStorage.getItem(STORAGE_KEY) as Theme) || "system";
+      return (localStorage.getItem(STORAGE_KEY) as Theme) || "dark";
     } catch {
-      return "system";
+      return "dark";
     }
   });
 

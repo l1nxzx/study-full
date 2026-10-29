@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { NoteEditor, type NoteEditorValues } from "@/components/notes/NoteEditor";
-import { PageHeader } from "@/components/layout/PageHeader";
 import { getErrorMessage } from "@/api/client";
+import { Page } from "@/components/layout/PageHeader";
+import { NoteEditor, type NoteEditorValues } from "@/components/notes/NoteEditor";
 import { useCreateNote } from "@/hooks/useNotes";
 import { todayISO } from "@/lib/date";
 
@@ -31,16 +31,16 @@ export function NoteNewPage() {
   }
 
   return (
-    <div>
-      <PageHeader title="New note" description="Paste in your cleaned-up class notes" />
-      {error && <p className="mb-4 text-sm text-destructive">{error}</p>}
+    <Page width="wide">
       <NoteEditor
+        heading="New note"
         initialValues={initialValues}
         onSubmit={handleSubmit}
         onCancel={() => navigate(-1)}
         isSubmitting={createNote.isPending}
         submitLabel="Create note"
+        error={error}
       />
-    </div>
+    </Page>
   );
 }

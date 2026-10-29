@@ -1,4 +1,3 @@
-import { Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface AiReviewBannerProps {
@@ -13,30 +12,30 @@ export function AiReviewBanner({ alterationCount, additionCount, onAcceptAll, on
   if (alterationCount === 0 && additionCount === 0) return null;
 
   return (
-    <div className="mb-4 flex flex-col gap-2 rounded-lg border border-warning/30 bg-warning/10 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex items-start gap-2 text-sm text-foreground">
-        <Sparkles className="mt-0.5 size-4 shrink-0 text-warning" />
-        <p>
+    <div className="mb-8 flex flex-col gap-3 border-l-2 border-warn py-1 pl-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="text-sm leading-relaxed">
+        <p className="font-medium text-fg">Review the transcription</p>
+        <p className="text-fg-muted">
           {alterationCount > 0 && (
             <>
-              The AI corrected {alterationCount} {alterationCount === 1 ? "thing" : "things"} it thought was a
-              handwriting error - review the struck-through/highlighted text below.{" "}
+              {alterationCount} {alterationCount === 1 ? "word was" : "words were"} corrected where the handwriting looked wrong
+              (struck through, with the correction beside it).{" "}
             </>
           )}
           {additionCount > 0 && (
             <>
-              It also added {additionCount} {additionCount === 1 ? "thing" : "things"} of its own, marked with an
-              "AI" badge - those stay marked permanently unless you remove them.
+              {additionCount} {additionCount === 1 ? "passage was" : "passages were"} added by the AI and stay marked "AI" unless you
+              remove them.
             </>
           )}
         </p>
       </div>
       {alterationCount > 0 && (
         <div className="flex shrink-0 gap-2">
-          <Button size="sm" variant="outline" onClick={onRejectAll} disabled={isSaving}>
-            Reject all
+          <Button size="sm" variant="ghost" onClick={onRejectAll} disabled={isSaving}>
+            Keep originals
           </Button>
-          <Button size="sm" onClick={onAcceptAll} disabled={isSaving}>
+          <Button size="sm" variant="outline" onClick={onAcceptAll} disabled={isSaving}>
             Accept all
           </Button>
         </div>

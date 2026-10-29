@@ -6,7 +6,7 @@ function Label({ className, ...props }: ComponentProps<typeof LabelPrimitive.Roo
   return (
     <LabelPrimitive.Root
       className={cn(
-        "text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70",
+        "block text-[0.8125rem] font-medium leading-none text-fg-muted peer-disabled:cursor-not-allowed peer-disabled:opacity-70",
         className
       )}
       {...props}
@@ -14,4 +14,27 @@ function Label({ className, ...props }: ComponentProps<typeof LabelPrimitive.Roo
   );
 }
 
-export { Label };
+/** A label + control + optional hint, stacked. The one way forms in Study lay out a field. */
+function Field({
+  label,
+  htmlFor,
+  hint,
+  className,
+  children,
+}: {
+  label: React.ReactNode;
+  htmlFor?: string;
+  hint?: React.ReactNode;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className={cn("space-y-1.5", className)}>
+      <Label htmlFor={htmlFor}>{label}</Label>
+      {children}
+      {hint && <p className="text-meta text-fg-faint">{hint}</p>}
+    </div>
+  );
+}
+
+export { Label, Field };

@@ -31,17 +31,17 @@ export function ConfirmDialog({
 }: ConfirmDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-sm">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-sm" hideClose>
+        <DialogHeader className="pr-0">
           <DialogTitle>{title}</DialogTitle>
           {description && <DialogDescription>{description}</DialogDescription>}
         </DialogHeader>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
+          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={isLoading}>
             Cancel
           </Button>
           <Button variant={destructive ? "destructive" : "default"} onClick={onConfirm} disabled={isLoading}>
-            {confirmLabel}
+            {isLoading ? "Working..." : confirmLabel}
           </Button>
         </DialogFooter>
       </DialogContent>

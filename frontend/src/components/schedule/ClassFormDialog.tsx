@@ -3,7 +3,8 @@ import { getErrorMessage } from "@/api/client";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Field } from "@/components/ui/label";
+import { InlineError } from "@/components/shared/EmptyState";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCreateClass, useDeleteClass, useUpdateClass } from "@/hooks/useClasses";
 import { useSubjects } from "@/hooks/useSubjects";
@@ -84,11 +85,10 @@ export function ClassFormDialog({ open, onOpenChange, editingClass, defaultSubje
         <DialogHeader>
           <DialogTitle>{editingClass ? "Edit class" : "Add class"}</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-1.5">
-            <Label>Subject</Label>
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <Field label="Subject">
             <Select value={subjectId} onValueChange={setSubjectId}>
-              <SelectTrigger>
+              <SelectTrigger aria-label="Subject">
                 <SelectValue placeholder="Choose a subject" />
               </SelectTrigger>
               <SelectContent>
@@ -99,12 +99,11 @@ export function ClassFormDialog({ open, onOpenChange, editingClass, defaultSubje
                 ))}
               </SelectContent>
             </Select>
-          </div>
+          </Field>
 
-          <div className="space-y-1.5">
-            <Label>Day</Label>
+          <Field label="Day">
             <Select value={String(weekday)} onValueChange={(v) => setWeekday(Number(v) as Weekday)}>
-              <SelectTrigger>
+              <SelectTrigger aria-label="Day">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -115,39 +114,35 @@ export function ClassFormDialog({ open, onOpenChange, editingClass, defaultSubje
                 ))}
               </SelectContent>
             </Select>
-          </div>
+          </Field>
 
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="class-start">Start time</Label>
+            <Field label="Starts" htmlFor="class-start">
               <Input id="class-start" type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} required />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="class-end">End time</Label>
+            </Field>
+            <Field label="Ends" htmlFor="class-end">
               <Input id="class-end" type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} required />
-            </div>
+            </Field>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="class-room">Room (optional)</Label>
+            <Field label="Room (optional)" htmlFor="class-room">
               <Input id="class-room" value={room} onChange={(e) => setRoom(e.target.value)} />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="class-teacher">Teacher (optional)</Label>
+            </Field>
+            <Field label="Teacher (optional)" htmlFor="class-teacher">
               <Input id="class-teacher" value={teacher} onChange={(e) => setTeacher(e.target.value)} />
-            </div>
+            </Field>
           </div>
 
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          <InlineError>{error}</InlineError>
 
           <DialogFooter className="sm:justify-between">
             {editingClass ? (
-              <Button type="button" variant="ghost" className="text-destructive" onClick={handleDelete} disabled={deleteClass.isPending}>
+              <Button type="button" variant="ghost" className="text-bad hover:bg-bad/10 hover:text-bad" onClick={handleDelete} disabled={deleteClass.isPending}>
                 Delete class
               </Button>
             ) : (
-              <span />
+              <span className="hidden sm:block" />
             )}
             <Button type="submit" disabled={!subjectId || isSubmitting}>
               {isSubmitting ? "Saving..." : editingClass ? "Save changes" : "Add class"}

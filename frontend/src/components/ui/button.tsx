@@ -3,25 +3,29 @@ import { cva, type VariantProps } from "class-variance-authority";
 import type { ButtonHTMLAttributes } from "react";
 import { cn } from "@/lib/utils";
 
+// One filled style (the accent) for the single primary action on a surface; everything else
+// is quiet. Corners stay small, and nothing scales, glows or casts a shadow on hover.
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+  "inline-flex shrink-0 select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-md text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-45 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground shadow-sm hover:opacity-90",
-        secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
-        outline: "border border-input bg-transparent hover:bg-muted",
-        ghost: "hover:bg-muted",
-        destructive: "bg-destructive text-destructive-foreground hover:opacity-90",
-        link: "text-primary underline-offset-4 hover:underline",
+        default: "bg-accent-fill text-on-accent hover:bg-accent-fill/88 active:bg-accent-fill/80",
+        secondary: "border border-rule-strong bg-tint/60 text-fg hover:bg-tint active:bg-tint/70",
+        outline: "border border-rule-strong text-fg hover:bg-tint/70 active:bg-tint",
+        ghost: "text-fg-muted hover:bg-tint hover:text-fg active:bg-tint/70",
+        destructive: "border border-bad/40 text-bad hover:bg-bad/10 active:bg-bad/15",
+        link: "h-auto px-0 text-accent underline-offset-4 hover:underline",
       },
       size: {
-        default: "h-9 px-4 py-2",
-        sm: "h-8 rounded-md px-3 text-xs",
-        lg: "h-10 rounded-md px-6",
-        icon: "h-9 w-9",
+        default: "h-10 px-3.5 sm:h-9",
+        sm: "h-9 px-3 text-[0.8125rem] sm:h-8 sm:px-2.5",
+        lg: "h-11 px-5 sm:h-10",
+        icon: "size-10 sm:size-9",
+        "icon-sm": "size-9 sm:size-8",
       },
     },
+    compoundVariants: [{ variant: "link", class: "h-auto px-0 sm:h-auto sm:px-0" }],
     defaultVariants: {
       variant: "default",
       size: "default",
@@ -35,9 +39,15 @@ interface ButtonProps
   asChild?: boolean;
 }
 
-function Button({ className, variant, size, asChild = false, ...props }: ButtonProps) {
+function Button({ className, variant, size, asChild = false, type, ...props }: ButtonProps) {
   const Comp = asChild ? Slot : "button";
-  return <Comp className={cn(buttonVariants({ variant, size, className }))} {...props} />;
+  return (
+    <Comp
+      className={cn(buttonVariants({ variant, size, className }))}
+      {...(asChild ? {} : { type: type ?? "button" })}
+      {...props}
+    />
+  );
 }
 
 export { Button, buttonVariants };

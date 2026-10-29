@@ -8,7 +8,10 @@ const ToastProvider = ToastPrimitive.Provider;
 function ToastViewport({ className, ...props }: ComponentProps<typeof ToastPrimitive.Viewport>) {
   return (
     <ToastPrimitive.Viewport
-      className={cn("fixed bottom-0 right-0 z-[100] flex w-full max-w-sm flex-col gap-2 p-4 outline-none", className)}
+      className={cn(
+        "fixed inset-x-0 bottom-[calc(4.25rem+env(safe-area-inset-bottom))] z-[100] mx-auto flex w-full max-w-sm flex-col gap-2 p-4 outline-none lg:inset-x-auto lg:bottom-0 lg:right-0",
+        className
+      )}
       {...props}
     />
   );
@@ -18,9 +21,9 @@ function Toast({ className, variant = "default", ...props }: ComponentProps<type
   return (
     <ToastPrimitive.Root
       className={cn(
-        "group pointer-events-auto relative flex w-full items-start gap-3 rounded-lg border bg-card p-4 pr-8 shadow-lg transition-all duration-200",
+        "group pointer-events-auto relative flex w-full items-start gap-3 rounded-md border border-rule bg-raised py-3 pl-4 pr-9 shadow-md transition-opacity duration-150",
         "data-[state=closed]:opacity-0 data-[swipe=end]:translate-x-full",
-        variant === "destructive" ? "border-destructive/40" : "border-border",
+        variant === "destructive" && "border-l-2 border-l-bad",
         className
       )}
       {...props}
@@ -29,17 +32,17 @@ function Toast({ className, variant = "default", ...props }: ComponentProps<type
 }
 
 function ToastTitle({ className, ...props }: ComponentProps<typeof ToastPrimitive.Title>) {
-  return <ToastPrimitive.Title className={cn("text-sm font-semibold text-foreground", className)} {...props} />;
+  return <ToastPrimitive.Title className={cn("text-sm font-medium text-fg", className)} {...props} />;
 }
 
 function ToastDescription({ className, ...props }: ComponentProps<typeof ToastPrimitive.Description>) {
-  return <ToastPrimitive.Description className={cn("mt-0.5 text-xs text-muted-foreground", className)} {...props} />;
+  return <ToastPrimitive.Description className={cn("mt-0.5 text-[0.8125rem] text-fg-muted", className)} {...props} />;
 }
 
 function ToastClose({ className, ...props }: ComponentProps<typeof ToastPrimitive.Close>) {
   return (
     <ToastPrimitive.Close
-      className={cn("absolute right-2 top-2 rounded-sm opacity-60 transition-opacity hover:opacity-100", className)}
+      className={cn("absolute right-2 top-2.5 flex size-6 items-center justify-center rounded-sm text-fg-faint hover:bg-tint hover:text-fg", className)}
       {...props}
     >
       <X className="size-3.5" />

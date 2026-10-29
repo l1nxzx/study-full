@@ -1,244 +1,147 @@
-import { useMutation } from "@tanstack/react-query";
-import { HelpCircle, Layers, Send, Sparkles, SquareStack, X } from "lucide-react";
-import { type FormEvent, useState } from "react";
-import { useLocation } from "react-router-dom";
-import * as aiApi from "@/api/ai";
-import { getErrorMessage } from "@/api/client";
-import { ChatMessages } from "@/components/ai-panel/ChatMessages";
+import { PenLine, X } from "lucide-react";
+import { useState } from "react";
+import { AskView } from "@/components/ai-panel/AskView";
 import { FlashcardsTool } from "@/components/ai-panel/tools/FlashcardsTool";
+import { NotesRevealToggle } from "@/components/ai-panel/tools/NotesRevealToggle";
 import { PracticeTool } from "@/components/ai-panel/tools/PracticeTool";
 import { QuizTool } from "@/components/ai-panel/tools/QuizTool";
-import { Button } from "@/components/ui/button";
-import { chatHintFor, useAiContextSummary } from "@/hooks/useAiContext";
+import { ToolBody } from "@/components/ai-panel/tools/ToolParts";
 import { useAiPanel, type AiToolMode } from "@/hooks/useAiPanel";
 import { useAiStatus } from "@/hooks/useAiStatus";
 import { cn } from "@/lib/utils";
 
-const QUICK_TOOLS: { mode: AiToolMode; label: string; icon: typeof Sparkles }[] = [
-  { mode: "quiz", label: "Quiz", icon: SquareStack },
-  { mode: "flashcards", label: "Flashcards", icon: Layers },
-  { mode: "practice", label: "Practice", icon: Sparkles },
+const TABS: { mode: AiToolMode; label: string }[] = [
+  { mode: "none", label: "Ask" },
+  { mode: "quiz", label: "Quiz" },
+  { mode: "flashcards", label: "Flashcards" },
+  { mode: "practice", label: "Practice" },
 ];
 
-function historyFor(messages: ReturnType<typeof useAiPanel>["messages"], excludeId?: string) {
-  return messages
-    .filter((m) => !m.label && m.id !== excludeId)
-    .map((m) => ({ role: m.role, content: m.content }));
-}
+const iconButton =
+  "flex size-9 shrink-0 items-center justify-center rounded-md text-fg-faint transition-colors hover:bg-tint hover:text-fg lg:size-8";
 
+/**
+ * The assistant workspace. On desktop it's a column beside the page (it pushes the content
+ * over rather than covering it, so the note stays readable next to it); on phones it takes the
+ * whole screen. With a note open it offers four tools as tabs - each with an interface built
+ * for its job - and they stay mounted while you switch, so a half-finished quiz isn't lost.
+ */
 export function AiPanel() {
-  const { isOpen, close, toolMode, setToolMode, activeNote, messages, appendMessage, updateMessage } = useAiPanel();
+  const { isOpen, close, toolMode, setToolMode, activeNote, messages, clearMessages } = useAiPanel();
   const aiEnabled = useAiStatus();
-  const [input, setInput] = useState("");
-  const contextSummary = useAiContextSummary(isOpen && !activeNote && aiEnabled);
-  const location = useLocation();
+  // Tools are mounted the first time they're opened and kept until the note changes. Derived
+  // during render (React's "adjusting state when a prop changes" pattern), not in an effect.
+  const [visited, setVisited] = useState<{ noteId?: string; modes: Set<AiToolMode> }>({ modes: new Set(["none"]) });
+  let nextVisited = visited;
+  if (visited.noteId !== activeNote?.id) nextVisited = { noteId: activeNote?.id, modes: new Set(["none"]) };
+  if (!nextVisited.modes.has(toolMode)) nextVisited = { ...nextVisited, modes: new Set(nextVisited.modes).add(toolMode) };
+  if (nextVisited !== visited) setVisited(nextVisited);
 
-  const askMutation = useMutation({
-    mutationFn: async ({ question, regenerateId }: { question: string; regenerateId?: string }) => {
-      const history = historyFor(messages, regenerateId);
-      const result = activeNote
-        ? await aiApi.askNote(activeNote.id, question, history)
-        : await aiApi.chat(question, history, contextSummary);
-      return { result, regenerateId };
-    },
-    onSuccess: ({ result, regenerateId }: { result: aiApi.AskResult | aiApi.ChatResult; regenerateId?: string }) => {
-      const patch = {
-        content: result.answer,
-        groundedInNote: "groundedInNote" in result ? (result as aiApi.AskResult).groundedInNote : undefined,
-        isRegenerating: false,
-      };
-      if (regenerateId) updateMessage(regenerateId, patch);
-      else appendMessage({ role: "assistant", ...patch });
-    },
-    onError: (err, variables) => {
-      const content = getErrorMessage(err, "Could not get an answer");
-      if (variables.regenerateId) updateMessage(variables.regenerateId, { content, isRegenerating: false });
-      else appendMessage({ role: "assistant", content });
-    },
-  });
-
-  const summaryMutation = useMutation({
-    mutationFn: async ({ forceRefresh, regenerateId }: { forceRefresh?: boolean; regenerateId?: string } = {}) => {
-      const result = await aiApi.getSummary(activeNote!.id, forceRefresh);
-      return { result, regenerateId };
-    },
-    onSuccess: ({ result, regenerateId }) => {
-      const points = result.keyPoints.map((p) => `- ${p}`).join("\n");
-      const content = `### Quick Summary\n\n${result.quickSummary}\n\n### Key Points\n\n${points}`;
-      if (regenerateId) updateMessage(regenerateId, { content, isRegenerating: false });
-      else appendMessage({ role: "assistant", label: "Summary", content });
-    },
-    onError: (err, variables) => {
-      const content = getErrorMessage(err, "Could not summarize this note");
-      if (variables?.regenerateId) updateMessage(variables.regenerateId, { content, isRegenerating: false });
-      else appendMessage({ role: "assistant", label: "Summary", content });
-    },
-  });
-
-  const explainMutation = useMutation({
-    mutationFn: async ({ text, forceRefresh, regenerateId }: { text: string; forceRefresh?: boolean; regenerateId?: string }) => {
-      const result = await aiApi.getExplanation(activeNote!.id, text, "simple", forceRefresh);
-      return { result, regenerateId };
-    },
-    onSuccess: ({ result, regenerateId }) => {
-      if (regenerateId) updateMessage(regenerateId, { content: result.explanation, isRegenerating: false });
-      else appendMessage({ role: "assistant", label: "Explanation", content: result.explanation });
-    },
-    onError: (err, variables) => {
-      const content = getErrorMessage(err, "Could not explain this");
-      if (variables.regenerateId) updateMessage(variables.regenerateId, { content, isRegenerating: false });
-      else appendMessage({ role: "assistant", label: "Explanation", content });
-    },
-  });
-
-  const isPending = askMutation.isPending || summaryMutation.isPending || explainMutation.isPending;
-  const isSplit = toolMode !== "none" && Boolean(activeNote);
-
-  function handleSummaryClick() {
-    if (!activeNote) return;
-    appendMessage({ role: "user", label: "Summary", content: "Summarize this note" });
-    summaryMutation.mutate({});
-  }
-
-  function handleExplainClick() {
-    if (!activeNote) return;
-    const selection = window.getSelection()?.toString().trim();
-    if (!selection) {
-      appendMessage({
-        role: "assistant",
-        label: "Explain",
-        content: "Select some text in the note first, then click Explain.",
-      });
-      return;
-    }
-    appendMessage({ role: "user", label: "Explain", content: `"${selection}"` });
-    explainMutation.mutate({ text: selection });
-  }
-
-  function handleSubmit(e: FormEvent) {
-    e.preventDefault();
-    const question = input.trim();
-    if (!question || isPending) return;
-    appendMessage({ role: "user", content: question });
-    setInput("");
-    askMutation.mutate({ question });
-  }
-
-  // Regenerating replaces the assistant message in place, driven by whatever produced
-  // it: the preceding user message tells us whether it was a Summary/Explain quick
-  // action or a normal question.
-  function handleRegenerate(id: string) {
-    const index = messages.findIndex((m) => m.id === id);
-    if (index < 1) return;
-    const assistantMessage = messages[index];
-    const userMessage = messages[index - 1];
-    if (userMessage.role !== "user") return;
-
-    updateMessage(id, { isRegenerating: true });
-
-    if (assistantMessage.label === "Summary" && activeNote) {
-      summaryMutation.mutate({ forceRefresh: true, regenerateId: id });
-    } else if (assistantMessage.label === "Explanation" && activeNote) {
-      const text = userMessage.content.replace(/^"|"$/g, "");
-      explainMutation.mutate({ text, forceRefresh: true, regenerateId: id });
-    } else if (!assistantMessage.label) {
-      askMutation.mutate({ question: userMessage.content, regenerateId: id });
-    }
-  }
-
-  if (!isOpen) return null;
+  const mode: AiToolMode = activeNote ? toolMode : "none";
+  const showNoteToggle = activeNote && (mode === "quiz" || mode === "practice");
 
   return (
-    <div
+    <aside
+      aria-label="Assistant"
+      hidden={!isOpen}
       className={cn(
-        // Mobile: full-screen overlay (no room to push). Desktop (lg+): a normal flex
-        // sibling of the main content column, so it pushes/shrinks that column instead
-        // of covering it - closing it restores the content to full width.
-        "fixed inset-0 z-40 flex flex-col bg-card lg:static lg:inset-auto lg:z-auto lg:h-full lg:shrink-0 lg:flex-row lg:border-l lg:border-border",
-        isSplit ? "lg:w-[880px]" : "lg:w-[420px]"
+        // Phones: the whole screen. Mid-size screens: a sheet over the right edge. Wide screens:
+        // a column that pushes the page over, so the note stays readable beside it.
+        "fixed inset-0 z-50 flex-col bg-panel",
+        "lg:left-auto lg:w-[26rem] lg:border-l lg:border-rule lg:shadow-lg",
+        "xl:static xl:z-auto xl:h-full xl:shrink-0 xl:shadow-none 2xl:w-[30rem]",
+        isOpen ? "flex" : "hidden"
       )}
     >
-      {isSplit && activeNote && (
-        <div className="flex flex-col border-b border-border lg:w-1/2 lg:border-b-0 lg:border-r">
-          <div className="flex items-center justify-end px-3 py-2">
-            <button
-              onClick={() => setToolMode("none")}
-              title="Close"
-              className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-            >
-              <X className="size-4" />
+      <header className="shrink-0 border-b border-rule pt-[env(safe-area-inset-top)]">
+        <div className="flex h-14 items-center gap-2 pl-5 pr-3 lg:h-16">
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-fg">Assistant</p>
+            <p className="truncate text-meta text-fg-faint">
+              {activeNote ? <>Working from "{activeNote.title}"</> : "General study help"}
+            </p>
+          </div>
+          {mode === "none" && messages.length > 0 && (
+            <button type="button" onClick={clearMessages} className={iconButton} title="New conversation" aria-label="New conversation">
+              <PenLine className="size-4" />
             </button>
-          </div>
-          <div className="max-h-[42vh] overflow-y-auto px-4 pb-4 lg:max-h-none lg:flex-1">
-            {toolMode === "quiz" && <QuizTool noteId={activeNote.id} />}
-            {toolMode === "flashcards" && <FlashcardsTool noteId={activeNote.id} />}
-            {toolMode === "practice" && <PracticeTool noteId={activeNote.id} />}
-          </div>
-        </div>
-      )}
-
-      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <div className="flex items-center justify-between border-b border-border px-4 py-3">
-          <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-foreground">{activeNote ? activeNote.title : "AI Assistant"}</p>
-            <p className="truncate text-xs text-muted-foreground">{activeNote ? "Based on this note" : "General study chat"}</p>
-          </div>
-          <button onClick={close} className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground">
+          )}
+          <button type="button" onClick={close} className={iconButton} title="Close assistant" aria-label="Close assistant">
             <X className="size-4" />
           </button>
         </div>
 
-        {activeNote && aiEnabled && (
-          <div className="flex flex-wrap gap-1.5 border-b border-border px-4 py-2.5">
-            <Button size="sm" variant="outline" onClick={handleSummaryClick} disabled={summaryMutation.isPending}>
-              <Sparkles /> Summary
-            </Button>
-            <Button size="sm" variant="outline" onMouseDown={(e) => e.preventDefault()} onClick={handleExplainClick} disabled={explainMutation.isPending}>
-              <HelpCircle /> Explain
-            </Button>
-            {QUICK_TOOLS.map((tool) => (
-              <Button
-                key={tool.mode}
-                size="sm"
-                variant={toolMode === tool.mode ? "default" : "outline"}
-                onClick={() => setToolMode(toolMode === tool.mode ? "none" : tool.mode)}
-              >
-                <tool.icon /> {tool.label}
-              </Button>
-            ))}
-          </div>
-        )}
-
-        {!aiEnabled ? (
-          <div className="flex flex-1 items-center justify-center px-6 text-center text-sm text-muted-foreground">
-            AI features are unavailable - the backend has no OpenAI API key configured.
-          </div>
-        ) : (
-          <>
-            <div className="flex-1 overflow-y-auto px-4 py-3">
-              {messages.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  {activeNote ? `Ask anything about "${activeNote.title}", or use a quick action above.` : chatHintFor(location.pathname)}
-                </p>
-              ) : (
-                <ChatMessages messages={messages} isPending={isPending} onRegenerate={handleRegenerate} />
-              )}
+        {activeNote && aiEnabled !== false && (
+          <div className="flex items-end justify-between gap-2 px-5">
+            <div role="tablist" aria-label="Assistant tools" className="-mb-px flex gap-5">
+              {TABS.map((tab) => {
+                const selected = mode === tab.mode;
+                return (
+                  <button
+                    key={tab.mode}
+                    type="button"
+                    role="tab"
+                    aria-selected={selected}
+                    onClick={() => setToolMode(tab.mode)}
+                    className={cn(
+                      "h-10 border-b-2 text-sm font-medium transition-colors",
+                      selected ? "border-accent text-fg" : "border-transparent text-fg-muted hover:text-fg"
+                    )}
+                  >
+                    {tab.label}
+                  </button>
+                );
+              })}
             </div>
-
-            <form onSubmit={handleSubmit} className="flex gap-2 border-t border-border p-3">
-              <input
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder={activeNote ? "Ask about this note..." : "Ask anything..."}
-                className="h-9 flex-1 rounded-md border border-input bg-transparent px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              />
-              <Button type="submit" size="icon" disabled={!input.trim() || isPending}>
-                <Send className="size-4" />
-              </Button>
-            </form>
-          </>
+            {showNoteToggle && (
+              <div className="mb-1.5 hidden lg:block">
+                <NotesRevealToggle />
+              </div>
+            )}
+          </div>
         )}
-      </div>
-    </div>
+      </header>
+
+      {aiEnabled === false ? (
+        <div className="px-5 py-6">
+          <p className="text-sm font-medium text-fg">The assistant isn't available</p>
+          <p className="mt-1 text-sm leading-relaxed text-fg-muted">
+            The server has no OpenAI API key configured, so chat, quizzes, flashcards and practice questions are turned off. Everything
+            else works as usual.
+          </p>
+        </div>
+      ) : (
+        <>
+          <div className={cn("min-h-0 flex-1 flex-col", mode === "none" ? "flex" : "hidden")}>
+            <AskView active={isOpen && mode === "none"} />
+          </div>
+
+          {activeNote && (
+            <>
+              {nextVisited.modes.has("quiz") && (
+                <ToolBody className={mode === "quiz" ? "block" : "hidden"}>
+                  <QuizTool key={activeNote.id} noteId={activeNote.id} noteTitle={activeNote.title} active={isOpen && mode === "quiz"} />
+                </ToolBody>
+              )}
+              {nextVisited.modes.has("flashcards") && (
+                <ToolBody className={mode === "flashcards" ? "block" : "hidden"}>
+                  <FlashcardsTool
+                    key={activeNote.id}
+                    noteId={activeNote.id}
+                    noteTitle={activeNote.title}
+                    active={isOpen && mode === "flashcards"}
+                  />
+                </ToolBody>
+              )}
+              {nextVisited.modes.has("practice") && (
+                <ToolBody className={mode === "practice" ? "block" : "hidden"}>
+                  <PracticeTool key={activeNote.id} noteId={activeNote.id} noteTitle={activeNote.title} />
+                </ToolBody>
+              )}
+            </>
+          )}
+        </>
+      )}
+    </aside>
   );
 }

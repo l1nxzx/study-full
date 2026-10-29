@@ -3,9 +3,10 @@ import { type FormEvent, type ReactNode, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getErrorMessage } from "@/api/client";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Field } from "@/components/ui/label";
+import { InlineError } from "@/components/shared/EmptyState";
 import { useCreateClassSession } from "@/hooks/useClassSessions";
 import { todayISO } from "@/lib/date";
 
@@ -39,7 +40,7 @@ export function ClassSessionFormDialog({ subjectId, classId, trigger }: ClassSes
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         {trigger || (
-          <Button variant="outline" size="sm">
+          <Button variant="ghost" size="sm">
             <Plus /> New session
           </Button>
         )}
@@ -47,17 +48,16 @@ export function ClassSessionFormDialog({ subjectId, classId, trigger }: ClassSes
       <DialogContent>
         <DialogHeader>
           <DialogTitle>New class session</DialogTitle>
+          <DialogDescription>A dated lesson to attach notes and tasks to.</DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="session-date">Date</Label>
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <Field label="Date" htmlFor="session-date">
             <Input id="session-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="session-title">Topic (optional)</Label>
-            <Input id="session-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Linear Equations" />
-          </div>
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          </Field>
+          <Field label="Topic (optional)" htmlFor="session-title">
+            <Input id="session-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Linear equations" />
+          </Field>
+          <InlineError>{error}</InlineError>
           <DialogFooter>
             <Button type="submit" disabled={createClassSession.isPending}>
               {createClassSession.isPending ? "Creating..." : "Create session"}

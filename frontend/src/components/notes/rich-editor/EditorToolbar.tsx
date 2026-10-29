@@ -14,8 +14,10 @@ import {
   Quote,
   Redo2,
   Sigma,
+  SquareSigma,
   Table as TableIcon,
   Undo2,
+  X,
 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { CALLOUT_VARIANT_CONFIG, CALLOUT_VARIANTS } from "@/lib/calloutVariants";
@@ -24,6 +26,26 @@ import { cn } from "@/lib/utils";
 
 interface EditorToolbarProps {
   editor: Editor;
+}
+
+// Menu items tint on hover; a colour swatch must keep its own colour instead.
+const SWATCH_KEEP_COLOR: Record<(typeof HIGHLIGHT_COLORS)[number], string> = {
+  yellow: "data-[highlighted]:bg-highlight-yellow",
+  blue: "data-[highlighted]:bg-highlight-blue",
+  green: "data-[highlighted]:bg-highlight-green",
+  red: "data-[highlighted]:bg-highlight-red",
+  purple: "data-[highlighted]:bg-highlight-purple",
+  orange: "data-[highlighted]:bg-highlight-orange",
+};
+
+const toolbarButtonClasses = (active?: boolean) =>
+  cn(
+    "flex size-9 shrink-0 items-center justify-center rounded-sm text-fg-muted transition-colors hover:bg-tint hover:text-fg sm:size-8",
+    active && "bg-accent/12 text-accent hover:bg-accent/15 hover:text-accent"
+  );
+
+function Divider() {
+  return <div aria-hidden className="mx-1 h-5 w-px shrink-0 bg-rule" />;
 }
 
 function ToolbarButton({
@@ -43,10 +65,9 @@ function ToolbarButton({
       title={title}
       onMouseDown={(e) => e.preventDefault()}
       onClick={onClick}
-      className={cn(
-        "flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground",
-        active && "bg-accent text-accent-foreground"
-      )}
+      aria-label={title}
+      aria-pressed={active}
+      className={toolbarButtonClasses(active)}
     >
       {children}
     </button>
@@ -55,7 +76,11 @@ function ToolbarButton({
 
 export function EditorToolbar({ editor }: EditorToolbarProps) {
   return (
-    <div className="flex flex-wrap items-center gap-0.5 border-b border-border px-2 py-1.5">
+    <div
+      role="toolbar"
+      aria-label="Formatting"
+      className="flex items-center gap-0.5 overflow-x-auto px-4 pb-2 pt-1 sm:px-7 lg:px-11 [scrollbar-width:none]"
+    >
       <ToolbarButton title="Bold" active={editor.isActive("bold")} onClick={() => editor.chain().focus().toggleBold().run()}>
         <Bold className="size-4" />
       </ToolbarButton>
@@ -66,7 +91,7 @@ export function EditorToolbar({ editor }: EditorToolbarProps) {
         <Code className="size-4" />
       </ToolbarButton>
 
-      <div className="mx-1 h-5 w-px bg-border" />
+      <Divider />
 
       <ToolbarButton
         title="Heading 2"
@@ -83,7 +108,7 @@ export function EditorToolbar({ editor }: EditorToolbarProps) {
         <Heading3 className="size-4" />
       </ToolbarButton>
 
-      <div className="mx-1 h-5 w-px bg-border" />
+      <Divider />
 
       <ToolbarButton
         title="Bullet list"
@@ -117,7 +142,7 @@ export function EditorToolbar({ editor }: EditorToolbarProps) {
         <Minus className="size-4" />
       </ToolbarButton>
 
-      <div className="mx-1 h-5 w-px bg-border" />
+      <Divider />
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
@@ -125,10 +150,8 @@ export function EditorToolbar({ editor }: EditorToolbarProps) {
             type="button"
             title="Callout"
             onMouseDown={(e) => e.preventDefault()}
-            className={cn(
-              "flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground",
-              editor.isActive("callout") && "bg-accent text-accent-foreground"
-            )}
+            aria-label="Callout"
+            className={toolbarButtonClasses(editor.isActive("callout"))}
           >
             <Megaphone className="size-4" />
           </button>
@@ -152,45 +175,46 @@ export function EditorToolbar({ editor }: EditorToolbarProps) {
             type="button"
             title="Highlight"
             onMouseDown={(e) => e.preventDefault()}
-            className={cn(
-              "flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground",
-              editor.isActive("highlight") && "bg-accent text-accent-foreground"
-            )}
+            aria-label="Highlight"
+            className={toolbarButtonClasses(editor.isActive("highlight"))}
           >
             <Highlighter className="size-4" />
           </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent className="flex w-auto gap-1 p-1.5">
+        <DropdownMenuContent className="flex w-auto min-w-0 gap-1 p-1.5">
           {HIGHLIGHT_COLORS.map((color) => (
-            <DropdownMenuItem key={color} asChild onSelect={() => editor.chain().focus().setHighlight(color).run()}>
-              <button
-                type="button"
-                title={color}
-                onMouseDown={(e) => e.preventDefault()}
-                className={cn("size-6 rounded-full p-0 ring-offset-2 ring-offset-card", HIGHLIGHT_COLOR_CLASSES[color])}
-              />
-            </DropdownMenuItem>
-          ))}
-          <DropdownMenuItem asChild onSelect={() => editor.chain().focus().unsetHighlight().run()}>
-            <button
-              type="button"
-              title="Remove highlight"
+            <DropdownMenuItem
+              key={color}
+              title={color}
+              aria-label={`Highlight ${color}`}
               onMouseDown={(e) => e.preventDefault()}
-              className="flex size-6 items-center justify-center rounded-full border border-border p-0 text-[10px] text-muted-foreground"
-            >
-              ×
-            </button>
+              onSelect={() => editor.chain().focus().setHighlight(color).run()}
+              className={cn(
+                "size-7 min-h-0 rounded-sm p-0 sm:min-h-0 data-[highlighted]:outline data-[highlighted]:outline-2 data-[highlighted]:outline-offset-1 data-[highlighted]:outline-fg-muted",
+                HIGHLIGHT_COLOR_CLASSES[color],
+                SWATCH_KEEP_COLOR[color]
+              )}
+            />
+          ))}
+          <DropdownMenuItem
+            title="Remove highlight"
+            aria-label="Remove highlight"
+            onMouseDown={(e) => e.preventDefault()}
+            onSelect={() => editor.chain().focus().unsetHighlight().run()}
+            className="size-7 min-h-0 justify-center rounded-sm border border-rule-strong p-0 sm:min-h-0"
+          >
+            <X className="size-3.5" />
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <div className="mx-1 h-5 w-px bg-border" />
+      <Divider />
 
       <ToolbarButton title="Insert inline math" onClick={() => editor.chain().focus().insertMathInline().run()}>
         <Sigma className="size-4" />
       </ToolbarButton>
       <ToolbarButton title="Insert equation block" onClick={() => editor.chain().focus().insertMathBlock().run()}>
-        <span className="text-xs font-semibold">∑=</span>
+        <SquareSigma className="size-4" />
       </ToolbarButton>
       <ToolbarButton
         title="Insert table"
@@ -199,7 +223,7 @@ export function EditorToolbar({ editor }: EditorToolbarProps) {
         <TableIcon className="size-4" />
       </ToolbarButton>
 
-      <div className="mx-1 h-5 w-px bg-border" />
+      <Divider />
 
       <ToolbarButton title="Undo" onClick={() => editor.chain().focus().undo().run()}>
         <Undo2 className="size-4" />
