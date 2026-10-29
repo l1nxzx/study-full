@@ -3,12 +3,12 @@ import type { ApiError } from "@/types";
 
 export const TOKEN_STORAGE_KEY = "study.token";
 
-const isLocal =
-  typeof window !== "undefined" &&
-  (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+// VITE_API_URL is the backend origin (e.g. https://study-full.onrender.com). When unset,
+// requests go to /api on the current origin, which Vite proxies to the local backend.
+const apiOrigin = (import.meta.env.VITE_API_URL ?? "").replace(/\/+$/, "").replace(/\/api$/, "");
 
 export const apiClient = axios.create({
-  baseURL: isLocal ? "/api" : "https://study-ow3n.onrender.com/api",
+  baseURL: `${apiOrigin}/api`,
 });
 
 apiClient.interceptors.request.use((config) => {
