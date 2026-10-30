@@ -101,8 +101,9 @@ export function AiPanel() {
               <Link
                 to={`/tests/new?noteIds=${activeNote.id}`}
                 onClick={() => {
-                  // On narrower screens the panel covers the page; get it out of the way.
-                  if (!window.matchMedia("(min-width: 1280px)").matches) close();
+                  // On narrower screens the panel covers the page; get it out of the way once the
+                  // page has moved on (closing first would let the panel's history step undo the link).
+                  if (!window.matchMedia("(min-width: 1280px)").matches) window.setTimeout(close, 100);
                 }}
                 className="mb-1.5 inline-flex h-7 items-center gap-1 rounded-sm px-1.5 text-meta text-fg-muted transition-colors hover:bg-tint hover:text-fg"
                 title="Create a long written test from this note"
