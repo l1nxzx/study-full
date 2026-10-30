@@ -9,7 +9,7 @@ import { SubjectLabel } from "@/components/shared/SubjectSwatch";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSubjects } from "@/hooks/useSubjects";
-import { describeSettings } from "@/lib/testLabels";
+import { describeSettings, testTitle } from "@/lib/testLabels";
 import { cn } from "@/lib/utils";
 
 function ScoreText({ percent }: { percent: number }) {
@@ -17,7 +17,12 @@ function ScoreText({ percent }: { percent: number }) {
 }
 
 export function TestsPage() {
-  const { data: tests, isLoading, isError } = useQuery({ queryKey: ["tests"], queryFn: testsApi.listTests });
+  const { data: tests, isLoading, isError } = useQuery({
+    queryKey: ["tests"],
+    queryFn: testsApi.listTests,
+    // Tests being written fill in on their own.
+    refetchInterval: (q) => (q.state.data?.some((t) => t.status === "generating") ? 4000 : false),
+  });
   const { data: subjects } = useSubjects();
   const subjectById = new Map((subjects || []).map((s) => [s.id, s]));
 
@@ -72,18 +77,24 @@ export function TestsPage() {
               <li key={t.id}>
                 <Link to={`/tests/${t.id}`} className="group flex gap-6 py-4">
                   <div className="min-w-0 flex-1">
-                    <p className="truncate font-serif text-[1.0625rem] font-medium text-fg transition-colors group-hover:text-accent">{t.title}</p>
+                    <p className="truncate font-serif text-[1.0625rem] font-medium text-fg transition-colors group-hover:text-accent">{testTitle(t)}</p>
                     <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-meta text-fg-muted">
                       {subject && <SubjectLabel name={subject.name} color={subject.color} />}
                       {subject && <span aria-hidden>·</span>}
                       <span>
-                        {t.questionCount} questions · {t.totalPoints} points · ~{t.estimatedMinutes} min
+                        {t.status === "ready"
+                          ? `${t.questionCount} questions · ${t.totalPoints} points · ~${t.estimatedMinutes} min`
+                          : `${t.plannedQuestionCount} questions · ~${t.estimatedMinutes} min`}
                       </span>
                     </p>
                     <p className="mt-0.5 text-meta text-fg-faint">{describeSettings(t.settings)}</p>
                   </div>
                   <div className="shrink-0 text-right text-[0.8125rem]">
-                    {t.openAttemptId ? (
+                    {t.status === "generating" ? (
+                      <span className="text-accent">Being written</span>
+                    ) : t.status === "failed" ? (
+                      <span className="text-bad">Couldn't be written</span>
+                    ) : t.openAttemptId ? (
                       <span className="text-accent">In progress</span>
                     ) : t.lastPercent !== null ? (
                       <span className="text-fg-muted">

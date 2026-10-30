@@ -14,6 +14,10 @@ export const create = asyncHandler(async (req: Request, res: Response) => {
   res.status(201).json(await service.createTest(req.user!.userId, req.body));
 });
 
+export const retry = asyncHandler(async (req: Request, res: Response) => {
+  res.json(await service.retryTest(req.user!.userId, String(req.params.id)));
+});
+
 export const remove = asyncHandler(async (req: Request, res: Response) => {
   await service.deleteTest(req.user!.userId, String(req.params.id));
   res.status(204).send();

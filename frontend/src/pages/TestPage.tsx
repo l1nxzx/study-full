@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { format, parseISO } from "date-fns";
+import { format, formatDistanceToNow, parseISO } from "date-fns";
 import { Trash2 } from "lucide-react";
 import { useState } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
@@ -10,9 +10,10 @@ import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { InlineError } from "@/components/shared/EmptyState";
 import { SubjectLabel } from "@/components/shared/SubjectSwatch";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Skeleton, SkeletonLines } from "@/components/ui/skeleton";
 import { useSubjects } from "@/hooks/useSubjects";
-import { describeSettings, formatDuration, formatPoints } from "@/lib/testLabels";
+import { rememberWritingTest } from "@/hooks/useTestWritingWatcher";
+import { describeSettings, formatDuration, formatPoints, testTitle } from "@/lib/testLabels";
 import { cn } from "@/lib/utils";
 
 function AttemptBars({ attempts }: { attempts: testsApi.TestAttemptSummary[] }) {
@@ -37,7 +38,13 @@ export function TestPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { data: test, isLoading, isError } = useQuery({ queryKey: ["tests", id], queryFn: () => testsApi.getTest(id!), enabled: Boolean(id) });
+  const { data: test, isLoading, isError } = useQuery({
+    queryKey: ["tests", id],
+    queryFn: () => testsApi.getTest(id!),
+    enabled: Boolean(id),
+    // While the test is being written, check back until its questions are in.
+    refetchInterval: (q) => (q.state.data?.status === "generating" ? 3000 : false),
+  });
   const { data: subjects } = useSubjects();
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -52,8 +59,18 @@ export function TestPage() {
   const regenerate = useMutation({
     mutationFn: () => testsApi.createTest({ noteIds: test!.noteIds, settings: test!.settings }),
     onSuccess: (created) => {
+      rememberWritingTest(created.id);
       queryClient.invalidateQueries({ queryKey: ["tests"] });
       navigate(`/tests/${created.id}`);
+    },
+  });
+
+  const retry = useMutation({
+    mutationFn: () => testsApi.retryTest(id!),
+    onSuccess: (updated) => {
+      rememberWritingTest(updated.id);
+      queryClient.setQueryData(["tests", id], updated);
+      queryClient.invalidateQueries({ queryKey: ["tests"], exact: true });
     },
   });
 
@@ -81,10 +98,63 @@ export function TestPage() {
   const graded = test.attempts.filter((a) => a.status === "graded");
   const best = graded.length ? Math.max(...graded.map((a) => a.percent ?? 0)) : null;
 
-  if (regenerate.isPending) {
+  const deleteDialog = (
+    <ConfirmDialog
+      open={confirmDelete}
+      onOpenChange={setConfirmDelete}
+      title="Delete this test?"
+      description={
+        test.status === "generating"
+          ? "It stops being written and won't appear in your tests."
+          : "The test and all its tries and grades will be permanently deleted."
+      }
+      confirmLabel="Delete test"
+      onConfirm={() => remove.mutate()}
+      isLoading={remove.isPending}
+    />
+  );
+
+  if (test.status !== "ready") {
+    const writing = test.status === "generating";
     return (
       <Page width="reading">
-        <PageHeader title="Writing a new test" description="Same notes and settings, new questions. This usually takes up to a minute." />
+        <PageHeader
+          back={{ to: "/tests", label: "Tests" }}
+          title={writing ? "Writing your test" : "The test couldn't be written"}
+          description={`${testTitle(test)} · ${test.plannedQuestionCount} questions · about ${test.estimatedMinutes} min`}
+        />
+        {writing ? (
+          <div role="status">
+            <p className="text-[0.9375rem] leading-relaxed text-fg">
+              The AI is planning {test.plannedQuestionCount} questions across your notes and writing them with the answers it will grade against.
+              {test.generationStartedAt && <> Started {formatDistanceToNow(parseISO(test.generationStartedAt), { addSuffix: true })};</>} it usually
+              takes one to three minutes.
+            </p>
+            <p className="mt-2 text-sm text-fg-muted">
+              You can leave this page. The test keeps being written, you'll be told when it's ready, and it waits in Tests.
+            </p>
+            <SkeletonLines lines={3} className="mt-10" />
+            <SkeletonLines lines={4} className="mt-8" />
+          </div>
+        ) : (
+          <div>
+            <p className="text-[0.9375rem] leading-relaxed text-fg-muted">{test.generationError || "Something went wrong while writing it."}</p>
+            <div className="mt-6 flex flex-wrap gap-2">
+              <Button onClick={() => retry.mutate()} disabled={retry.isPending}>
+                {retry.isPending ? "Starting..." : "Try again"}
+              </Button>
+            </div>
+            <InlineError className="mt-3">{retry.error ? getErrorMessage(retry.error, "Couldn't start writing it again") : null}</InlineError>
+          </div>
+        )}
+        <button
+          type="button"
+          onClick={() => setConfirmDelete(true)}
+          className="mt-12 inline-flex items-center gap-1.5 text-[0.8125rem] text-fg-faint transition-colors hover:text-bad"
+        >
+          <Trash2 className="size-3.5" /> {writing ? "Cancel and delete" : "Delete this test"}
+        </button>
+        {deleteDialog}
       </Page>
     );
   }
@@ -202,15 +272,7 @@ export function TestPage() {
         </aside>
       </div>
 
-      <ConfirmDialog
-        open={confirmDelete}
-        onOpenChange={setConfirmDelete}
-        title="Delete this test?"
-        description="The test and all its tries and grades will be permanently deleted."
-        confirmLabel="Delete test"
-        isLoading={remove.isPending}
-        onConfirm={() => remove.mutate()}
-      />
+      {deleteDialog}
     </Page>
   );
 }

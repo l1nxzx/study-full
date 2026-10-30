@@ -39,6 +39,10 @@ function ToastDescription({ className, ...props }: ComponentProps<typeof ToastPr
   return <ToastPrimitive.Description className={cn("mt-0.5 text-[0.8125rem] text-fg-muted", className)} {...props} />;
 }
 
+function ToastAction(props: ComponentProps<typeof ToastPrimitive.Action>) {
+  return <ToastPrimitive.Action {...props} />;
+}
+
 function ToastClose({ className, ...props }: ComponentProps<typeof ToastPrimitive.Close>) {
   return (
     <ToastPrimitive.Close
@@ -50,4 +54,4 @@ function ToastClose({ className, ...props }: ComponentProps<typeof ToastPrimitiv
   );
 }
 
-export { ToastProvider, ToastViewport, Toast, ToastTitle, ToastDescription, ToastClose };
+export { ToastProvider, ToastViewport, Toast, ToastTitle, ToastDescription, ToastAction, ToastClose };

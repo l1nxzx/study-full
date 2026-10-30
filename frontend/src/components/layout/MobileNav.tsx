@@ -1,4 +1,5 @@
 import * as DialogPrimitive from "@radix-ui/react-dialog";
+import { useCloseOnBack } from "@/lib/closeOnBack";
 import { Menu, MessagesSquare, Search, X } from "lucide-react";
 import { useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
@@ -21,6 +22,7 @@ function currentSectionLabel(pathname: string): string {
 
 export function MobileHeader() {
   const [open, setOpen] = useState(false);
+  useCloseOnBack(open, () => setOpen(false));
   const { openSearch } = useShell();
   const { isOpen: assistantOpen, toggle: toggleAssistant } = useAiPanel();
   const { pathname } = useLocation();

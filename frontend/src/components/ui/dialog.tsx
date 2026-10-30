@@ -1,9 +1,21 @@
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
-import type { ComponentProps, HTMLAttributes } from "react";
+import { useState, type ComponentProps, type HTMLAttributes } from "react";
+import { useCloseOnBack } from "@/lib/closeOnBack";
 import { cn } from "@/lib/utils";
 
-const Dialog = DialogPrimitive.Root;
+// Radix's root, plus: the system Back button closes an open dialog instead of leaving the page.
+function Dialog({ open, defaultOpen, onOpenChange, ...props }: ComponentProps<typeof DialogPrimitive.Root>) {
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(defaultOpen ?? false);
+  const isOpen = open ?? uncontrolledOpen;
+  function setOpen(next: boolean) {
+    if (open === undefined) setUncontrolledOpen(next);
+    onOpenChange?.(next);
+  }
+  useCloseOnBack(isOpen, () => setOpen(false));
+  return <DialogPrimitive.Root open={isOpen} onOpenChange={setOpen} {...props} />;
+}
+
 const DialogTrigger = DialogPrimitive.Trigger;
 const DialogClose = DialogPrimitive.Close;
 

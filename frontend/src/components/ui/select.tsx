@@ -1,11 +1,22 @@
 import * as SelectPrimitive from "@radix-ui/react-select";
 import { Check, ChevronDown } from "lucide-react";
-import type { ComponentProps } from "react";
+import { useState, type ComponentProps } from "react";
+import { useCloseOnBack } from "@/lib/closeOnBack";
 import { cn } from "@/lib/utils";
 import { menuSurfaceClasses } from "./dropdown-menu";
 import { fieldClasses } from "./input";
 
-const Select = SelectPrimitive.Root;
+// Radix's root, plus: the system Back button closes an open list instead of leaving the page.
+function Select({ open, defaultOpen, onOpenChange, ...props }: ComponentProps<typeof SelectPrimitive.Root>) {
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(defaultOpen ?? false);
+  const isOpen = open ?? uncontrolledOpen;
+  function setOpen(next: boolean) {
+    if (open === undefined) setUncontrolledOpen(next);
+    onOpenChange?.(next);
+  }
+  useCloseOnBack(isOpen, () => setOpen(false));
+  return <SelectPrimitive.Root open={isOpen} onOpenChange={setOpen} {...props} />;
+}
 const SelectValue = SelectPrimitive.Value;
 const SelectGroup = SelectPrimitive.Group;
 

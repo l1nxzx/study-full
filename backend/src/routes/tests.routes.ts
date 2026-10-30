@@ -9,6 +9,7 @@ const router = Router();
 router.get("/", controller.list);
 router.post("/", aiRateLimiter, validateBody(createTestSchema), controller.create);
 router.get("/:id", controller.getOne);
+router.post("/:id/retry", aiRateLimiter, controller.retry);
 router.delete("/:id", controller.remove);
 router.post("/:id/attempts", controller.startAttempt);
 

@@ -1,7 +1,9 @@
 import { EditorContent, useEditor } from "@tiptap/react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { EditorToolbar } from "@/components/notes/rich-editor/EditorToolbar";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { Button } from "@/components/ui/button";
+import { useCloseOnBack } from "@/lib/closeOnBack";
 import { buildRichEditorExtensions } from "@/lib/richEditor/extensions";
 import { markdownToTiptap } from "@/lib/richEditor/markdownToTiptap";
 import { tiptapToMarkdown } from "@/lib/richEditor/tiptapToMarkdown";
@@ -25,10 +27,20 @@ interface RichNoteEditorProps {
 function RichNoteEditor({ content, onSave, onCancel, isSaving }: RichNoteEditorProps) {
   const extensions = useMemo(() => buildRichEditorExtensions(), []);
   const initialDoc = useMemo(() => markdownToTiptap(content), [content]);
+  const [dirty, setDirty] = useState(false);
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
+  // Formatting is a mode of the note page: the system Back leaves it like Cancel, but asks
+  // first when there are unsaved changes.
+  useCloseOnBack(true, () => {
+    if (!dirty) return void onCancel();
+    setConfirmDiscard(true);
+    return false;
+  });
 
   const editor = useEditor({
     extensions,
     content: initialDoc,
+    onUpdate: () => setDirty(true),
     editorProps: {
       attributes: {
         class: cn(PROSE_CLASSES, "min-h-[50vh] py-2 focus:outline-none"),
@@ -58,6 +70,18 @@ function RichNoteEditor({ content, onSave, onCancel, isSaving }: RichNoteEditorP
       <div className="max-w-[46rem] pt-8">
         <EditorContent editor={editor} />
       </div>
+      <ConfirmDialog
+        open={confirmDiscard}
+        onOpenChange={setConfirmDiscard}
+        title="Discard your changes?"
+        description="Your edits to this note haven't been saved."
+        confirmLabel="Discard"
+        onConfirm={() => {
+          setConfirmDiscard(false);
+          onCancel();
+        }}
+      />
+
     </div>
   );
 }

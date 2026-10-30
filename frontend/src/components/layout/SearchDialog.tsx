@@ -1,4 +1,5 @@
 import * as DialogPrimitive from "@radix-ui/react-dialog";
+import { useCloseOnBack } from "@/lib/closeOnBack";
 import { useQuery } from "@tanstack/react-query";
 import { Search } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -62,6 +63,7 @@ export function SearchDialog() {
     setSearchOpen(open);
     if (!open) setQuery("");
   }
+  useCloseOnBack(searchOpen, () => close(false));
 
   function go(result: SearchResult) {
     navigate(resultPath(result));
