@@ -1,18 +1,19 @@
+import { subjectColor } from "@/lib/scheduleColors";
 import { cn } from "@/lib/utils";
 
 export const FALLBACK_SUBJECT_COLOR = "#7c8a86";
 
 // A subject's colour is shown only as this small square: enough to recognise it across the
-// timetable, lists and navigation, without tinting whole rows or cards. Stored colours are
-// often vivid presets, so they're rendered a little desaturated to sit with the palette.
-export const SWATCH_FILTER = "[filter:saturate(0.78)]";
+// timetable, lists and navigation, without tinting whole rows or cards. On the light theme's
+// near-white page a pastel would wash out, so it's shown a little deeper there.
+export const SWATCH_TONE = "[filter:brightness(0.9)_saturate(1.25)] dark:[filter:none]";
 
 export function SubjectSwatch({ color, className }: { color?: string | null; className?: string }) {
   return (
     <span
       aria-hidden
-      className={cn("inline-block size-2 shrink-0 rounded-xs", SWATCH_FILTER, className)}
-      style={{ backgroundColor: color || FALLBACK_SUBJECT_COLOR }}
+      className={cn("inline-block size-2 shrink-0 rounded-xs", SWATCH_TONE, className)}
+      style={{ backgroundColor: subjectColor(color) || FALLBACK_SUBJECT_COLOR }}
     />
   );
 }

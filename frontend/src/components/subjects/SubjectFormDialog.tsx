@@ -7,10 +7,10 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/label";
 import { InlineError } from "@/components/shared/EmptyState";
-import { SWATCH_FILTER } from "@/components/shared/SubjectSwatch";
 import { useCreateSubject, useSubjects, useUpdateSubject } from "@/hooks/useSubjects";
 import { DeleteSubjectDialog } from "./DeleteSubjectDialog";
-import { firstUnusedColor, SUBJECT_PALETTE } from "@/lib/scheduleColors";
+import { SWATCH_TONE } from "@/components/shared/SubjectSwatch";
+import { firstUnusedColor, SUBJECT_PALETTE, subjectColor } from "@/lib/scheduleColors";
 import { cn } from "@/lib/utils";
 import type { Subject } from "@/types";
 
@@ -39,7 +39,7 @@ export function SubjectFormDialog({ editingSubject, open: openProp, onOpenChange
 
   const usedColors = (subjects || [])
     .filter((s) => s.id !== editingSubject?.id)
-    .map((s) => s.color)
+    .map((s) => subjectColor(s.color))
     .filter(Boolean) as string[];
 
   useEffect(() => {
@@ -47,7 +47,7 @@ export function SubjectFormDialog({ editingSubject, open: openProp, onOpenChange
       setError(null);
       setName(editingSubject?.name || "");
       setIcon(editingSubject?.icon || "");
-      setColor(editingSubject?.color || firstUnusedColor(usedColors));
+      setColor(subjectColor(editingSubject?.color) || firstUnusedColor(usedColors));
     }
   }, [open, editingSubject]);
 
@@ -110,7 +110,7 @@ export function SubjectFormDialog({ editingSubject, open: openProp, onOpenChange
                       selected ? "border-fg-muted" : "border-transparent hover:border-rule-strong"
                     )}
                   >
-                    <span className={cn("size-5 rounded-xs", SWATCH_FILTER, isUsed && !selected && "opacity-35")} style={{ backgroundColor: c }} />
+                    <span className={cn("size-5 rounded-xs", SWATCH_TONE, isUsed && !selected && "opacity-35")} style={{ backgroundColor: c }} />
                   </button>
                 );
               })}
