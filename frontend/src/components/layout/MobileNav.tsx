@@ -34,10 +34,10 @@ export function MobileHeader() {
           <Menu className="size-5" strokeWidth={1.75} />
         </DialogPrimitive.Trigger>
         <DialogPrimitive.Portal>
-          <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-[oklch(0.14_0.01_265/0.55)]" />
+          <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-[oklch(0.14_0.01_265/0.55)] data-[state=open]:animate-[scrim-in_250ms_ease-out] data-[state=closed]:animate-[scrim-out_200ms_ease-in_forwards]" />
           <DialogPrimitive.Content
             aria-describedby={undefined}
-            className="fixed inset-y-0 left-0 z-50 flex w-[17.5rem] max-w-[85vw] flex-col border-r border-rule bg-panel pt-[env(safe-area-inset-top)] outline-none"
+            className="fixed inset-y-0 left-0 z-50 flex w-[17.5rem] max-w-[85vw] flex-col border-r border-rule bg-panel pt-[env(safe-area-inset-top)] outline-none data-[state=open]:animate-[drawer-in_250ms_cubic-bezier(0.05,0.7,0.1,1)] data-[state=closed]:animate-[drawer-out_200ms_cubic-bezier(0.3,0,0.8,0.15)_forwards]"
           >
             <div className="flex h-16 items-center justify-between pl-5 pr-2">
               <DialogPrimitive.Title asChild>
