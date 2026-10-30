@@ -21,6 +21,9 @@ import { cn } from "@/lib/utils";
 interface MarkdownRendererProps {
   content: string;
   className?: string;
+  /** "note" for reading a note; "compact" for assistant answers and side-by-side previews. */
+  variant?: "note" | "compact";
+  emptyLabel?: string;
   onResolveAlteration?: (index: number, action: AlterationAction, manualText?: string) => void;
   onRemoveAddition?: (index: number) => void;
 }
@@ -30,9 +33,16 @@ interface MarkdownRendererProps {
 // ever auto-colored. Study's own syntax - ==highlight==, <highlight color="...">,
 // [!NOTE]-style callouts, and the note-review <aialter>/<aiadd> markers - is the only
 // thing that introduces color, and only where the author explicitly asked for it.
-export function MarkdownRenderer({ content, className, onResolveAlteration, onRemoveAddition }: MarkdownRendererProps) {
+export function MarkdownRenderer({
+  content,
+  className,
+  variant = "note",
+  emptyLabel = "This note is empty.",
+  onResolveAlteration,
+  onRemoveAddition,
+}: MarkdownRendererProps) {
   if (!content.trim()) {
-    return <p className="text-sm italic text-muted-foreground">This note is empty.</p>;
+    return <p className="text-sm text-fg-faint">{emptyLabel}</p>;
   }
 
   const alterations = findAlterations(content);
@@ -41,9 +51,7 @@ export function MarkdownRenderer({ content, className, onResolveAlteration, onRe
   const renderableContent = prepareContentForRendering(content);
 
   return (
-    <div
-      className={cn(PROSE_CLASSES, className)}
-    >
+    <div className={cn(PROSE_CLASSES, variant === "compact" && "study-prose-compact", className)}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm, remarkMath, remarkCallouts, remarkAiMarkup, remarkHighlightMark]}
         rehypePlugins={[rehypeKatex]}

@@ -12,9 +12,8 @@ interface ScheduleGridProps {
   tasks: Task[];
 }
 
-// Days stacked vertically (Monday through Friday), each day's lessons in a horizontal
-// row of period cards - matching an actual school timetable rather than a generic
-// calendar/time-axis grid.
+// Monday to Friday as rows, each day's lessons running left to right - the shape of an actual
+// school timetable rather than a calendar with a time axis.
 export function ScheduleGrid({ weekStartDate, classes, importedEvents, subjectById, onSelectClass, tasks }: ScheduleGridProps) {
   const [now, setNow] = useState(new Date());
   useEffect(() => {
@@ -25,16 +24,16 @@ export function ScheduleGrid({ weekStartDate, classes, importedEvents, subjectBy
   const dates = Array.from({ length: 5 }, (_, i) => addDaysISO(weekStartDate, i));
 
   return (
-    <div className="space-y-5 border border-border bg-card p-3 sm:p-4">
+    <div className="space-y-7 @2xl:space-y-5">
       {dates.map((date) => (
         <DayCardRow
           key={date}
+          layout="week"
           date={date}
           classes={classes}
           importedEvents={importedEvents}
           subjectById={subjectById}
           now={now}
-          showStatus
           onSelectClass={onSelectClass}
           tasks={tasks}
         />

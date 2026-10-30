@@ -1,144 +1,98 @@
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { GraduationCap, LogOut, Menu, Plus, Settings, X } from "lucide-react";
+import { Menu, MessagesSquare, Search, X } from "lucide-react";
 import { useState } from "react";
-import { NavLink } from "react-router-dom";
-import { AiHeaderButton } from "@/components/ai-panel/AiToggleButton";
-import { SubjectFormDialog } from "@/components/subjects/SubjectFormDialog";
-import { useAuth } from "@/hooks/useAuth";
-import { useSubjects } from "@/hooks/useSubjects";
+import { NavLink, useLocation } from "react-router-dom";
+import { useAiPanel } from "@/hooks/useAiPanel";
+import { useShell } from "@/hooks/useShell";
 import { mainNavItems } from "@/lib/nav";
 import { cn } from "@/lib/utils";
-import { GlobalSearch } from "./GlobalSearch";
+import { AccountRows, NavigationList } from "./Sidebar";
+
+const headerButton =
+  "flex size-10 shrink-0 items-center justify-center rounded-md text-fg-muted transition-colors hover:bg-tint hover:text-fg";
+
+function currentSectionLabel(pathname: string): string {
+  const item = mainNavItems.find((i) => pathname.startsWith(i.to));
+  if (item) return item.label;
+  if (pathname.startsWith("/settings")) return "Settings";
+  return "Study";
+}
 
 export function MobileHeader() {
   const [open, setOpen] = useState(false);
-  const { user, logout } = useAuth();
-  const { data: subjects } = useSubjects();
+  const { openSearch } = useShell();
+  const { isOpen: assistantOpen, toggle: toggleAssistant } = useAiPanel();
+  const { pathname } = useLocation();
 
   return (
-    <header className="flex h-14 items-center gap-2 border-b border-border bg-card px-3 lg:hidden">
+    <header className="flex h-14 shrink-0 items-center gap-1 border-b border-rule bg-canvas px-2 pt-[env(safe-area-inset-top)] lg:hidden">
       <DialogPrimitive.Root open={open} onOpenChange={setOpen}>
-        <DialogPrimitive.Trigger className="flex size-9 shrink-0 items-center justify-center rounded-md text-foreground hover:bg-muted">
-          <Menu className="size-5" />
+        <DialogPrimitive.Trigger className={headerButton} aria-label="Open menu">
+          <Menu className="size-5" strokeWidth={1.75} />
         </DialogPrimitive.Trigger>
         <DialogPrimitive.Portal>
-          <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/40" />
-          <DialogPrimitive.Content className="fixed inset-y-0 left-0 z-50 flex h-full w-72 flex-col bg-card shadow-lg outline-none">
-            <div className="flex h-14 items-center justify-between border-b border-border px-4">
-              <div className="flex items-center gap-2">
-                <div className="flex size-7 items-center justify-center rounded-md bg-primary text-primary-foreground">
-                  <GraduationCap className="size-4" />
-                </div>
-                <span className="text-sm font-semibold">Study</span>
-              </div>
-              <DialogPrimitive.Close className="flex size-8 items-center justify-center rounded-md hover:bg-muted">
-                <X className="size-4" />
+          <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-[oklch(0.12_0.01_165/0.55)]" />
+          <DialogPrimitive.Content
+            aria-describedby={undefined}
+            className="fixed inset-y-0 left-0 z-50 flex w-[17.5rem] max-w-[85vw] flex-col border-r border-rule bg-panel pt-[env(safe-area-inset-top)] outline-none"
+          >
+            <div className="flex h-14 items-center justify-between pl-5 pr-2">
+              <DialogPrimitive.Title className="text-[0.9375rem] font-semibold tracking-[-0.01em]">Study</DialogPrimitive.Title>
+              <DialogPrimitive.Close className={headerButton} aria-label="Close menu">
+                <X className="size-5" strokeWidth={1.75} />
               </DialogPrimitive.Close>
             </div>
-
-            <nav className="flex-1 space-y-4 overflow-y-auto px-3 py-4">
-              <div className="space-y-0.5">
-                {mainNavItems.map((item) => (
-                  <NavLink
-                    key={item.to}
-                    to={item.to}
-                    onClick={() => setOpen(false)}
-                    className={({ isActive }) =>
-                      cn(
-                        "flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium",
-                        isActive ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-muted"
-                      )
-                    }
-                  >
-                    <item.icon className="size-4" />
-                    {item.label}
-                  </NavLink>
-                ))}
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between px-2.5 pb-1">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Subjects</p>
-                  <SubjectFormDialog
-                    trigger={
-                      <button className="text-muted-foreground hover:text-foreground" aria-label="New subject">
-                        <Plus className="size-3.5" />
-                      </button>
-                    }
-                  />
-                </div>
-                <div className="space-y-0.5">
-                  {subjects?.map((subject) => (
-                    <NavLink
-                      key={subject.id}
-                      to={`/subjects/${subject.id}`}
-                      onClick={() => setOpen(false)}
-                      className={({ isActive }) =>
-                        cn(
-                          "flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium",
-                          isActive ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-muted"
-                        )
-                      }
-                    >
-                      <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: subject.color || "#64748b" }} />
-                      <span className="truncate">{subject.name}</span>
-                    </NavLink>
-                  ))}
-                </div>
-              </div>
-            </nav>
-
-            <div className="border-t border-border p-3">
-              <div className="mb-2 flex items-center gap-2 px-2.5">
-                <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium">
-                  {user?.email?.[0]?.toUpperCase()}
-                </div>
-                <span className="truncate text-xs text-muted-foreground">{user?.email}</span>
-              </div>
-              <NavLink
-                to="/settings"
-                onClick={() => setOpen(false)}
-                className="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium text-muted-foreground hover:bg-muted"
-              >
-                <Settings className="size-4" />
-                Settings
-              </NavLink>
-              <button
-                onClick={logout}
-                className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium text-muted-foreground hover:bg-muted"
-              >
-                <LogOut className="size-4" />
-                Log out
-              </button>
+            <div className="flex-1 overflow-y-auto px-3 pb-4 pt-2">
+              <NavigationList onNavigate={() => setOpen(false)} />
+            </div>
+            <div className="border-t border-rule px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
+              <AccountRows onNavigate={() => setOpen(false)} />
             </div>
           </DialogPrimitive.Content>
         </DialogPrimitive.Portal>
       </DialogPrimitive.Root>
 
-      <div className="min-w-0 flex-1">
-        <GlobalSearch />
-      </div>
-      <AiHeaderButton />
+      <p className="min-w-0 flex-1 truncate px-1 text-[0.9375rem] font-semibold">{currentSectionLabel(pathname)}</p>
+
+      <button type="button" onClick={openSearch} className={headerButton} aria-label="Search">
+        <Search className="size-5" strokeWidth={1.75} />
+      </button>
+      <button
+        type="button"
+        onClick={toggleAssistant}
+        aria-pressed={assistantOpen}
+        aria-label="Assistant"
+        className={cn(headerButton, assistantOpen && "bg-tint text-accent")}
+      >
+        <MessagesSquare className="size-5" strokeWidth={1.75} />
+      </button>
     </header>
   );
 }
 
 export function BottomNav() {
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 flex border-t border-border bg-card lg:hidden">
+    <nav
+      aria-label="Sections"
+      className="fixed inset-x-0 bottom-0 z-40 flex border-t border-rule bg-canvas/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-sm lg:hidden"
+    >
       {mainNavItems.map((item) => (
         <NavLink
           key={item.to}
           to={item.to}
           className={({ isActive }) =>
             cn(
-              "flex flex-1 flex-col items-center gap-0.5 py-2.5 text-xs font-medium",
-              isActive ? "text-primary" : "text-muted-foreground"
+              "flex h-14 flex-1 flex-col items-center justify-center gap-1 text-[0.6875rem] font-medium transition-colors",
+              isActive ? "text-fg" : "text-fg-faint"
             )
           }
         >
-          <item.icon className="size-5" />
-          {item.label}
+          {({ isActive }) => (
+            <>
+              <item.icon className={cn("size-5", isActive && "text-accent")} strokeWidth={isActive ? 2 : 1.75} />
+              {item.label}
+            </>
+          )}
         </NavLink>
       ))}
     </nav>

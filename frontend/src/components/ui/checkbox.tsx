@@ -7,13 +7,16 @@ function Checkbox({ className, ...props }: ComponentProps<typeof CheckboxPrimiti
   return (
     <CheckboxPrimitive.Root
       className={cn(
-        "peer size-4 shrink-0 rounded-sm border border-input shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground data-[state=checked]:border-primary",
+        "peer relative size-4 shrink-0 rounded-sm border border-rule-strong bg-canvas transition-colors hover:border-fg-faint",
+        "before:absolute before:-inset-2.5 before:content-['']",
+        "disabled:cursor-not-allowed disabled:opacity-50",
+        "data-[state=checked]:border-accent-fill data-[state=checked]:bg-accent-fill data-[state=checked]:text-on-accent",
         className
       )}
       {...props}
     >
       <CheckboxPrimitive.Indicator className="flex items-center justify-center text-current">
-        <Check className="size-3" />
+        <Check className="size-3" strokeWidth={3} />
       </CheckboxPrimitive.Indicator>
     </CheckboxPrimitive.Root>
   );

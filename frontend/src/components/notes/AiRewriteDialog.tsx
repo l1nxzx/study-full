@@ -1,13 +1,14 @@
 import { useMutation } from "@tanstack/react-query";
-import { ArrowLeft, Check, Sparkles, Wand2 } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { useEffect, useState } from "react";
 import * as aiApi from "@/api/ai";
 import { getErrorMessage } from "@/api/client";
 import { MarkdownRenderer } from "@/components/notes/MarkdownRenderer";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Skeleton } from "@/components/ui/skeleton";
+import { InlineError } from "@/components/shared/EmptyState";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Field } from "@/components/ui/label";
+import { SkeletonLines } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
@@ -26,6 +27,11 @@ interface AiRewriteDialogProps {
   contentMarkdown: string;
   onApply: (newContent: string) => void;
 }
+
+const SCOPES: { value: Scope; label: string; description: string }[] = [
+  { value: "full", label: "The whole note", description: "Rewrites it section by section." },
+  { value: "selection", label: "Just one passage", description: "Select the part to rewrite in the next step." },
+];
 
 const INSTRUCTION_EXAMPLES = [
   'e.g. "make it more concise"',
@@ -108,134 +114,128 @@ export function AiRewriteDialog({ open, onOpenChange, noteId, contentMarkdown, o
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Wand2 className="size-4.5 text-primary" /> AI rewrite
-          </DialogTitle>
+          <DialogTitle>Rewrite with AI</DialogTitle>
+          {step === "config" && (
+            <DialogDescription>
+              Rewrites the wording and structure to read more clearly - useful for notes typed quickly in class. Nothing is removed, but
+              it isn't limited to small corrections either. You'll compare before anything changes.
+            </DialogDescription>
+          )}
         </DialogHeader>
 
         {step === "config" && (
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              The AI will rewrite the wording and structure to be clearer and more natural - useful for notes typed
-              quickly during class. It won't remove information, but it isn't limited to small corrections either.
-            </p>
+          <div className="space-y-6">
+            <InlineError>{error}</InlineError>
 
-            {error && <p className="text-sm text-destructive">{error}</p>}
-
-            <div className="space-y-2">
-              <Label>What should it rewrite?</Label>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setScope("full")}
-                  className={cn(
-                    "rounded-lg border px-3 py-2 text-left text-sm transition-colors",
-                    scope === "full" ? "border-primary bg-primary/5 text-foreground" : "border-border text-muted-foreground hover:bg-muted/60"
-                  )}
-                >
-                  <span className="block font-medium text-foreground">Entire note</span>
-                  <span className="text-xs">Rewrites the whole thing, section by section.</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setScope("selection")}
-                  className={cn(
-                    "rounded-lg border px-3 py-2 text-left text-sm transition-colors",
-                    scope === "selection" ? "border-primary bg-primary/5 text-foreground" : "border-border text-muted-foreground hover:bg-muted/60"
-                  )}
-                >
-                  <span className="block font-medium text-foreground">Just a part of it</span>
-                  <span className="text-xs">Select the passage below to rewrite only that.</span>
-                </button>
+            <fieldset className="space-y-2">
+              <legend className="mb-2 text-[0.8125rem] font-medium text-fg-muted">What should it rewrite?</legend>
+              <div role="radiogroup" className="divide-y divide-rule border-y border-rule">
+                {SCOPES.map((option) => {
+                  const selected = scope === option.value;
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      role="radio"
+                      aria-checked={selected}
+                      onClick={() => setScope(option.value)}
+                      className={cn("flex w-full items-start gap-3 px-2 py-3 text-left transition-colors", selected ? "bg-accent/[0.07]" : "hover:bg-tint/60")}
+                    >
+                      <span
+                        aria-hidden
+                        className={cn(
+                          "mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border",
+                          selected ? "border-accent-fill" : "border-rule-strong"
+                        )}
+                      >
+                        {selected && <span className="size-2 rounded-full bg-accent-fill" />}
+                      </span>
+                      <span>
+                        <span className="block text-sm font-medium text-fg">{option.label}</span>
+                        <span className="block text-[0.8125rem] text-fg-muted">{option.description}</span>
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
-            </div>
+            </fieldset>
 
             {scope === "selection" && (
-              <div className="space-y-1.5">
-                <Label>Select the passage to rewrite</Label>
+              <Field
+                label="Select the passage to rewrite"
+                hint={
+                  <span className={cn(!selection && "text-warn")}>
+                    {selection ? `${selection.end - selection.start} characters selected.` : "Click and drag inside the box to select some text."}
+                  </span>
+                }
+              >
                 <Textarea
                   readOnly
                   value={contentMarkdown}
                   onSelect={handleTextareaSelect}
-                  className="h-40 resize-none font-mono text-xs leading-relaxed"
+                  className="h-44 resize-none bg-panel font-mono text-[0.8125rem]"
                 />
-                <p className={cn("text-xs", selection ? "text-muted-foreground" : "text-warning")}>
-                  {selection
-                    ? `${selection.end - selection.start} characters selected.`
-                    : "Click and drag inside the box above to select some text."}
-                </p>
-              </div>
+              </Field>
             )}
 
-            <div className="space-y-1.5">
-              <Label htmlFor="rewrite-instructions">Anything specific to change or add? (optional)</Label>
+            <Field label="Anything specific to change or add? (optional)" htmlFor="rewrite-instructions">
               <Textarea
                 id="rewrite-instructions"
                 value={instructions}
                 onChange={(e) => setInstructions(e.target.value)}
                 placeholder={INSTRUCTION_EXAMPLES.join(", ")}
-                className="h-20 resize-none text-sm"
+                className="h-20 resize-none"
               />
-            </div>
+            </Field>
           </div>
         )}
 
         {step === "loading" && (
-          <div className="flex flex-col items-center gap-4 py-8 text-center">
-            <div className="flex size-12 animate-pulse items-center justify-center rounded-full bg-primary/10">
-              <Sparkles className="size-6 text-primary" />
-            </div>
-            <div className="space-y-1">
-              <p className="text-sm font-medium text-foreground">Rewriting your note...</p>
-              <p className="text-xs text-muted-foreground">This can take a few seconds.</p>
-            </div>
-            <div className="w-full space-y-2">
-              <Skeleton className="h-3 w-full" />
-              <Skeleton className="h-3 w-11/12" />
-              <Skeleton className="h-3 w-4/5" />
-            </div>
+          <div className="space-y-4 py-2" aria-live="polite">
+            <p className="text-sm text-fg-muted">Rewriting {scope === "selection" ? "the selected passage" : "your note"}. This can take a few seconds.</p>
+            <SkeletonLines lines={5} />
           </div>
         )}
 
         {step === "result" && result && (
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label className="text-muted-foreground">Original</Label>
-                <div className="h-64 overflow-y-auto rounded-lg border border-border bg-muted/30 p-3">
-                  <MarkdownRenderer content={originalSnippet} className="text-sm" />
+          <div className="space-y-3">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="min-w-0 space-y-2">
+                <p className="text-[0.8125rem] font-medium text-fg-muted">Original</p>
+                <div className="h-72 overflow-y-auto rounded-md border border-rule px-4 py-3">
+                  <MarkdownRenderer content={originalSnippet} variant="compact" />
                 </div>
               </div>
-              <div className="space-y-1.5">
-                <Label className="flex items-center gap-1 text-primary">
-                  <Sparkles className="size-3.5" /> Rewritten
-                </Label>
-                <div className="h-64 overflow-y-auto rounded-lg border border-primary/30 bg-primary/5 p-3">
-                  <MarkdownRenderer content={result} className="text-sm" />
+              <div className="min-w-0 space-y-2">
+                <p className="text-[0.8125rem] font-medium text-accent">Rewritten</p>
+                <div className="h-72 overflow-y-auto rounded-md border border-accent/40 px-4 py-3">
+                  <MarkdownRenderer content={result} variant="compact" />
                 </div>
               </div>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Review both sides above. Applying replaces {scope === "selection" ? "just the selected passage" : "the whole note"} - you can still
-              edit it manually afterward.
+            <p className="text-meta text-fg-faint">
+              Using this replaces {scope === "selection" ? "just the selected passage" : "the whole note"}. You can still edit it afterwards.
             </p>
           </div>
         )}
 
         <DialogFooter>
           {step === "config" && (
-            <Button onClick={handleGenerate} disabled={rewriteMutation.isPending || (scope === "selection" && !selection)}>
-              <Wand2 /> Rewrite
-            </Button>
+            <>
+              <Button variant="ghost" onClick={() => onOpenChange(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleGenerate} disabled={rewriteMutation.isPending || (scope === "selection" && !selection)}>
+                Rewrite
+              </Button>
+            </>
           )}
           {step === "result" && (
             <>
-              <Button variant="outline" onClick={() => setStep("config")}>
-                <ArrowLeft /> Edit & retry
+              <Button variant="ghost" onClick={() => setStep("config")}>
+                <ArrowLeft /> Change and retry
               </Button>
-              <Button onClick={handleApply}>
-                <Check /> Use this version
-              </Button>
+              <Button onClick={handleApply}>Use this version</Button>
             </>
           )}
         </DialogFooter>

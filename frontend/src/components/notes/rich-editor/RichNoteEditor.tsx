@@ -1,5 +1,4 @@
 import { EditorContent, useEditor } from "@tiptap/react";
-import { Check, X } from "lucide-react";
 import { useMemo } from "react";
 import { EditorToolbar } from "@/components/notes/rich-editor/EditorToolbar";
 import { Button } from "@/components/ui/button";
@@ -20,6 +19,9 @@ interface RichNoteEditorProps {
 // the existing NoteEditor's raw-text "Edit" flow) - converts this app's Markdown into a
 // Tiptap document on open and back on Save. See lib/richEditor/ for the bidirectional
 // conversion and the custom callout/highlight/math node types.
+//
+// The note keeps its reading typography while being formatted; only the toolbar, pinned to
+// the top of the page, says you're editing.
 function RichNoteEditor({ content, onSave, onCancel, isSaving }: RichNoteEditorProps) {
   const extensions = useMemo(() => buildRichEditorExtensions(), []);
   const initialDoc = useMemo(() => markdownToTiptap(content), [content]);
@@ -29,7 +31,7 @@ function RichNoteEditor({ content, onSave, onCancel, isSaving }: RichNoteEditorP
     content: initialDoc,
     editorProps: {
       attributes: {
-        class: cn(PROSE_CLASSES, "min-h-[320px] px-4 py-4 focus:outline-none"),
+        class: cn(PROSE_CLASSES, "min-h-[50vh] py-2 focus:outline-none"),
       },
     },
   });
@@ -40,20 +42,22 @@ function RichNoteEditor({ content, onSave, onCancel, isSaving }: RichNoteEditorP
   }
 
   return (
-    <div className="rounded-xl border border-border bg-card">
-      <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
-        <p className="text-sm font-medium text-foreground">Format note</p>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={onCancel}>
-            <X /> Cancel
+    <div>
+      <div className="sticky top-0 z-20 -mx-5 -mt-6 border-b border-rule bg-canvas sm:-mx-8 lg:-mx-12 lg:-mt-11">
+        <div className="flex items-center gap-3 px-5 pb-1 pt-3 sm:px-8 lg:px-12">
+          <p className="min-w-0 flex-1 truncate text-sm font-medium text-fg-muted">Formatting this note</p>
+          <Button variant="ghost" size="sm" onClick={onCancel}>
+            Cancel
           </Button>
           <Button size="sm" onClick={handleSave} disabled={isSaving || !editor}>
-            <Check /> {isSaving ? "Saving..." : "Save"}
+            {isSaving ? "Saving..." : "Save"}
           </Button>
         </div>
+        {editor && <EditorToolbar editor={editor} />}
       </div>
-      {editor && <EditorToolbar editor={editor} />}
-      <EditorContent editor={editor} />
+      <div className="max-w-[46rem] pt-8">
+        <EditorContent editor={editor} />
+      </div>
     </div>
   );
 }

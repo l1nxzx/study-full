@@ -1,8 +1,9 @@
 import { Trash2 } from "lucide-react";
+import { SubjectLabel } from "@/components/shared/SubjectSwatch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { TaskFormDialog } from "@/components/tasks/TaskFormDialog";
 import { TaskTypeIcon } from "@/components/tasks/TaskTypeIcon";
-import { formatDateShort, formatWeekdayAbbrev } from "@/lib/date";
+import { formatDayShort } from "@/lib/date";
 import { EXAM_KIND_LABELS } from "@/lib/taskMeta";
 import { cn } from "@/lib/utils";
 import type { Subject, Task } from "@/types";
@@ -13,51 +14,58 @@ interface TaskItemProps {
   onToggle: (completed: boolean) => void;
   onDelete: () => void;
   overdue?: boolean;
+  /** Hide the due date when the surrounding group already states it ("Tomorrow"). */
+  hideDate?: boolean;
 }
 
-// A flat, dense list row - deliberately not a bordered/shadowed card. Modeled after a
-// real school-software list (EduPage) rather than a generic soft "AI app" card: a
-// weekday/date column, a solid color-coded type icon, then a compact meta+title block.
-export function TaskItem({ task, subject, onToggle, onDelete, overdue }: TaskItemProps) {
+// A flat list row: checkbox, the task, what kind and which subject, and when it's due.
+// Clicking the title opens it for editing.
+export function TaskItem({ task, subject, onToggle, onDelete, overdue, hideDate }: TaskItemProps) {
   const typeLabel = task.type === "exam" && task.examKind ? EXAM_KIND_LABELS[task.examKind] : "Homework";
+  const late = overdue && !task.completed;
 
   return (
-    <div className="flex items-center gap-3 py-2.5">
-      <div className="flex w-11 shrink-0 flex-col items-center leading-none">
-        {task.dueDate ? (
-          <>
-            <span className={cn("text-[10px] font-semibold", overdue && !task.completed ? "text-destructive" : "text-muted-foreground")}>
-              {formatWeekdayAbbrev(task.dueDate)}
-            </span>
-            <span className={cn("mt-1 text-xs", overdue && !task.completed ? "text-destructive font-medium" : "text-muted-foreground")}>
-              {formatDateShort(task.dueDate)}
-            </span>
-          </>
-        ) : (
-          <span className="text-xs text-muted-foreground">—</span>
-        )}
-      </div>
-
-      <Checkbox checked={task.completed} onCheckedChange={(checked) => onToggle(checked === true)} />
-      <TaskTypeIcon task={task} />
+    <div className="group flex items-start gap-3 py-3">
+      <Checkbox
+        checked={task.completed}
+        onCheckedChange={(checked) => onToggle(checked === true)}
+        aria-label={task.completed ? `Mark "${task.title}" as not done` : `Mark "${task.title}" as done`}
+        className="mt-[3px]"
+      />
 
       <TaskFormDialog
         editingTask={task}
         trigger={
           <button type="button" className="min-w-0 flex-1 text-left">
-            <p className="truncate text-xs text-muted-foreground">
-              {typeLabel}
-              {subject && ` · ${subject.name}`}
-            </p>
-            <p className={cn("truncate text-sm font-semibold", task.completed ? "text-muted-foreground line-through" : "text-foreground")}>
+            <span className={cn("block text-[0.9375rem] leading-snug", task.completed ? "text-fg-faint line-through" : "text-fg group-hover:text-fg")}>
               {task.title}
-            </p>
+            </span>
+            <span className="mt-1 flex min-w-0 items-center gap-1.5 text-meta text-fg-muted">
+              <TaskTypeIcon task={task} size="sm" />
+              <span className="shrink-0">{typeLabel}</span>
+              {subject && (
+                <>
+                  <span aria-hidden className="text-fg-faint">·</span>
+                  <SubjectLabel name={subject.name} color={subject.color} />
+                </>
+              )}
+            </span>
           </button>
         }
       />
 
-      <button onClick={onDelete} className="shrink-0 text-muted-foreground hover:text-destructive">
-        <Trash2 className="size-4" />
+      {!hideDate && task.dueDate && (
+        <span className={cn("shrink-0 pt-0.5 text-[0.8125rem] tabular", late ? "text-bad" : "text-fg-muted")}>{formatDayShort(task.dueDate)}</span>
+      )}
+
+      <button
+        type="button"
+        onClick={onDelete}
+        aria-label={`Delete "${task.title}"`}
+        title="Delete"
+        className="-my-1 flex size-8 shrink-0 items-center justify-center rounded-md text-fg-faint transition-colors hover:bg-bad/10 hover:text-bad lg:opacity-0 lg:focus-visible:opacity-100 lg:group-hover:opacity-100"
+      >
+        <Trash2 className="size-4" strokeWidth={1.75} />
       </button>
     </div>
   );

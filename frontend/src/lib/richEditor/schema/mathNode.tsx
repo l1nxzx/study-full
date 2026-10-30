@@ -70,7 +70,7 @@ function MathNodeView({ node, updateAttributes, deleteNode, displayMode }: React
           }}
           placeholder={displayMode ? "LaTeX, e.g. E = mc^2 (Ctrl+Enter to confirm)" : "LaTeX, e.g. x^2"}
           className={cn(
-            "rounded border border-primary bg-card px-1.5 py-0.5 font-mono text-sm text-foreground focus:outline-none",
+            "rounded-sm border border-accent bg-canvas px-1.5 py-1 font-mono text-[0.8125rem] text-fg focus:outline-none",
             displayMode ? "block w-full resize-none" : "inline-block"
           )}
         />
@@ -84,13 +84,13 @@ function MathNodeView({ node, updateAttributes, deleteNode, displayMode }: React
     <NodeViewWrapper
       as={Wrapper}
       className={cn(
-        "cursor-pointer rounded hover:bg-muted/60",
+        "cursor-pointer rounded-sm transition-colors hover:bg-tint",
         displayMode ? "my-2 block px-2 py-1 text-center" : "inline-block px-0.5"
       )}
       onClick={() => setIsEditing(true)}
       dangerouslySetInnerHTML={html ? { __html: html } : undefined}
     >
-      {html ? undefined : <span className="text-xs italic text-muted-foreground">Click to add equation</span>}
+      {html ? undefined : <span className="font-sans text-meta text-fg-faint">Click to add an equation</span>}
     </NodeViewWrapper>
   );
 }

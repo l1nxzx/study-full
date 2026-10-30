@@ -6,13 +6,20 @@ import { todayISO } from "@/lib/date";
 import { cn } from "@/lib/utils";
 import type { Task } from "@/types";
 
-const WEEKDAY_HEADERS = ["MO", "TU", "WE", "TH", "FR", "SA", "SU"];
+const WEEKDAY_HEADERS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
+
+const LEGEND = [
+  { label: "Homework", task: { type: "homework", examKind: null } },
+  { label: "Unit test", task: { type: "exam", examKind: "quiz" } },
+  { label: "Big exam", task: { type: "exam", examKind: "major" } },
+  { label: "Oral", task: { type: "exam", examKind: "oral" } },
+] as const;
 
 interface TaskCalendarProps {
   tasks: Task[];
 }
 
-// A compact month overview (EduPage-style) - not interactive beyond paging months.
+// A compact month overview - not interactive beyond paging months.
 // Each day shows up to three small dots colored by task/exam type, so density of
 // upcoming work is visible at a glance without opening the list.
 export function TaskCalendar({ tasks }: TaskCalendarProps) {
@@ -32,14 +39,14 @@ export function TaskCalendar({ tasks }: TaskCalendarProps) {
   }
 
   return (
-    <div className="border border-border bg-card p-3">
-      <div className="mb-3 flex items-center justify-between">
-        <p className="text-sm font-semibold text-foreground">{format(month, "MMMM yyyy")}</p>
-        <div className="flex gap-0.5">
+    <div>
+      <div className="flex min-h-9 items-end justify-between border-b border-rule pb-2">
+        <p className="section-title">{format(month, "MMMM yyyy")}</p>
+        <div className="-mr-1.5 flex">
           <button
             type="button"
             onClick={() => setMonth((m) => subMonths(m, 1))}
-            className="rounded p-1 text-muted-foreground hover:bg-muted"
+            className="flex size-7 items-center justify-center rounded-sm text-fg-faint transition-colors hover:bg-tint hover:text-fg"
             aria-label="Previous month"
           >
             <ChevronLeft className="size-4" />
@@ -47,7 +54,7 @@ export function TaskCalendar({ tasks }: TaskCalendarProps) {
           <button
             type="button"
             onClick={() => setMonth((m) => addMonths(m, 1))}
-            className="rounded p-1 text-muted-foreground hover:bg-muted"
+            className="flex size-7 items-center justify-center rounded-sm text-fg-faint transition-colors hover:bg-tint hover:text-fg"
             aria-label="Next month"
           >
             <ChevronRight className="size-4" />
@@ -55,9 +62,9 @@ export function TaskCalendar({ tasks }: TaskCalendarProps) {
         </div>
       </div>
 
-      <div className="grid grid-cols-7 gap-y-1.5 text-center">
+      <div className="mt-3 grid grid-cols-7 gap-y-1 text-center">
         {WEEKDAY_HEADERS.map((d) => (
-          <span key={d} className="text-[10px] font-semibold text-muted-foreground">
+          <span key={d} className="pb-1 text-meta text-fg-faint">
             {d}
           </span>
         ))}
@@ -67,23 +74,36 @@ export function TaskCalendar({ tasks }: TaskCalendarProps) {
           const items = byDate.get(iso) || [];
           const isToday = iso === today;
           return (
-            <div key={iso} className="flex flex-col items-center gap-1">
+            <div
+              key={iso}
+              className="flex flex-col items-center gap-0.5 py-0.5"
+              title={items.length > 0 ? items.map((t) => t.title).join(", ") : undefined}
+            >
               <span
                 className={cn(
-                  "flex size-6 items-center justify-center rounded-full text-xs",
-                  isToday ? "bg-primary font-semibold text-primary-foreground" : inMonth ? "text-foreground" : "text-muted-foreground/40"
+                  "flex size-7 items-center justify-center rounded-sm text-[0.8125rem] tabular",
+                  isToday ? "bg-accent/15 font-semibold text-accent" : inMonth ? "text-fg" : "text-fg-faint/50"
                 )}
               >
                 {format(day, "d")}
               </span>
-              <div className="flex h-1.5 gap-0.5">
+              <div className="flex h-1.5 gap-[3px]">
                 {items.slice(0, 3).map((task) => (
-                  <span key={task.id} className="size-1.5 rounded-full" style={{ backgroundColor: taskTypeColor(task) }} />
+                  <span key={task.id} className="size-1.5 rounded-xs" style={{ backgroundColor: taskTypeColor(task) }} />
                 ))}
               </div>
             </div>
           );
         })}
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1.5 border-t border-rule pt-3 text-meta text-fg-muted">
+        {LEGEND.map((item) => (
+          <span key={item.label} className="inline-flex items-center gap-1.5">
+            <span className="size-1.5 rounded-xs" style={{ backgroundColor: taskTypeColor(item.task) }} />
+            {item.label}
+          </span>
+        ))}
       </div>
     </div>
   );

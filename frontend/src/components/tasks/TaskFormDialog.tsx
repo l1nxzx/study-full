@@ -4,9 +4,10 @@ import { getErrorMessage } from "@/api/client";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Field } from "@/components/ui/label";
+import { Segmented } from "@/components/ui/segmented";
+import { InlineError } from "@/components/shared/EmptyState";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { TaskTypeIcon } from "@/components/tasks/TaskTypeIcon";
 import { useCreateTask, useDeleteTask, useUpdateTask } from "@/hooks/useTasks";
@@ -101,7 +102,7 @@ export function TaskFormDialog({
       ) : openProp === undefined ? (
         <DialogTrigger asChild>
           <Button>
-            <Plus /> Add Task
+            <Plus /> Add task
           </Button>
         </DialogTrigger>
       ) : null}
@@ -109,28 +110,26 @@ export function TaskFormDialog({
         <DialogHeader>
           <DialogTitle>{editingTask ? "Edit task" : "Add task"}</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <Tabs value={type} onValueChange={(v) => setType(v as TaskType)}>
-            <TabsList className="w-full">
-              <TabsTrigger value="homework" className="flex-1">
-                Homework
-              </TabsTrigger>
-              <TabsTrigger value="exam" className="flex-1">
-                Exam
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <Segmented
+            label="Kind"
+            value={type}
+            onChange={setType}
+            options={[
+              { value: "homework", label: "Homework" },
+              { value: "exam", label: "Exam" },
+            ]}
+            className="w-full"
+          />
 
-          <div className="space-y-1.5">
-            <Label htmlFor="task-title">Title</Label>
+          <Field label="Title" htmlFor="task-title">
             <Input id="task-title" value={title} onChange={(e) => setTitle(e.target.value)} required autoFocus />
-          </div>
+          </Field>
 
           {type === "exam" && (
-            <div className="space-y-1.5">
-              <Label>Exam type</Label>
+            <Field label="Exam type">
               <Select value={examKind} onValueChange={(v) => setExamKind(v as ExamKind)}>
-                <SelectTrigger>
+                <SelectTrigger aria-label="Exam type">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -144,14 +143,13 @@ export function TaskFormDialog({
                   ))}
                 </SelectContent>
               </Select>
-            </div>
+            </Field>
           )}
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label>Subject</Label>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field label="Subject">
               <Select value={subjectId} onValueChange={setSubjectId}>
-                <SelectTrigger>
+                <SelectTrigger aria-label="Subject">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -163,21 +161,13 @@ export function TaskFormDialog({
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="task-due">{type === "exam" ? "Exam date" : "Due date"}</Label>
-              <Input
-                id="task-due"
-                type="date"
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-                required={type === "exam"}
-              />
-            </div>
+            </Field>
+            <Field label={type === "exam" ? "Exam date" : "Due date"} htmlFor="task-due">
+              <Input id="task-due" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} required={type === "exam"} />
+            </Field>
           </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="task-description">Details (optional)</Label>
+          <Field label="Details (optional)" htmlFor="task-description">
             <Textarea
               id="task-description"
               value={description}
@@ -185,17 +175,17 @@ export function TaskFormDialog({
               placeholder={type === "exam" ? "Topics to study, chapters, what to bring..." : "Any extra details..."}
               rows={3}
             />
-          </div>
+          </Field>
 
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          <InlineError>{error}</InlineError>
 
           <DialogFooter className="sm:justify-between">
             {editingTask ? (
-              <Button type="button" variant="ghost" className="text-destructive" onClick={handleDelete} disabled={deleteTask.isPending}>
+              <Button type="button" variant="ghost" className="text-bad hover:bg-bad/10 hover:text-bad" onClick={handleDelete} disabled={deleteTask.isPending}>
                 Delete
               </Button>
             ) : (
-              <span />
+              <span className="hidden sm:block" />
             )}
             <Button type="submit" disabled={!title.trim() || isSubmitting}>
               {isSubmitting ? "Saving..." : editingTask ? "Save changes" : "Add task"}

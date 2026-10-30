@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { Check, ChevronLeft, X } from "lucide-react";
+import { type ReactNode, useEffect, useState } from "react";
 import type { QuizQuestion, QuizResult } from "@/api/ai";
 import { InlineMarkdown } from "@/components/notes/InlineMarkdown";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { BeyondNotesMark } from "./ToolParts";
 
 interface Answer {
   checked: boolean;
@@ -13,185 +15,387 @@ interface Answer {
   markedCorrect?: boolean;
 }
 
+const LETTERS = "ABCDEFGH";
+
+const TYPE_LABEL: Record<QuizQuestion["type"], string> = {
+  multiple_choice: "Multiple choice",
+  true_false: "True or false",
+  short_answer: "Short answer",
+};
+
 function isCorrect(question: QuizQuestion, answer: Answer): boolean {
   if (question.type === "multiple_choice") return answer.selectedIndex === question.correctIndex;
   if (question.type === "true_false") return answer.selectedBool === question.correctAnswer;
   return Boolean(answer.markedCorrect);
 }
 
-export function QuizRunner({ quiz, onRestart }: { quiz: QuizResult; onRestart: () => void }) {
+// A short-answer question isn't settled until the student has compared their answer with the
+// model answer and said how it went.
+function isSettled(question: QuizQuestion, answer: Answer): boolean {
+  return answer.checked && (question.type !== "short_answer" || answer.markedCorrect !== undefined);
+}
+
+function canCheck(question: QuizQuestion, answer: Answer): boolean {
+  if (question.type === "multiple_choice") return answer.selectedIndex !== undefined;
+  if (question.type === "true_false") return answer.selectedBool !== undefined;
+  return Boolean(answer.shortAnswerText?.trim());
+}
+
+function isTypingTarget(target: EventTarget | null): boolean {
+  const el = target as HTMLElement | null;
+  return Boolean(el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable));
+}
+
+/** One answer choice. A row in a ruled list, keyed A/B/C... - not a card. */
+function ChoiceRow({
+  keyLabel,
+  state,
+  disabled,
+  onSelect,
+  children,
+}: {
+  keyLabel: string;
+  state: "idle" | "selected" | "correct" | "wrong" | "dimmed";
+  disabled: boolean;
+  onSelect: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={state === "selected" || state === "wrong" || (state === "correct" && !disabled)}
+      disabled={disabled}
+      onClick={onSelect}
+      className={cn(
+        "flex w-full items-start gap-3 px-2 py-3 text-left transition-colors disabled:cursor-default",
+        state === "idle" && "hover:bg-tint/60",
+        state === "selected" && "bg-accent/[0.08]",
+        state === "correct" && "bg-ok/[0.08]",
+        state === "wrong" && "bg-bad/[0.08]",
+        state === "dimmed" && "opacity-55"
+      )}
+    >
+      <span
+        aria-hidden
+        className={cn(
+          "mt-px flex size-6 shrink-0 items-center justify-center rounded-sm border text-meta font-semibold",
+          state === "idle" && "border-rule-strong text-fg-muted",
+          state === "dimmed" && "border-rule text-fg-faint",
+          state === "selected" && "border-accent-fill bg-accent-fill text-on-accent",
+          state === "correct" && "border-ok bg-ok text-canvas",
+          state === "wrong" && "border-bad bg-bad text-canvas"
+        )}
+      >
+        {state === "correct" ? <Check className="size-3.5" strokeWidth={3} /> : state === "wrong" ? <X className="size-3.5" strokeWidth={3} /> : keyLabel}
+      </span>
+      <span className="min-w-0 flex-1 pt-0.5">{children}</span>
+    </button>
+  );
+}
+
+function choiceState(selected: boolean, correct: boolean, checked: boolean): "idle" | "selected" | "correct" | "wrong" | "dimmed" {
+  if (!checked) return selected ? "selected" : "idle";
+  if (correct) return "correct";
+  if (selected) return "wrong";
+  return "dimmed";
+}
+
+function correctAnswerText(question: QuizQuestion): string {
+  if (question.type === "multiple_choice") return `${LETTERS[question.correctIndex]}`;
+  if (question.type === "true_false") return question.correctAnswer ? "True" : "False";
+  return "";
+}
+
+export function QuizRunner({ quiz, onNewQuiz, active }: { quiz: QuizResult; onNewQuiz: () => void; active: boolean }) {
   const [index, setIndex] = useState(0);
-  const [answers, setAnswers] = useState<Answer[]>(quiz.questions.map(() => ({ checked: false })));
+  const [answers, setAnswers] = useState<Answer[]>(() => quiz.questions.map(() => ({ checked: false })));
   const [finished, setFinished] = useState(false);
 
   const question = quiz.questions[index];
   const answer = answers[index];
+  const total = quiz.questions.length;
+  // The furthest question you can jump to: everything already answered, plus the next one.
+  const firstOpen = answers.findIndex((a, i) => !isSettled(quiz.questions[i], a));
+  const reachable = firstOpen === -1 ? total - 1 : firstOpen;
 
   function updateAnswer(patch: Partial<Answer>) {
     setAnswers((prev) => prev.map((a, i) => (i === index ? { ...a, ...patch } : a)));
   }
 
   function goNext() {
-    if (index + 1 < quiz.questions.length) {
-      setIndex((i) => i + 1);
-    } else {
-      setFinished(true);
-    }
+    if (index + 1 < total) setIndex((i) => i + 1);
+    else setFinished(true);
   }
 
+  function retry() {
+    setAnswers(quiz.questions.map(() => ({ checked: false })));
+    setIndex(0);
+    setFinished(false);
+  }
+
+  // Keyboard: A-D / 1-4 to choose, T/F for true-false, Enter to check and continue, arrows to move.
+  useEffect(() => {
+    if (!active || finished) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.metaKey || e.ctrlKey || e.altKey || isTypingTarget(e.target)) return;
+      const key = e.key.toLowerCase();
+      if (!answer.checked && question.type === "multiple_choice") {
+        const byLetter = LETTERS.toLowerCase().indexOf(key);
+        const byNumber = Number(key) - 1;
+        const choice = byLetter >= 0 && key.length === 1 ? byLetter : byNumber;
+        if (choice >= 0 && choice < question.options.length) {
+          e.preventDefault();
+          updateAnswer({ selectedIndex: choice });
+          return;
+        }
+      }
+      if (!answer.checked && question.type === "true_false" && (key === "t" || key === "f" || key === "1" || key === "2")) {
+        e.preventDefault();
+        updateAnswer({ selectedBool: key === "t" || key === "1" });
+        return;
+      }
+      if (key === "enter") {
+        if (!answer.checked && canCheck(question, answer)) {
+          e.preventDefault();
+          updateAnswer({ checked: true });
+        } else if (isSettled(question, answer)) {
+          e.preventDefault();
+          goNext();
+        }
+      } else if (key === "arrowleft" && index > 0) {
+        setIndex((i) => i - 1);
+      } else if (key === "arrowright" && index < reachable && isSettled(question, answer)) {
+        setIndex((i) => i + 1);
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  });
+
   if (finished) {
-    const score = answers.filter((a, i) => isCorrect(quiz.questions[i], a)).length;
-    const pct = Math.round((score / quiz.questions.length) * 100);
+    const results = quiz.questions.map((q, i) => isCorrect(q, answers[i]));
+    const score = results.filter(Boolean).length;
+    const missed = total - score;
     return (
-      <div className="space-y-4 text-center">
-        <p className="text-sm text-muted-foreground">Quiz complete</p>
-        <p className="text-3xl font-semibold">
-          {score} / {quiz.questions.length}
-        </p>
-        <p className="text-lg text-muted-foreground">{pct}%</p>
-        <Button onClick={onRestart}>Try Again</Button>
+      <div className="space-y-7">
+        <div>
+          <p className="text-meta text-fg-faint">Quiz finished</p>
+          <p className="mt-1 text-xl font-semibold text-fg">
+            {score} of {total} correct
+          </p>
+          <p className="mt-1 text-sm text-fg-muted">
+            {missed === 0 ? "Every answer was right." : `${missed} ${missed === 1 ? "question is" : "questions are"} worth another look - they're marked below.`}
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Button size="sm" variant="outline" onClick={retry}>
+              Retry these questions
+            </Button>
+            <Button size="sm" variant="ghost" onClick={onNewQuiz}>
+              New quiz
+            </Button>
+          </div>
+        </div>
+
+        <ol className="divide-y divide-rule border-y border-rule">
+          {quiz.questions.map((q, i) => {
+            const correct = results[i];
+            const a = answers[i];
+            return (
+              <li key={i} className="flex gap-3 py-4">
+                <span
+                  className={cn("mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-sm", correct ? "text-ok" : "text-bad")}
+                  aria-label={correct ? "Correct" : "Incorrect"}
+                >
+                  {correct ? <Check className="size-4" strokeWidth={2.5} /> : <X className="size-4" strokeWidth={2.5} />}
+                </span>
+                <div className="min-w-0 flex-1 space-y-1.5">
+                  <InlineMarkdown className="text-[0.9375rem] text-fg" content={q.question} />
+                  {q.type !== "short_answer" && !correct && (
+                    <p className="text-meta text-fg-muted">
+                      You answered{" "}
+                      {q.type === "multiple_choice"
+                        ? a.selectedIndex !== undefined
+                          ? LETTERS[a.selectedIndex]
+                          : "-"
+                        : a.selectedBool === undefined
+                          ? "-"
+                          : a.selectedBool
+                            ? "True"
+                            : "False"}
+                      ; the answer is {correctAnswerText(q)}.
+                    </p>
+                  )}
+                  {q.type === "short_answer" && (
+                    <p className="text-meta text-fg-muted">{correct ? "You marked this as right." : "You marked this as missed."}</p>
+                  )}
+                  {q.explanation && (
+                    <details className="group text-meta">
+                      <summary className="cursor-pointer list-none text-fg-faint hover:text-fg [&::-webkit-details-marker]:hidden">
+                        <span className="group-open:hidden">Show explanation</span>
+                        <span className="hidden group-open:inline">Hide explanation</span>
+                      </summary>
+                      <InlineMarkdown className="mt-1.5 text-[0.875rem] text-fg-muted" content={q.explanation} />
+                    </details>
+                  )}
+                </div>
+              </li>
+            );
+          })}
+        </ol>
       </div>
     );
   }
 
+  const checked = answer.checked;
+  const correct = checked && isCorrect(question, answer);
+
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between text-xs text-muted-foreground">
-        <span>
-          Question {index + 1} of {quiz.questions.length}
-        </span>
-        <div className="h-1.5 w-24 overflow-hidden rounded-full bg-muted">
-          <div
-            className="h-full bg-primary transition-all"
-            style={{ width: `${((index + (answer.checked ? 1 : 0)) / quiz.questions.length) * 100}%` }}
-          />
+    <div className="space-y-6">
+      {/* Progress: one tick per question, coloured once answered. Answered ones can be revisited. */}
+      <div>
+        <div className="mb-2 flex items-baseline justify-between text-meta">
+          <span className="font-medium text-fg-muted">
+            Question {index + 1} <span className="text-fg-faint">of {total}</span>
+          </span>
+          <span className="text-fg-faint">{TYPE_LABEL[question.type]}</span>
         </div>
-      </div>
-
-      {question.beyondNotes && <Badge variant="warning">Beyond your notes</Badge>}
-
-      <InlineMarkdown className="text-sm font-medium text-foreground" content={question.question} />
-
-      {question.type === "multiple_choice" && (
-        <div className="space-y-2">
-          {question.options.map((option, i) => {
-            const selected = answer.selectedIndex === i;
-            const showResult = answer.checked;
-            const correct = i === question.correctIndex;
+        <div className="flex gap-[3px]">
+          {quiz.questions.map((q, i) => {
+            const a = answers[i];
+            const settled = isSettled(q, a);
             return (
               <button
                 key={i}
-                disabled={answer.checked}
-                onClick={() => updateAnswer({ selectedIndex: i })}
+                type="button"
+                disabled={i > reachable}
+                onClick={() => setIndex(i)}
+                aria-label={`Question ${i + 1}`}
+                aria-current={i === index ? "step" : undefined}
                 className={cn(
-                  "flex w-full items-center rounded-md border px-3 py-2 text-left text-sm transition-colors",
-                  !showResult && selected && "border-primary bg-accent",
-                  !showResult && !selected && "border-input hover:bg-muted",
-                  showResult && correct && "border-success bg-success/10",
-                  showResult && selected && !correct && "border-destructive bg-destructive/10",
-                  showResult && !selected && !correct && "border-input opacity-60"
+                  "h-1.5 flex-1 rounded-xs transition-colors disabled:cursor-default",
+                  settled ? (isCorrect(q, a) ? "bg-ok/70" : "bg-bad/70") : a.checked ? "bg-fg-faint" : "bg-rule-strong",
+                  i === index && "outline outline-1 outline-offset-2 outline-fg-muted"
                 )}
-              >
-                <InlineMarkdown content={option} />
-              </button>
+              />
             );
           })}
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        {question.beyondNotes && <BeyondNotesMark />}
+        <InlineMarkdown className="text-[1.0625rem] leading-relaxed text-fg" content={question.question} />
+      </div>
+
+      {question.type === "multiple_choice" && (
+        <div role="radiogroup" aria-label="Answer choices" className="divide-y divide-rule border-y border-rule">
+          {question.options.map((option, i) => (
+            <ChoiceRow
+              key={i}
+              keyLabel={LETTERS[i]}
+              state={choiceState(answer.selectedIndex === i, i === question.correctIndex, checked)}
+              disabled={checked}
+              onSelect={() => updateAnswer({ selectedIndex: i })}
+            >
+              <InlineMarkdown className="text-[0.9375rem] text-fg" content={option} />
+            </ChoiceRow>
+          ))}
         </div>
       )}
 
       {question.type === "true_false" && (
-        <div className="flex gap-2">
-          {[true, false].map((value) => {
-            const selected = answer.selectedBool === value;
-            const showResult = answer.checked;
-            const correct = value === question.correctAnswer;
-            return (
-              <button
-                key={String(value)}
-                disabled={answer.checked}
-                onClick={() => updateAnswer({ selectedBool: value })}
-                className={cn(
-                  "flex-1 rounded-md border px-3 py-2 text-sm font-medium transition-colors",
-                  !showResult && selected && "border-primary bg-accent",
-                  !showResult && !selected && "border-input hover:bg-muted",
-                  showResult && correct && "border-success bg-success/10",
-                  showResult && selected && !correct && "border-destructive bg-destructive/10"
-                )}
-              >
-                {value ? "True" : "False"}
-              </button>
-            );
-          })}
+        <div role="radiogroup" aria-label="True or false" className="divide-y divide-rule border-y border-rule">
+          {[true, false].map((value) => (
+            <ChoiceRow
+              key={String(value)}
+              keyLabel={value ? "T" : "F"}
+              state={choiceState(answer.selectedBool === value, value === question.correctAnswer, checked)}
+              disabled={checked}
+              onSelect={() => updateAnswer({ selectedBool: value })}
+            >
+              <span className="font-serif text-[0.9375rem] text-fg">{value ? "True" : "False"}</span>
+            </ChoiceRow>
+          ))}
         </div>
       )}
 
       {question.type === "short_answer" && (
-        <div className="space-y-2">
-          <textarea
-            disabled={answer.checked}
+        <div className="space-y-4">
+          <Textarea
+            disabled={checked}
             value={answer.shortAnswerText || ""}
             onChange={(e) => updateAnswer({ shortAnswerText: e.target.value })}
-            placeholder="Your answer..."
-            className="min-h-20 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            placeholder="Write your answer"
+            aria-label="Your answer"
+            className="min-h-24 font-serif text-[0.9375rem]"
           />
-          {answer.checked && (
-            <div className="rounded-md bg-muted px-3 py-2 text-sm">
-              <span className="font-medium">Sample answer: </span>
-              <InlineMarkdown className="inline" content={question.sampleAnswer} />
+          {checked && (
+            <div className="space-y-1 border-l-2 border-rule-strong pl-3">
+              <p className="text-meta font-medium text-fg-faint">Model answer</p>
+              <InlineMarkdown className="text-[0.9375rem] text-fg" content={question.sampleAnswer} />
             </div>
           )}
         </div>
       )}
 
-      {answer.checked && question.type !== "short_answer" && (
-        <div className="rounded-md bg-muted px-3 py-2">
-          <InlineMarkdown className="text-sm text-muted-foreground" content={question.explanation} />
+      {/* Feedback: a plain verdict and the reasoning, ruled in the verdict's colour. */}
+      {checked && question.type !== "short_answer" && (
+        <div className={cn("space-y-1 border-l-2 pl-3", correct ? "border-ok" : "border-bad")} aria-live="polite">
+          <p className={cn("text-sm font-medium", correct ? "text-ok" : "text-bad")}>
+            {correct ? "Correct." : `Not quite - the answer is ${correctAnswerText(question)}.`}
+          </p>
+          {question.explanation && <InlineMarkdown className="text-[0.9375rem] text-fg-muted" content={question.explanation} />}
         </div>
       )}
 
-      {answer.checked && question.type === "short_answer" && (
+      {checked && question.type === "short_answer" && (
         <div className="space-y-2">
-          <p className="text-xs text-muted-foreground">How did you do?</p>
+          <p className="text-[0.8125rem] text-fg-muted">How did your answer compare?</p>
           <div className="flex gap-2">
             <Button
               size="sm"
-              variant={answer.markedCorrect === true ? "default" : "outline"}
+              variant={answer.markedCorrect === true ? "secondary" : "outline"}
+              className={cn(answer.markedCorrect === true && "border-ok text-ok")}
               onClick={() => updateAnswer({ markedCorrect: true })}
             >
-              I was right
+              <Check /> I had it
             </Button>
             <Button
               size="sm"
-              variant={answer.markedCorrect === false ? "destructive" : "outline"}
+              variant={answer.markedCorrect === false ? "secondary" : "outline"}
+              className={cn(answer.markedCorrect === false && "border-bad text-bad")}
               onClick={() => updateAnswer({ markedCorrect: false })}
             >
-              I was wrong
+              <X /> I missed something
             </Button>
           </div>
+          {question.explanation && answer.markedCorrect !== undefined && (
+            <InlineMarkdown className="pt-2 text-[0.9375rem] text-fg-muted" content={question.explanation} />
+          )}
         </div>
       )}
 
-      <div className="flex justify-end gap-2 pt-2">
-        {!answer.checked ? (
-          <Button
-            onClick={() => updateAnswer({ checked: true })}
-            disabled={
-              (question.type === "multiple_choice" && answer.selectedIndex === undefined) ||
-              (question.type === "true_false" && answer.selectedBool === undefined) ||
-              (question.type === "short_answer" && !answer.shortAnswerText?.trim())
-            }
-          >
-            Check
+      <div className="flex items-center justify-between gap-2 pt-1">
+        <Button variant="ghost" size="sm" onClick={() => setIndex((i) => i - 1)} disabled={index === 0} className="-ml-2.5">
+          <ChevronLeft /> Previous
+        </Button>
+        {!checked ? (
+          <Button onClick={() => updateAnswer({ checked: true })} disabled={!canCheck(question, answer)}>
+            Check answer
           </Button>
         ) : (
-          <Button
-            onClick={goNext}
-            disabled={question.type === "short_answer" && answer.markedCorrect === undefined}
-          >
-            {index + 1 < quiz.questions.length ? "Next" : "Finish"}
+          <Button onClick={goNext} disabled={!isSettled(question, answer)}>
+            {index + 1 < total ? "Next question" : "See results"}
           </Button>
         )}
       </div>
+      {question.type !== "short_answer" && (
+        <p className="hidden text-meta text-fg-faint lg:block">
+          {question.type === "multiple_choice" ? `Keys: A-${LETTERS[question.options.length - 1]} to choose` : "Keys: T or F to choose"}, Enter to
+          check and continue.
+        </p>
+      )}
     </div>
   );
 }

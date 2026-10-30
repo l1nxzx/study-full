@@ -1,6 +1,10 @@
-import { Check, Pencil, Sparkles, Undo2, X } from "lucide-react";
+import { Check, Pencil, Undo2, X } from "lucide-react";
 import { type KeyboardEvent, useState } from "react";
 import type { AlterationAction } from "@/lib/aiMarkup";
+import { cn } from "@/lib/utils";
+
+const markButton =
+  "inline-flex size-5 items-center justify-center rounded-xs font-sans text-fg-faint transition-colors hover:bg-tint hover:text-fg";
 
 interface AiAlterSpanProps {
   original: string;
@@ -43,15 +47,10 @@ export function AiAlterSpan({ original, corrected, onResolve }: AiAlterSpanProps
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={handleKeyDown}
           size={Math.max(6, draft.length)}
-          className="rounded border border-primary bg-transparent px-1 py-0.5 text-sm text-foreground focus-visible:outline-none"
+          className="rounded-sm border border-accent bg-canvas px-1.5 py-0.5 font-sans text-sm text-fg focus-visible:outline-none"
         />
-        <button
-          type="button"
-          onClick={confirmManual}
-          title="Save my correction"
-          className="inline-flex size-4 items-center justify-center rounded-sm text-success hover:bg-success/15"
-        >
-          <Check className="size-3" />
+        <button type="button" onClick={confirmManual} title="Save my correction" className={cn(markButton, "text-ok")}>
+          <Check className="size-3.5" />
         </button>
         <button
           type="button"
@@ -60,35 +59,27 @@ export function AiAlterSpan({ original, corrected, onResolve }: AiAlterSpanProps
             setDraft(corrected);
           }}
           title="Cancel"
-          className="inline-flex size-4 items-center justify-center rounded-sm text-muted-foreground hover:bg-muted"
+          className={markButton}
         >
-          <X className="size-3" />
+          <X className="size-3.5" />
         </button>
       </span>
     );
   }
 
   return (
-    <span className="mx-0.5 inline whitespace-normal align-baseline">
-      <span className="text-destructive/70 line-through decoration-destructive/50">{original}</span>{" "}
-      <span className="rounded bg-warning/20 px-1 py-0.5 text-foreground">{corrected}</span>
+    <span className="inline whitespace-normal align-baseline">
+      <span className="text-fg-faint line-through decoration-bad/60">{original}</span>{" "}
+      <span className="rounded-xs bg-warn/15 px-[0.2em] text-fg underline decoration-warn/70 decoration-dotted underline-offset-4">
+        {corrected}
+      </span>
       {onResolve && (
-        <span className="ml-1 inline-flex items-center gap-0.5 align-middle">
-          <button
-            type="button"
-            onClick={() => onResolve("accept")}
-            title="Keep the AI's correction"
-            className="inline-flex size-4 items-center justify-center rounded-sm text-success hover:bg-success/15"
-          >
-            <Check className="size-3" />
+        <span className="ml-1 inline-flex items-center align-middle">
+          <button type="button" onClick={() => onResolve("accept")} title="Keep the AI's correction" className={cn(markButton, "hover:text-ok")}>
+            <Check className="size-3.5" />
           </button>
-          <button
-            type="button"
-            onClick={() => onResolve("reject")}
-            title="Keep my original text"
-            className="inline-flex size-4 items-center justify-center rounded-sm text-muted-foreground hover:bg-muted"
-          >
-            <Undo2 className="size-3" />
+          <button type="button" onClick={() => onResolve("reject")} title="Keep my original text" className={markButton}>
+            <Undo2 className="size-3.5" />
           </button>
           <button
             type="button"
@@ -97,7 +88,7 @@ export function AiAlterSpan({ original, corrected, onResolve }: AiAlterSpanProps
               setIsEditing(true);
             }}
             title="The AI got this wrong too - type the correct text myself"
-            className="inline-flex size-4 items-center justify-center rounded-sm text-muted-foreground hover:bg-muted"
+            className={markButton}
           >
             <Pencil className="size-3" />
           </button>
@@ -117,18 +108,14 @@ interface AiAddSpanProps {
 // student's own original notes, even after review.
 export function AiAddSpan({ text, onRemove }: AiAddSpanProps) {
   return (
-    <span className="mx-0.5 inline-flex items-baseline gap-1 rounded-md border border-accent bg-accent/50 px-1.5 py-0.5 align-baseline">
-      <Sparkles className="relative top-px size-3 shrink-0 text-accent-foreground/70" />
-      <span className="text-[10px] font-semibold uppercase tracking-wide text-accent-foreground/70">AI</span>
-      <span className="text-accent-foreground">{text}</span>
+    <span className="inline align-baseline">
+      <span className="mr-1 align-[0.12em] font-sans text-[0.625rem] font-semibold tracking-wide text-accent" title="Added by the AI, not in the original notes">
+        AI
+      </span>
+      <span className="text-fg underline decoration-accent/60 decoration-dashed underline-offset-4">{text}</span>
       {onRemove && (
-        <button
-          type="button"
-          onClick={onRemove}
-          title="Remove this AI-added content"
-          className="inline-flex size-3.5 items-center justify-center rounded-sm text-accent-foreground/60 hover:bg-accent hover:text-accent-foreground"
-        >
-          <X className="size-3" />
+        <button type="button" onClick={onRemove} title="Remove this AI-added content" className={cn(markButton, "ml-0.5 align-middle hover:text-bad")}>
+          <X className="size-3.5" />
         </button>
       )}
     </span>

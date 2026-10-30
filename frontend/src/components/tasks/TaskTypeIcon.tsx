@@ -1,22 +1,20 @@
-import { Backpack, FileText, Users, type LucideIcon } from "lucide-react";
+import { BookOpen, ClipboardCheck, FileText, Mic, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ExamKind, Task } from "@/types";
 
 interface TypeMeta {
-  bg: string;
-  fg: string;
+  color: string;
   icon: LucideIcon;
 }
 
-const HOMEWORK_META: TypeMeta = { bg: "#2563eb", fg: "#ffffff", icon: Backpack };
+// One muted colour per kind (see --kind-* in index.css): enough to tell homework from a unit
+// test from a big exam at a glance, without turning a list of exams into a wall of alarms.
+const HOMEWORK_META: TypeMeta = { color: "var(--kind-homework)", icon: BookOpen };
 
-// Fixed, non-theme-adaptive accent per type/kind (same approach as the Subject color
-// palette) - these are identity colors, not semantic status colors, so they stay the
-// same in light and dark mode.
 const EXAM_META: Record<ExamKind, TypeMeta> = {
-  oral: { bg: "#ddd6fe", fg: "#6d28d9", icon: Users }, // pastel purple
-  quiz: { bg: "#facc15", fg: "#713f12", icon: FileText }, // bright yellow ("Unit Test")
-  major: { bg: "#f97316", fg: "#ffffff", icon: FileText }, // red-orange ("Big exam")
+  oral: { color: "var(--kind-oral)", icon: Mic },
+  quiz: { color: "var(--kind-test)", icon: ClipboardCheck },
+  major: { color: "var(--kind-exam)", icon: FileText },
 };
 
 export function taskTypeMeta(task: Pick<Task, "type" | "examKind">): TypeMeta {
@@ -24,12 +22,8 @@ export function taskTypeMeta(task: Pick<Task, "type" | "examKind">): TypeMeta {
   return HOMEWORK_META;
 }
 
-export function examKindMeta(kind: ExamKind): TypeMeta {
-  return EXAM_META[kind];
-}
-
 export function taskTypeColor(task: Pick<Task, "type" | "examKind">): string {
-  return taskTypeMeta(task).bg;
+  return taskTypeMeta(task).color;
 }
 
 interface TaskTypeIconProps {
@@ -41,12 +35,5 @@ interface TaskTypeIconProps {
 export function TaskTypeIcon({ task, size = "md", className }: TaskTypeIconProps) {
   const meta = taskTypeMeta(task);
   const Icon = meta.icon;
-  return (
-    <span
-      className={cn("inline-flex shrink-0 items-center justify-center rounded-full", size === "sm" ? "size-5" : "size-8", className)}
-      style={{ backgroundColor: meta.bg }}
-    >
-      <Icon className={size === "sm" ? "size-3" : "size-4"} style={{ color: meta.fg }} />
-    </span>
-  );
+  return <Icon aria-hidden className={cn("shrink-0", size === "sm" ? "size-3.5" : "size-4", className)} style={{ color: meta.color }} strokeWidth={2} />;
 }

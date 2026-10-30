@@ -1,3 +1,4 @@
+import { SubjectSwatch } from "@/components/shared/SubjectSwatch";
 import { TaskFormDialog } from "@/components/tasks/TaskFormDialog";
 import { TaskTypeIcon } from "@/components/tasks/TaskTypeIcon";
 import { EXAM_KIND_LABELS } from "@/lib/taskMeta";
@@ -8,7 +9,7 @@ interface DueTaskChipProps {
   subject?: Subject;
 }
 
-// A compact, clickable pill for a task/exam due on a given day - used to surface
+// A compact, clickable line for a task/exam due on a given day - used to surface
 // schoolwork alongside classes in the Schedule views without forcing it into the
 // period/time grid (most homework and exams don't have a fixed class-period time).
 export function DueTaskChip({ task, subject }: DueTaskChipProps) {
@@ -20,12 +21,12 @@ export function DueTaskChip({ task, subject }: DueTaskChipProps) {
       trigger={
         <button
           type="button"
-          className="inline-flex items-center gap-1.5 rounded-full border border-border px-2 py-1 text-xs font-medium text-foreground transition-colors hover:bg-muted/60"
+          className="inline-flex h-8 max-w-full items-center gap-2 rounded-md border border-rule px-2.5 text-[0.8125rem] text-fg transition-colors hover:border-rule-strong hover:bg-tint/60"
         >
           <TaskTypeIcon task={task} size="sm" />
-          <span className="max-w-40 truncate">{task.title}</span>
-          {subject && <span className="size-1.5 shrink-0 rounded-full" style={{ backgroundColor: subject.color || "#64748b" }} />}
-          {isExam && task.examKind && <span className="text-muted-foreground">· {EXAM_KIND_LABELS[task.examKind]}</span>}
+          <span className="truncate">{task.title}</span>
+          {isExam && task.examKind && <span className="shrink-0 text-fg-muted">{EXAM_KIND_LABELS[task.examKind]}</span>}
+          {subject && <SubjectSwatch color={subject.color} />}
         </button>
       }
     />

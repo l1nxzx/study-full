@@ -5,7 +5,9 @@ import { getErrorMessage } from "@/api/client";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Field } from "@/components/ui/label";
+import { InlineError } from "@/components/shared/EmptyState";
+import { SWATCH_FILTER } from "@/components/shared/SubjectSwatch";
 import { useCreateSubject, useDeleteSubject, useSubjects, useUpdateSubject } from "@/hooks/useSubjects";
 import { firstUnusedColor, SUBJECT_PALETTE } from "@/lib/scheduleColors";
 import { cn } from "@/lib/utils";
@@ -87,49 +89,56 @@ export function SubjectFormDialog({ editingSubject, open: openProp, onOpenChange
         <DialogHeader>
           <DialogTitle>{editingSubject ? "Edit subject" : "New subject"}</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="subject-name">Name</Label>
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <Field label="Name" htmlFor="subject-name">
             <Input id="subject-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Mathematics" required autoFocus />
-          </div>
+          </Field>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="subject-icon">Icon (emoji, optional)</Label>
-            <Input id="subject-icon" value={icon} onChange={(e) => setIcon(e.target.value)} placeholder="📐" maxLength={4} className="w-20" />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label>Color</Label>
-            <div className="flex flex-wrap gap-2">
+          <div className="space-y-2">
+            <p className="text-[0.8125rem] font-medium text-fg-muted">Colour</p>
+            <div role="radiogroup" aria-label="Colour" className="flex flex-wrap gap-1.5">
               {SUBJECT_PALETTE.map((c) => {
                 const isUsed = usedColors.some((used) => used.toLowerCase() === c.toLowerCase());
+                const selected = color === c;
                 return (
                   <button
                     key={c}
                     type="button"
+                    role="radio"
+                    aria-checked={selected}
                     onClick={() => setColor(c)}
                     title={isUsed ? "Already used by another subject" : undefined}
-                    className={cn("relative size-7 rounded-full ring-offset-2 ring-offset-card transition-all", isUsed && color !== c && "opacity-40")}
-                    style={{ backgroundColor: c, outline: color === c ? `2px solid ${c}` : "none", outlineOffset: 2 }}
                     aria-label={c}
-                  />
+                    className={cn(
+                      "flex size-8 items-center justify-center rounded-sm border transition-colors",
+                      selected ? "border-fg-muted" : "border-transparent hover:border-rule-strong"
+                    )}
+                  >
+                    <span className={cn("size-5 rounded-xs", SWATCH_FILTER, isUsed && !selected && "opacity-35")} style={{ backgroundColor: c }} />
+                  </button>
                 );
               })}
             </div>
-            {usedColors.some((used) => used.toLowerCase() === color.toLowerCase()) && (
-              <p className="text-xs text-muted-foreground">This color is already used by another subject.</p>
-            )}
+            <p className="text-meta text-fg-faint">
+              {usedColors.some((used) => used.toLowerCase() === color.toLowerCase())
+                ? "This colour is already used by another subject."
+                : "Shown as a small square next to the subject everywhere."}
+            </p>
           </div>
 
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          <Field label="Icon (optional)" htmlFor="subject-icon" hint="A single emoji, shown on the subject's page.">
+            <Input id="subject-icon" value={icon} onChange={(e) => setIcon(e.target.value)} maxLength={4} className="w-20" />
+          </Field>
+
+          <InlineError>{error}</InlineError>
 
           <DialogFooter className="sm:justify-between">
             {editingSubject ? (
-              <Button type="button" variant="ghost" className="text-destructive" onClick={handleDelete} disabled={deleteSubject.isPending}>
+              <Button type="button" variant="ghost" className="text-bad hover:bg-bad/10 hover:text-bad" onClick={handleDelete} disabled={deleteSubject.isPending}>
                 Delete subject
               </Button>
             ) : (
-              <span />
+              <span className="hidden sm:block" />
             )}
             <Button type="submit" disabled={!name.trim() || isSubmitting}>
               {isSubmitting ? "Saving..." : editingSubject ? "Save changes" : "Create subject"}

@@ -1,6 +1,7 @@
-import { ArrowLeft, NotebookText, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { Link, Navigate, useParams } from "react-router-dom";
-import { NoteCard } from "@/components/notes/NoteCard";
+import { Page, PageHeader, Section } from "@/components/layout/PageHeader";
+import { NoteRow } from "@/components/notes/NoteRow";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { TaskFormDialog } from "@/components/tasks/TaskFormDialog";
 import { TaskItem } from "@/components/tasks/TaskItem";
@@ -20,10 +21,14 @@ export function ClassSessionPage() {
 
   if (isLoading) {
     return (
-      <div className="space-y-4">
-        <Skeleton className="h-8 w-64" />
-        <Skeleton className="h-40 w-full" />
-      </div>
+      <Page>
+        <Skeleton className="h-6 w-56" />
+        <Skeleton className="mt-3 h-3 w-32" />
+        <div className="mt-12 space-y-4">
+          <Skeleton className="h-4 w-2/3" />
+          <Skeleton className="h-4 w-1/2" />
+        </div>
+      </Page>
     );
   }
 
@@ -32,65 +37,64 @@ export function ClassSessionPage() {
   }
 
   return (
-    <div className="space-y-8">
-      <div>
-        <Link to={subject ? `/subjects/${subject.id}` : "/schedule"} className="mb-4 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-          <ArrowLeft className="size-3.5" />
-          {subject?.name || "Schedule"}
-        </Link>
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">{session.title || subject?.name || "Class session"}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{formatDateLong(session.date)}</p>
-      </div>
-
-      <div>
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-foreground">Notes</h2>
-          <Button asChild size="sm">
+    <Page>
+      <PageHeader
+        back={subject ? { to: `/subjects/${subject.id}`, label: subject.name } : { to: "/schedule", label: "Schedule" }}
+        title={session.title || subject?.name || "Class session"}
+        description={`${subject && session.title ? `${subject.name} · ` : ""}${formatDateLong(session.date)}`}
+        actions={
+          <Button asChild>
             <Link to={`/notes/new?subjectId=${session.subjectId}&sessionId=${session.id}&date=${session.date}`}>
-              <Plus /> Add Note
+              <Plus /> New note
             </Link>
           </Button>
-        </div>
-        {session.notes.length === 0 ? (
-          <EmptyState icon={NotebookText} title="No notes for this session" description="Add your cleaned-up notes from this class." />
-        ) : (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {session.notes.map((note) => (
-              <NoteCard key={note.id} note={note} subject={subject} />
-            ))}
-          </div>
-        )}
-      </div>
+        }
+      />
 
-      <div>
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-foreground">Tasks</h2>
-          <TaskFormDialog
-            defaultSubjectId={session.subjectId}
-            defaultSessionId={session.id}
-            trigger={
-              <Button size="sm">
-                <Plus /> Add Task
-              </Button>
-            }
-          />
-        </div>
-        {session.tasks.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No tasks linked to this session.</p>
-        ) : (
-          <div className="space-y-2">
-            {session.tasks.map((task) => (
-              <TaskItem
-                key={task.id}
-                task={task}
-                subject={subject}
-                onToggle={(completed) => updateTask.mutate({ id: task.id, input: { completed } })}
-                onDelete={() => deleteTask.mutate(task.id)}
-              />
-            ))}
-          </div>
-        )}
+      <div className="space-y-12">
+        <Section title="Notes">
+          {session.notes.length === 0 ? (
+            <EmptyState title="No notes for this lesson yet" description="Notes you add from here are linked to this lesson and its date." />
+          ) : (
+            <div className="divide-y divide-rule">
+              {session.notes.map((note) => (
+                <NoteRow key={note.id} note={note} subject={subject} showSubject={false} />
+              ))}
+            </div>
+          )}
+        </Section>
+
+        <Section
+          title="Tasks"
+          action={
+            <TaskFormDialog
+              defaultSubjectId={session.subjectId}
+              defaultSessionId={session.id}
+              trigger={
+                <Button variant="ghost" size="sm" className="-mr-2.5">
+                  <Plus /> Add task
+                </Button>
+              }
+            />
+          }
+        >
+          {session.tasks.length === 0 ? (
+            <p className="py-4 text-sm text-fg-faint">No tasks linked to this lesson.</p>
+          ) : (
+            <div className="divide-y divide-rule">
+              {session.tasks.map((task) => (
+                <TaskItem
+                  key={task.id}
+                  task={task}
+                  subject={subject}
+                  onToggle={(completed) => updateTask.mutate({ id: task.id, input: { completed } })}
+                  onDelete={() => deleteTask.mutate(task.id)}
+                />
+              ))}
+            </div>
+          )}
+        </Section>
       </div>
-    </div>
+    </Page>
   );
 }

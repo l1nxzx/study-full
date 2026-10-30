@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { formatDateShort, formatTime, relativeCountdown, todayISO } from "@/lib/date";
+import { SubjectSwatch } from "@/components/shared/SubjectSwatch";
+import { formatDayShort, formatTimeRange, relativeCountdown, todayISO } from "@/lib/date";
 import type { ScheduleOccurrence } from "@/lib/scheduleOccurrence";
 
 interface NextClassCardProps {
@@ -11,35 +11,31 @@ export function NextClassCard({ occurrence }: NextClassCardProps) {
   const isToday = occurrence?.date === todayISO();
 
   const content = !occurrence ? (
-    <p className="text-sm text-muted-foreground">Nothing scheduled soon.</p>
+    <p className="text-sm text-fg-faint">Nothing scheduled soon.</p>
   ) : (
     <div className="min-w-0">
-      <p className="flex items-center gap-1.5 truncate text-base font-semibold text-foreground">
-        {occurrence.title}
-        <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: occurrence.color }} />
+      <p className="flex items-center gap-2 text-[0.9375rem] font-semibold text-fg transition-colors group-hover:text-accent">
+        <SubjectSwatch color={occurrence.color} />
+        <span className="truncate">{occurrence.title}</span>
       </p>
-      <p className="text-sm text-muted-foreground">
-        {isToday ? "Today" : formatDateShort(occurrence.date)} · {formatTime(occurrence.startTime)}
+      <p className="mt-1 pl-4 text-[0.8125rem] text-fg-muted">
+        {isToday ? "Today" : formatDayShort(occurrence.date)}, {formatTimeRange(occurrence.startTime, occurrence.endTime)}
         {occurrence.room ? ` · Room ${occurrence.room}` : ""}
       </p>
-      {isToday && <p className="mt-1 text-xs font-medium text-primary">{relativeCountdown(occurrence.startTime)}</p>}
+      {isToday && <p className="mt-1 pl-4 text-[0.8125rem] font-medium text-accent">{relativeCountdown(occurrence.startTime)}</p>}
     </div>
   );
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Next Class</CardTitle>
-      </CardHeader>
-      <CardContent>
-        {occurrence?.subjectId ? (
-          <Link to={`/subjects/${occurrence.subjectId}`} className="block transition-opacity hover:opacity-80">
-            {content}
-          </Link>
-        ) : (
-          content
-        )}
-      </CardContent>
-    </Card>
+    <section>
+      <h2 className="group-label mb-2">Next class</h2>
+      {occurrence?.subjectId ? (
+        <Link to={`/subjects/${occurrence.subjectId}`} className="group block">
+          {content}
+        </Link>
+      ) : (
+        content
+      )}
+    </section>
   );
 }

@@ -3,14 +3,10 @@ import { useState } from "react";
 import * as aiApi from "@/api/ai";
 import { getErrorMessage } from "@/api/client";
 import { InlineMarkdown } from "@/components/notes/InlineMarkdown";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
-import { NotesRevealToggle } from "./NotesRevealToggle";
+import { Segmented } from "@/components/ui/segmented";
+import { DIFFICULTY_OPTIONS } from "./options";
+import { BeyondNotesMark, BeyondNotesOption, GeneratingState, SetupRow, ToolSetup } from "./ToolParts";
 
 const TYPE_LABEL: Record<string, string> = {
   calculation: "Calculation",
@@ -19,119 +15,104 @@ const TYPE_LABEL: Record<string, string> = {
   concept: "Concept",
 };
 
-export function PracticeTool({ noteId }: { noteId: string }) {
+const COUNTS = ["3", "5", "8", "10", "15"] as const;
+
+const revealButton =
+  "inline-flex h-8 items-center rounded-sm px-2 text-[0.8125rem] font-medium text-fg-muted transition-colors hover:bg-tint hover:text-fg";
+
+function PracticeQuestionItem({ question, number }: { question: aiApi.PracticeQuestion; number: number }) {
+  const [showHint, setShowHint] = useState(false);
+  const [showAnswer, setShowAnswer] = useState(false);
+
+  return (
+    <li className="flex gap-3 py-5">
+      <span className="w-5 shrink-0 pt-0.5 text-right text-sm text-fg-faint tabular">{number}</span>
+      <div className="min-w-0 flex-1 space-y-2.5">
+        <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-meta text-fg-faint">
+          {TYPE_LABEL[question.type] ?? question.type}
+          {question.beyondNotes && <BeyondNotesMark />}
+        </p>
+        <InlineMarkdown className="text-[1rem] leading-relaxed text-fg" content={question.question} />
+
+        {showHint && question.hint && (
+          <div className="text-[0.9375rem] italic text-fg-muted">
+            <InlineMarkdown className="inline" content={`Hint: ${question.hint}`} />
+          </div>
+        )}
+        {showAnswer && (
+          <div className="space-y-1 border-l-2 border-accent pl-3" aria-live="polite">
+            <p className="text-meta font-medium text-fg-faint">Answer</p>
+            <InlineMarkdown className="text-[0.9375rem] text-fg" content={question.answer} />
+          </div>
+        )}
+
+        <div className="-ml-2 flex gap-1">
+          {question.hint && !showAnswer && (
+            <button type="button" onClick={() => setShowHint((v) => !v)} className={revealButton}>
+              {showHint ? "Hide hint" : "Hint"}
+            </button>
+          )}
+          <button type="button" onClick={() => setShowAnswer((v) => !v)} className={revealButton}>
+            {showAnswer ? "Hide answer" : "Show answer"}
+          </button>
+        </div>
+      </div>
+    </li>
+  );
+}
+
+export function PracticeTool({ noteId, noteTitle }: { noteId: string; noteTitle: string }) {
   const [numQuestions, setNumQuestions] = useState(5);
   const [difficulty, setDifficulty] = useState<"easy" | "medium" | "hard">("medium");
   const [includeBeyondNotes, setIncludeBeyondNotes] = useState(false);
-  const [revealed, setRevealed] = useState<Set<number>>(new Set());
 
-  const { mutate, data, isPending, error } = useMutation({
+  const { mutate, data, isPending, error, reset } = useMutation({
     mutationFn: () => aiApi.generatePractice({ noteIds: [noteId], numQuestions, difficulty, includeBeyondNotes }),
-    onSuccess: () => setRevealed(new Set()),
   });
 
-  function toggleReveal(i: number) {
-    setRevealed((prev) => {
-      const next = new Set(prev);
-      next.has(i) ? next.delete(i) : next.add(i);
-      return next;
-    });
+  if (isPending) return <GeneratingState label={`Writing ${numQuestions} practice questions from "${noteTitle}"...`} />;
+
+  if (data) {
+    return (
+      <div>
+        <div className="flex items-baseline justify-between gap-3">
+          <p className="text-sm text-fg-muted">
+            Work each one out on paper first, then check the answer.
+          </p>
+          <Button size="sm" variant="ghost" className="-mr-2.5 shrink-0" onClick={() => reset()}>
+            New set
+          </Button>
+        </div>
+        {/* Keyed by the result so a new set starts with every answer hidden again. */}
+        <ol key={data.questions.map((q) => q.question).join("|")} className="mt-3 divide-y divide-rule border-y border-rule">
+          {data.questions.map((q, i) => (
+            <PracticeQuestionItem key={i} question={q} number={i + 1} />
+          ))}
+        </ol>
+      </div>
+    );
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-foreground">Practice Questions</h3>
-        <NotesRevealToggle />
-      </div>
-
-      {!data && !isPending && (
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label>Questions</Label>
-              <Select value={String(numQuestions)} onValueChange={(v) => setNumQuestions(Number(v))}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {[3, 5, 8, 10, 15].map((n) => (
-                    <SelectItem key={n} value={String(n)}>
-                      {n}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Difficulty</Label>
-              <Select value={difficulty} onValueChange={(v) => setDifficulty(v as typeof difficulty)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="easy">Easy</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="hard">Hard</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <label className="flex items-start gap-2 text-sm">
-            <Checkbox checked={includeBeyondNotes} onCheckedChange={(v) => setIncludeBeyondNotes(v === true)} className="mt-0.5" />
-            <span>
-              Include one question beyond my notes
-              <span className="block text-xs text-muted-foreground">Adds an extra question testing related knowledge not in your notes - clearly marked so you know it's different.</span>
-            </span>
-          </label>
-
-          {error && <p className="text-sm text-destructive">{getErrorMessage(error, "Could not generate practice questions")}</p>}
-          <Button className="w-full" onClick={() => mutate()}>
-            Generate Practice Questions
-          </Button>
-        </div>
-      )}
-
-      {isPending && (
-        <div className="space-y-2 py-4">
-          <Skeleton className="h-4 w-full" />
-          <Skeleton className="h-4 w-5/6" />
-          <p className="pt-2 text-center text-xs text-muted-foreground">Writing practice questions...</p>
-        </div>
-      )}
-
-      {data && (
-        <div className="space-y-3">
-          {data.questions.map((q, i) => (
-            <div key={i} className={cn("rounded-lg border p-3", q.beyondNotes ? "border-warning/40 bg-warning/5" : "border-border")}>
-              <div className="mb-1.5 flex items-center justify-between">
-                <div className="flex items-center gap-1.5">
-                  <Badge variant="outline">{TYPE_LABEL[q.type]}</Badge>
-                  {q.beyondNotes && <Badge variant="warning">Beyond your notes</Badge>}
-                </div>
-                <span className="text-xs text-muted-foreground">Q{i + 1}</span>
-              </div>
-              <InlineMarkdown className="text-sm font-medium text-foreground" content={q.question} />
-              {q.hint && (
-                <p className="mt-1 text-xs italic text-muted-foreground">
-                  Hint: <InlineMarkdown className="inline" content={q.hint} />
-                </p>
-              )}
-
-              {revealed.has(i) ? (
-                <div className="mt-3 rounded-md bg-muted px-3 py-2">
-                  <InlineMarkdown className="text-sm" content={q.answer} />
-                </div>
-              ) : (
-                <Button size="sm" variant="outline" className="mt-3" onClick={() => toggleReveal(i)}>
-                  Reveal answer
-                </Button>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
+    <ToolSetup
+      intro="Open-ended questions - calculations, explanations, applications - to work through on paper, with hints and worked answers to check against."
+      error={error ? getErrorMessage(error, "Could not generate practice questions") : null}
+      submitLabel="Write practice questions"
+      onSubmit={() => mutate()}
+    >
+      <SetupRow label="Questions">
+        <Segmented
+          label="Number of questions"
+          value={String(numQuestions) as (typeof COUNTS)[number]}
+          onChange={(v) => setNumQuestions(Number(v))}
+          options={COUNTS.map((n) => ({ value: n, label: n }))}
+          className="w-full"
+        />
+      </SetupRow>
+      <SetupRow label="Difficulty">
+        <Segmented label="Difficulty" value={difficulty} onChange={setDifficulty} options={[...DIFFICULTY_OPTIONS]} className="w-full" />
+      </SetupRow>
+      <BeyondNotesOption checked={includeBeyondNotes} onChange={setIncludeBeyondNotes} />
+    </ToolSetup>
   );
 }

@@ -11,6 +11,8 @@ export const HIGHLIGHT_COLOR_CLASSES: Record<HighlightColor, string> = {
   orange: "bg-highlight-orange text-highlight-orange-foreground",
 };
 
+export const HIGHLIGHT_MARK_CLASSES = "rounded-xs px-[0.18em] py-[0.05em] [box-decoration-break:clone] [-webkit-box-decoration-break:clone]";
+
 export const HIGHLIGHT_COLORS: HighlightColor[] = ["yellow", "blue", "green", "red", "purple", "orange"];
 
 // Blue is the default/fallback color (used by plain ==text== and any missing/invalid

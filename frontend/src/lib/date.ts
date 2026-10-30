@@ -65,6 +65,19 @@ export function describeDayRelativeToToday(dateStr: string): string {
   return format(parseISO(dateStr), "EEEE").toUpperCase();
 }
 
+// "Today" / "Tomorrow" / "Yesterday", else the weekday - sentence case, for headings.
+export function relativeDayLabel(dateStr: string): string {
+  const today = todayISO();
+  if (dateStr === today) return "Today";
+  if (dateStr === addDaysISO(today, 1)) return "Tomorrow";
+  if (dateStr === addDaysISO(today, -1)) return "Yesterday";
+  return format(parseISO(dateStr), "EEEE");
+}
+
+export function formatMonthDay(dateStr: string): string {
+  return format(parseISO(dateStr), "MMMM d");
+}
+
 export function relativeSyncTime(isoTimestamp: string): string {
   return formatDistanceToNow(parseISO(isoTimestamp), { addSuffix: true });
 }
@@ -79,4 +92,19 @@ export function relativeCountdown(time: string): string {
   const hours = Math.floor(diff / 60);
   const mins = diff % 60;
   return mins === 0 ? `In ${hours}h` : `In ${hours}h ${mins}m`;
+}
+
+// "Fri, Oct 30" - used wherever a due date sits in a list column.
+export function formatDayShort(dateStr: string): string {
+  return format(parseISO(dateStr), "EEE, MMM d");
+}
+
+// "8:00-8:45 AM", or "11:50 AM-12:35 PM" when the range crosses noon - compact enough for a
+// timetable cell without dropping AM/PM.
+export function formatTimeRange(start: string, end: string): string {
+  const s = formatTime(start);
+  const e = formatTime(end);
+  const sPeriod = s.slice(-2);
+  const ePeriod = e.slice(-2);
+  return sPeriod === ePeriod ? `${s.slice(0, -3)}–${e}` : `${s}–${e}`;
 }

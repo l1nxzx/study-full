@@ -14,6 +14,7 @@ export interface AiChatMessage {
   label?: string; // e.g. "Summary" / "Explanation" - tags quick-action results in the feed
   groundedInNote?: boolean;
   isRegenerating?: boolean;
+  isError?: boolean; // the request failed - content is the error text, never sent back as history
 }
 
 type NewMessage = Omit<AiChatMessage, "id">;

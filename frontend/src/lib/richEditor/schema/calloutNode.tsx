@@ -1,6 +1,6 @@
 import { mergeAttributes, Node } from "@tiptap/core";
 import { NodeViewContent, NodeViewWrapper, ReactNodeViewRenderer, type ReactNodeViewProps } from "@tiptap/react";
-import { CALLOUT_VARIANT_CONFIG, resolveCalloutVariant, type CalloutVariant } from "@/lib/calloutVariants";
+import { CALLOUT_BASE_CLASSES, CALLOUT_VARIANT_CONFIG, resolveCalloutVariant, type CalloutVariant } from "@/lib/calloutVariants";
 import { cn } from "@/lib/utils";
 
 export interface CalloutNodeOptions {
@@ -20,9 +20,9 @@ function CalloutNodeView({ node, updateAttributes }: ReactNodeViewProps) {
   const config = CALLOUT_VARIANT_CONFIG[variant];
 
   return (
-    <NodeViewWrapper className={cn("my-4 rounded-lg border px-4 py-3", config.classes)} data-callout={variant}>
+    <NodeViewWrapper className={cn(CALLOUT_BASE_CLASSES, config.classes)} data-callout={variant}>
       <div className="mb-1 flex items-center justify-between gap-2">
-        <div className={cn("flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide", config.iconClasses)}>
+        <div className={cn("flex items-center gap-1.5 font-sans text-meta font-semibold", config.iconClasses)}>
           <config.icon className="size-3.5" />
           {config.label}
         </div>
@@ -30,7 +30,8 @@ function CalloutNodeView({ node, updateAttributes }: ReactNodeViewProps) {
           contentEditable={false}
           value={variant}
           onChange={(e) => updateAttributes({ variant: e.target.value })}
-          className="rounded border border-border bg-card px-1.5 py-0.5 text-xs text-muted-foreground"
+          aria-label="Callout type"
+          className="rounded-sm border border-rule bg-canvas px-1.5 py-0.5 font-sans text-meta text-fg-muted"
         >
           {Object.entries(CALLOUT_VARIANT_CONFIG).map(([key, cfg]) => (
             <option key={key} value={key}>
@@ -39,7 +40,7 @@ function CalloutNodeView({ node, updateAttributes }: ReactNodeViewProps) {
           ))}
         </select>
       </div>
-      <NodeViewContent className="text-sm text-foreground [&>p]:my-1 [&>p:first-child]:mt-0 [&>p:last-child]:mb-0" />
+      <NodeViewContent className="text-[0.95em] text-fg [&>p:first-child]:mt-0 [&>p:last-child]:mb-0 [&>p]:my-1.5" />
     </NodeViewWrapper>
   );
 }
