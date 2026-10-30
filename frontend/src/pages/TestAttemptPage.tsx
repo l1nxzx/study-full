@@ -14,6 +14,7 @@ import { Segmented } from "@/components/ui/segmented";
 import { Skeleton, SkeletonLines } from "@/components/ui/skeleton";
 import { setActivityHint } from "@/lib/activity";
 import { formatClock, formatDuration, formatPoints, scoreTone } from "@/lib/testLabels";
+import { KIND_LABELS } from "@/lib/testPlan";
 import { cn } from "@/lib/utils";
 
 type Answers = Record<string, string>;
@@ -266,7 +267,7 @@ function TakeTest({ attempt, onSubmitted }: { attempt: testsApi.TestAttempt; onS
                 <div className="pl-9">
                   <AnswerField value={answers[q.id] ?? ""} onChange={(v) => setAnswers((a) => ({ ...a, [q.id]: v }))} label={`Answer to question ${i + 1}`} />
                   <p className="mt-1.5 flex justify-between text-meta text-fg-faint">
-                    <span>{q.topic}</span>
+                    <span>{[q.topic, q.kind && KIND_LABELS[q.kind], q.problem && "problem"].filter(Boolean).join(" · ")}</span>
                     <span>{answered ? <Check className="inline size-3.5 text-ok" aria-label="Answered" /> : `about ${q.estimatedMinutes} min`}</span>
                   </p>
                 </div>

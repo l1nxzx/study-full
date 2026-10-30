@@ -81,6 +81,11 @@ Ask, Quiz and Flashcards as tabs, plus a link to make a written test; tools stay
 
 Written tests have their own pages (`/tests`, `/tests/new`, `/tests/:id`, `/tests/attempts/:id`). You pick
 notes, difficulty, how much thinking, how much logic, an estimated length and optional instructions.
+The settings decide the test's shape in code (`backend/src/services/testPlan.ts`, mirrored for the
+estimate in `frontend/src/lib/testPlan.ts`): the number of questions, the mix of recall, understanding and
+deep-thinking questions, which are problems to reason through, and each question's minutes and points
+(which add up to the chosen length). The AI outlines a distinct topic for every slot across all the notes,
+then writes the questions a few at a time; the New test page shows the plan before you create it.
 Every answer is handwritten (a textarea, no options), saved to the server as you type with a local backup,
 so a refresh or a dropped connection loses nothing. Handing in sends the answers to be graded: each
 question has points, partial credit in half points, feedback, the expected answer and what to revisit.
