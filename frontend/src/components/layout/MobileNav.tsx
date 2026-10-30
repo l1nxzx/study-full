@@ -6,7 +6,6 @@ import { NavLink, useLocation } from "react-router-dom";
 import { useAiPanel } from "@/hooks/useAiPanel";
 import { useShell } from "@/hooks/useShell";
 import { mainNavItems } from "@/lib/nav";
-import { BarColor } from "@/lib/themeColor";
 import { cn } from "@/lib/utils";
 import { AccountRows, Brand, NavigationList } from "./Sidebar";
 
@@ -40,7 +39,6 @@ export function MobileHeader() {
             aria-describedby={undefined}
             className="fixed inset-y-0 left-0 z-50 flex w-[17.5rem] max-w-[85vw] flex-col border-r border-rule bg-panel pt-[env(safe-area-inset-top)] outline-none"
           >
-            <BarColor layers={["--color-panel"]} />
             <div className="flex h-16 items-center justify-between pl-5 pr-2">
               <DialogPrimitive.Title asChild>
                 <span>

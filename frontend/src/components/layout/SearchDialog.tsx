@@ -8,7 +8,6 @@ import * as searchApi from "@/api/search";
 import { Kbd } from "@/components/ui/kbd";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useShell } from "@/hooks/useShell";
-import { BarColor, SCRIM } from "@/lib/themeColor";
 import { cn } from "@/lib/utils";
 import type { SearchResult } from "@/types";
 
@@ -100,7 +99,6 @@ export function SearchDialog() {
           aria-describedby={undefined}
           className="fixed inset-x-0 top-0 z-50 flex max-h-[100dvh] flex-col border-b border-rule bg-raised shadow-lg outline-none sm:inset-x-auto sm:left-1/2 sm:top-[12vh] sm:max-h-[70vh] sm:w-[calc(100%-2rem)] sm:max-w-xl sm:-translate-x-1/2 sm:rounded-lg sm:border"
         >
-          <BarColor layers={() => (window.matchMedia("(min-width: 640px)").matches ? [SCRIM] : ["--color-raised"])} />
           <DialogPrimitive.Title className="sr-only">Search</DialogPrimitive.Title>
           <div className="flex items-center gap-3 border-b border-rule px-4 pt-[env(safe-area-inset-top)]">
             <Search className="size-4 shrink-0 text-fg-faint" />
