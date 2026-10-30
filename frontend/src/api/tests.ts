@@ -118,6 +118,11 @@ export function submitAttempt(id: string, answers?: Record<string, string>, elap
     .then((r) => r.data);
 }
 
+// Grades a graded attempt again from the same answers; the new result replaces the old one.
+export function regradeAttempt(id: string) {
+  return apiClient.post<TestAttempt>(`/test-attempts/${id}/regrade`, {}, { timeout: 180_000 }).then((r) => r.data);
+}
+
 export function deleteAttempt(id: string) {
   return apiClient.delete(`/test-attempts/${id}`);
 }

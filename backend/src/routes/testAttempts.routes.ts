@@ -9,6 +9,7 @@ const router = Router();
 router.get("/:id", controller.getAttempt);
 router.patch("/:id", validateBody(saveTestAnswersSchema), controller.saveAnswers);
 router.post("/:id/submit", aiRateLimiter, validateBody(saveTestAnswersSchema.partial()), controller.submitAttempt);
+router.post("/:id/regrade", aiRateLimiter, controller.regradeAttempt);
 router.delete("/:id", controller.removeAttempt);
 
 export default router;
