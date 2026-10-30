@@ -8,6 +8,7 @@ import { usePreferences } from "@/hooks/usePreferences";
 import { useSubject } from "@/hooks/useSubjects";
 import { formatDateLong } from "@/lib/date";
 import { useCloseOnBack } from "@/lib/closeOnBack";
+import { useBarColor } from "@/lib/themeColor";
 import { cn } from "@/lib/utils";
 
 /*
@@ -126,6 +127,8 @@ export function NotebookPage() {
   const { preferences, updatePreferences, isTipDismissed, dismissTip } = usePreferences();
 
   const paper = preferences.notebookPaper ?? "light";
+  const rootRef = useRef<HTMLDivElement>(null);
+  useBarColor(true, ["--nb-desk"], { scope: rootRef, key: paper });
   const textSize: TextSize = preferences.notebookTextSize ?? "medium";
 
   const areaRef = useRef<HTMLDivElement>(null);
@@ -528,7 +531,7 @@ export function NotebookPage() {
     "flex size-11 shrink-0 items-center justify-center rounded-full text-[var(--nb-desk-fg-faint)] transition-colors hover:bg-[color-mix(in_oklch,var(--nb-desk-fg)_9%,transparent)] hover:text-[var(--nb-desk-fg)] disabled:pointer-events-none disabled:opacity-25";
 
   return (
-    <div className={cn("flex h-dvh flex-col overflow-hidden bg-[var(--nb-desk)] text-[var(--nb-desk-fg)]", `notebook-paper-${paper}`)}>
+    <div ref={rootRef} className={cn("flex h-dvh flex-col overflow-hidden bg-[var(--nb-desk)] text-[var(--nb-desk-fg)]", `notebook-paper-${paper}`)}>
       {!fullscreen && (
         <header className="flex h-[calc(3rem+env(safe-area-inset-top))] shrink-0 items-center gap-1 px-2 pt-[env(safe-area-inset-top)] sm:h-[calc(3.5rem+env(safe-area-inset-top))] sm:gap-2 sm:px-4">
           <button type="button" onClick={close} className={cn(turnButton, "size-10")} aria-label="Close notebook view" title="Close (Esc)">

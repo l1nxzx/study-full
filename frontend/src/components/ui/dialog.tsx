@@ -2,6 +2,7 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import { useState, type ComponentProps, type HTMLAttributes } from "react";
 import { useCloseOnBack } from "@/lib/closeOnBack";
+import { BarColor, SCRIM } from "@/lib/themeColor";
 import { cn } from "@/lib/utils";
 
 // Radix's root, plus: the system Back button closes an open dialog instead of leaving the page.
@@ -48,6 +49,7 @@ function DialogContent({
         )}
         {...props}
       >
+        <BarColor layers={[SCRIM]} />
         {children}
         {!hideClose && (
           <DialogPrimitive.Close className="absolute right-3 top-3 flex size-8 items-center justify-center rounded-md text-fg-faint transition-colors hover:bg-tint hover:text-fg sm:right-4 sm:top-4 sm:size-7">
