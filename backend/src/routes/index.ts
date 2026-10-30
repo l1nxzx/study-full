@@ -10,6 +10,12 @@ import searchRoutes from "./search.routes";
 import aiRoutes from "./ai.routes";
 import scheduleIntegrationRoutes from "./scheduleIntegration.routes";
 import scheduleEventsRoutes from "./scheduleEvents.routes";
+import conversationsRoutes from "./conversations.routes";
+import quizAttemptsRoutes from "./quizAttempts.routes";
+import testsRoutes from "./tests.routes";
+import testAttemptsRoutes from "./testAttempts.routes";
+import activityRoutes from "./activity.routes";
+import statsRoutes from "./stats.routes";
 
 const router = Router();
 
@@ -25,5 +31,11 @@ router.use("/search", requireAuth, searchRoutes);
 router.use("/ai", requireAuth, aiRoutes);
 router.use("/schedule-integration", requireAuth, scheduleIntegrationRoutes);
 router.use("/schedule-events", requireAuth, scheduleEventsRoutes);
+router.use("/conversations", requireAuth, conversationsRoutes);
+router.use("/quizzes", requireAuth, quizAttemptsRoutes);
+router.use("/tests", requireAuth, testsRoutes);
+router.use("/test-attempts", requireAuth, testAttemptsRoutes);
+router.use("/activity", requireAuth, activityRoutes);
+router.use("/stats", requireAuth, statsRoutes);
 
 export default router;

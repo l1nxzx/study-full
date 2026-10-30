@@ -92,7 +92,7 @@ export function SearchDialog() {
   return (
     <DialogPrimitive.Root open={searchOpen} onOpenChange={close}>
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-[oklch(0.12_0.01_165/0.55)]" />
+        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-[oklch(0.14_0.01_265/0.55)]" />
         <DialogPrimitive.Content
           aria-describedby={undefined}
           className="fixed inset-x-0 top-0 z-50 flex max-h-[100dvh] flex-col border-b border-rule bg-raised shadow-lg outline-none sm:inset-x-auto sm:left-1/2 sm:top-[12vh] sm:max-h-[70vh] sm:w-[calc(100%-2rem)] sm:max-w-xl sm:-translate-x-1/2 sm:rounded-lg sm:border"

@@ -4,12 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/label";
 import { InlineError } from "@/components/shared/EmptyState";
+import { StartupScreen } from "@/components/shared/StartupScreen";
 import { AuthLayout } from "./AuthLayout";
 import { getErrorMessage } from "@/api/client";
 import { useAuth } from "@/hooks/useAuth";
 
 export function RegisterPage() {
-  const { register, isAuthenticated } = useAuth();
+  const { register, isAuthenticated, isLoading, connectionError } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -19,6 +20,9 @@ export function RegisterPage() {
   if (isAuthenticated) {
     return <Navigate to="/dashboard" replace />;
   }
+
+  // A saved session is still being checked: wait for it instead of showing the form.
+  if (isLoading || connectionError) return <StartupScreen />;
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();

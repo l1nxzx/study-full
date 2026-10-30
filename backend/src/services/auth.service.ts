@@ -2,7 +2,7 @@ import { db, FieldValue } from "../config/firebase";
 import { AppError } from "../utils/AppError";
 import { comparePassword, hashPassword } from "../utils/password";
 import { signToken } from "../utils/jwt";
-import { LoginInput, RegisterInput } from "../models/auth.model";
+import { LoginInput, Preferences, RegisterInput } from "../models/auth.model";
 
 const usersCollection = db.collection("users");
 
@@ -24,7 +24,7 @@ export async function register(input: RegisterInput) {
   });
 
   const token = signToken({ userId: docRef.id, email: input.email });
-  return { token, user: { id: docRef.id, email: input.email, name: null } };
+  return { token, user: { id: docRef.id, email: input.email, name: null, preferences: {} } };
 }
 
 export async function login(input: LoginInput) {
@@ -43,7 +43,7 @@ export async function login(input: LoginInput) {
   }
 
   const token = signToken({ userId: userDoc.id, email: user.email });
-  return { token, user: { id: userDoc.id, email: user.email, name: user.name ?? null } };
+  return { token, user: { id: userDoc.id, email: user.email, name: user.name ?? null, preferences: user.preferences ?? {} } };
 }
 
 export async function getById(userId: string) {
@@ -52,16 +52,22 @@ export async function getById(userId: string) {
     throw AppError.notFound("user");
   }
   const data = doc.data()!;
-  return { id: doc.id, email: data.email, name: data.name ?? null };
+  return { id: doc.id, email: data.email, name: data.name ?? null, preferences: (data.preferences ?? {}) as Preferences };
 }
 
-export async function updateProfile(userId: string, name: string | null) {
+export async function updateProfile(userId: string, input: { name?: string | null; preferences?: Preferences }) {
   const docRef = usersCollection.doc(userId);
   const doc = await docRef.get();
   if (!doc.exists) {
     throw AppError.notFound("user");
   }
-  await docRef.update({ name, updatedAt: FieldValue.serverTimestamp() });
+  const patch: Record<string, unknown> = { updatedAt: FieldValue.serverTimestamp() };
+  if (input.name !== undefined) patch.name = input.name;
+  if (input.preferences) {
+    // Merge, so patching one preference never wipes the others.
+    patch.preferences = { ...(doc.data()!.preferences ?? {}), ...input.preferences };
+  }
+  await docRef.update(patch);
   return getById(userId);
 }
 

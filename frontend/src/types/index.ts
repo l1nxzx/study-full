@@ -1,7 +1,19 @@
+export type ReadingFont = "literata" | "instrument" | "system-serif" | "system-sans";
+export type UiFont = "instrument" | "system";
+
+export interface Preferences {
+  readingFont?: ReadingFont;
+  uiFont?: UiFont;
+  notebookPaper?: "light" | "dark";
+  notebookTextSize?: "small" | "medium" | "large";
+  dismissedTips?: string[];
+}
+
 export interface User {
   id: string;
   email: string;
   name: string | null;
+  preferences?: Preferences;
 }
 
 export interface Subject {

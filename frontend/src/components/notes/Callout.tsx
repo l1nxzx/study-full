@@ -6,8 +6,8 @@ export function Callout({ variant, children }: { variant?: string; children?: Re
   const config = CALLOUT_VARIANT_CONFIG[resolveCalloutVariant(variant)];
 
   return (
-    <div className={cn(CALLOUT_BASE_CLASSES, config.classes)}>
-      <div className={cn("mb-1 flex items-center gap-1.5 font-sans text-meta font-semibold", config.iconClasses)}>
+    <div className={cn("callout", CALLOUT_BASE_CLASSES, config.classes)}>
+      <div className={cn("callout-label mb-1 flex items-center gap-1.5 font-sans text-meta font-semibold", config.iconClasses)}>
         <config.icon className="size-3.5" />
         {config.label}
       </div>

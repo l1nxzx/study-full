@@ -7,101 +7,106 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 /*
- * Study's palette: graphite and chalk. A slate ground with a faint green-grey cast (never
- * pure black), chalk-coloured text (never pure white), and one restrained verdigris accent
- * for anything interactive or selected. Status colours (ok / warn / bad) are reserved for
- * meaning: quiz feedback, overdue work, failures. Nothing else gets colour.
+ * Study's palette: soft graphite and pastel. A neutral grey ground (no colour cast, never
+ * pure black), soft off-white text (never pure white), and one gentle lilac accent for
+ * anything interactive or selected. Status colours (ok / warn / bad) are pastel too and are
+ * reserved for meaning: quiz feedback, overdue work, failures. Nothing else gets colour.
  *
- * Light mode is "paper": the same structure on a warm off-white page.
+ * Light mode is "paper": the same structure on a near-white page.
+ *
+ * Fonts are variables too, so the reading and interface faces can be chosen in Settings.
  */
 :root {
   color-scheme: light;
 
-  --canvas: oklch(0.975 0.005 95);
-  --panel: oklch(0.958 0.006 100);
-  --tint: oklch(0.93 0.008 110);
-  --raised: oklch(0.99 0.003 95);
-  --rule: oklch(0.885 0.008 115);
-  --rule-strong: oklch(0.8 0.01 125);
+  --reading-font: "Literata Variable", Georgia, Cambria, serif;
+  --ui-font: "Instrument Sans Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
 
-  --fg: oklch(0.25 0.012 170);
-  --fg-muted: oklch(0.44 0.012 165);
-  --fg-faint: oklch(0.56 0.011 160);
+  --canvas: oklch(0.984 0.002 265);
+  --panel: oklch(0.965 0.003 265);
+  --tint: oklch(0.938 0.008 285);
+  --raised: oklch(0.995 0.001 265);
+  --rule: oklch(0.9 0.005 265);
+  --rule-strong: oklch(0.83 0.007 265);
 
-  --accent: oklch(0.47 0.075 185);
-  --accent-fill: oklch(0.47 0.075 185);
-  --on-accent: oklch(0.985 0.005 180);
+  --fg: oklch(0.27 0.01 265);
+  --fg-muted: oklch(0.46 0.012 265);
+  --fg-faint: oklch(0.58 0.012 265);
 
-  --ok: oklch(0.5 0.11 150);
-  --warn: oklch(0.56 0.11 70);
-  --bad: oklch(0.52 0.15 28);
-  --violet: oklch(0.5 0.1 300);
+  --accent: oklch(0.5 0.11 292);
+  --accent-fill: oklch(0.55 0.11 292);
+  --on-accent: oklch(0.99 0.005 292);
+
+  --ok: oklch(0.52 0.1 155);
+  --warn: oklch(0.57 0.11 72);
+  --bad: oklch(0.54 0.14 25);
+  --violet: oklch(0.52 0.1 350);
 
   /* Task kinds: identity, not alarm. Muted so a list of exams doesn't look like an error log. */
-  --kind-homework: oklch(0.55 0.02 170);
-  --kind-test: oklch(0.62 0.11 80);
-  --kind-exam: oklch(0.56 0.12 45);
-  --kind-oral: oklch(0.55 0.08 300);
+  --kind-homework: oklch(0.58 0.02 265);
+  --kind-test: oklch(0.64 0.11 80);
+  --kind-exam: oklch(0.6 0.12 45);
+  --kind-oral: oklch(0.58 0.09 330);
 
-  --shadow-color: oklch(0.3 0.02 170 / 0.12);
+  --shadow-color: oklch(0.3 0.02 265 / 0.12);
 
   /* Note highlights: muted, academic, never neon. Foregrounds are pushed darker for contrast. */
-  --highlight-yellow: oklch(0.9 0.1 95);
+  --highlight-yellow: oklch(0.92 0.09 95);
   --highlight-yellow-foreground: oklch(0.24 0.04 90);
-  --highlight-blue: oklch(0.9 0.045 240);
+  --highlight-blue: oklch(0.91 0.045 240);
   --highlight-blue-foreground: oklch(0.24 0.06 250);
-  --highlight-green: oklch(0.9 0.07 155);
+  --highlight-green: oklch(0.91 0.06 155);
   --highlight-green-foreground: oklch(0.24 0.05 155);
-  --highlight-red: oklch(0.9 0.06 25);
+  --highlight-red: oklch(0.91 0.055 25);
   --highlight-red-foreground: oklch(0.3 0.09 25);
-  --highlight-purple: oklch(0.9 0.05 300);
+  --highlight-purple: oklch(0.91 0.045 300);
   --highlight-purple-foreground: oklch(0.26 0.07 300);
-  --highlight-orange: oklch(0.9 0.08 60);
+  --highlight-orange: oklch(0.91 0.07 60);
   --highlight-orange-foreground: oklch(0.26 0.07 55);
 }
 
 .dark {
   color-scheme: dark;
 
-  --canvas: oklch(0.198 0.007 165);
-  --panel: oklch(0.218 0.007 165);
-  --tint: oklch(0.255 0.008 165);
-  --raised: oklch(0.245 0.008 165);
-  --rule: oklch(0.29 0.008 165);
-  --rule-strong: oklch(0.37 0.009 165);
+  --canvas: oklch(0.238 0.005 265);
+  --panel: oklch(0.258 0.006 265);
+  --tint: oklch(0.302 0.009 280);
+  --raised: oklch(0.285 0.007 265);
+  --rule: oklch(0.335 0.007 265);
+  --rule-strong: oklch(0.415 0.009 265);
 
-  --fg: oklch(0.91 0.01 95);
-  --fg-muted: oklch(0.74 0.01 120);
-  --fg-faint: oklch(0.6 0.01 145);
+  --fg: oklch(0.935 0.005 265);
+  --fg-muted: oklch(0.78 0.008 265);
+  --fg-faint: oklch(0.645 0.01 265);
 
-  --accent: oklch(0.77 0.065 180);
-  --accent-fill: oklch(0.53 0.07 182);
-  --on-accent: oklch(0.97 0.01 180);
+  --accent: oklch(0.83 0.075 292);
+  --accent-fill: oklch(0.76 0.085 292);
+  --on-accent: oklch(0.22 0.03 292);
 
-  --ok: oklch(0.77 0.1 148);
-  --warn: oklch(0.8 0.1 78);
-  --bad: oklch(0.72 0.12 28);
-  --violet: oklch(0.76 0.07 300);
+  --ok: oklch(0.83 0.09 155);
+  --warn: oklch(0.86 0.09 85);
+  --bad: oklch(0.77 0.11 25);
+  --violet: oklch(0.8 0.08 350);
 
-  --kind-homework: oklch(0.66 0.015 160);
-  --kind-test: oklch(0.78 0.1 82);
-  --kind-exam: oklch(0.72 0.11 48);
-  --kind-oral: oklch(0.74 0.06 300);
+  --kind-homework: oklch(0.74 0.015 265);
+  --kind-test: oklch(0.85 0.09 85);
+  --kind-exam: oklch(0.79 0.1 50);
+  --kind-oral: oklch(0.8 0.07 330);
 
-  --shadow-color: oklch(0.08 0.01 165 / 0.5);
+  --shadow-color: oklch(0.12 0.01 265 / 0.45);
 
-  --highlight-yellow: oklch(0.42 0.07 95);
-  --highlight-yellow-foreground: oklch(0.96 0.02 95);
-  --highlight-blue: oklch(0.4 0.06 245);
-  --highlight-blue-foreground: oklch(0.96 0.015 245);
-  --highlight-green: oklch(0.4 0.065 155);
-  --highlight-green-foreground: oklch(0.96 0.02 155);
-  --highlight-red: oklch(0.41 0.08 25);
-  --highlight-red-foreground: oklch(0.96 0.015 25);
-  --highlight-purple: oklch(0.41 0.07 300);
-  --highlight-purple-foreground: oklch(0.96 0.02 300);
-  --highlight-orange: oklch(0.42 0.075 60);
-  --highlight-orange-foreground: oklch(0.96 0.02 60);
+  --highlight-yellow: oklch(0.45 0.065 95);
+  --highlight-yellow-foreground: oklch(0.97 0.02 95);
+  --highlight-blue: oklch(0.44 0.055 245);
+  --highlight-blue-foreground: oklch(0.97 0.015 245);
+  --highlight-green: oklch(0.44 0.06 155);
+  --highlight-green-foreground: oklch(0.97 0.02 155);
+  --highlight-red: oklch(0.45 0.075 25);
+  --highlight-red-foreground: oklch(0.97 0.015 25);
+  --highlight-purple: oklch(0.45 0.065 300);
+  --highlight-purple-foreground: oklch(0.97 0.02 300);
+  --highlight-orange: oklch(0.46 0.07 60);
+  --highlight-orange-foreground: oklch(0.97 0.02 60);
 }
 
 @theme inline {
@@ -145,8 +150,8 @@
   --shadow-md: 0 4px 16px -4px var(--shadow-color), 0 1px 2px var(--shadow-color);
   --shadow-lg: 0 16px 40px -12px var(--shadow-color), 0 2px 6px var(--shadow-color);
 
-  --font-sans: "Instrument Sans Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-serif: "Literata Variable", Georgia, Cambria, serif;
+  --font-sans: var(--ui-font);
+  --font-serif: var(--reading-font);
   --font-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
 
   /* 12px is the smallest text in the app; metadata never goes below it. */
@@ -296,6 +301,15 @@
     animation:
       skeleton-in 200ms ease-out 150ms forwards,
       skeleton-pulse 2.4s ease-in-out 350ms infinite;
+  }
+
+  @keyframes startup-slide {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(300%);
+    }
   }
 
   @keyframes skeleton-in {
@@ -590,4 +604,227 @@
     color: var(--color-fg-faint);
     pointer-events: none;
   }
+}
+
+/*
+ * Notebook reader. The paper has its own palette (white or dark paper) independent of the app
+ * theme, so the reading text, highlights and markers are re-pointed at paper colours here.
+ * Vertical rhythm: every top-level block is followed by exactly one empty line, headings by
+ * none, and line-height is the ruling (--nb-line) - the reader then snaps each block's height
+ * to whole lines in JS so text keeps sitting on the ruled lines.
+ */
+.notebook-paper-light {
+  --nb-desk: oklch(0.87 0.004 265);
+  --nb-desk-fg: oklch(0.32 0.01 265);
+  --nb-desk-fg-faint: oklch(0.5 0.01 265);
+  --nb-paper: oklch(0.985 0.004 95);
+  --nb-rule: oklch(0.84 0.035 245);
+  --nb-margin: oklch(0.8 0.07 20);
+  --nb-spine: oklch(0.3 0.01 265 / 0.07);
+  --fg: oklch(0.24 0.012 265);
+  --fg-muted: oklch(0.42 0.012 265);
+  --fg-faint: oklch(0.56 0.012 265);
+  --accent: oklch(0.5 0.11 292);
+  --tint: oklch(0.93 0.008 285);
+  --panel: oklch(0.955 0.006 265);
+  --rule: oklch(0.88 0.01 265);
+  --rule-strong: oklch(0.78 0.012 265);
+  --ok: oklch(0.5 0.1 155);
+  --warn: oklch(0.56 0.11 72);
+  --bad: oklch(0.53 0.14 25);
+  --violet: oklch(0.52 0.1 350);
+  --highlight-yellow: oklch(0.92 0.09 95);
+  --highlight-yellow-foreground: oklch(0.24 0.04 90);
+  --highlight-blue: oklch(0.91 0.045 240);
+  --highlight-blue-foreground: oklch(0.24 0.06 250);
+  --highlight-green: oklch(0.91 0.06 155);
+  --highlight-green-foreground: oklch(0.24 0.05 155);
+  --highlight-red: oklch(0.91 0.055 25);
+  --highlight-red-foreground: oklch(0.3 0.09 25);
+  --highlight-purple: oklch(0.91 0.045 300);
+  --highlight-purple-foreground: oklch(0.26 0.07 300);
+  --highlight-orange: oklch(0.91 0.07 60);
+  --highlight-orange-foreground: oklch(0.26 0.07 55);
+  color-scheme: light;
+}
+
+.notebook-paper-dark {
+  --nb-desk: oklch(0.19 0.005 265);
+  --nb-desk-fg: oklch(0.86 0.006 265);
+  --nb-desk-fg-faint: oklch(0.62 0.01 265);
+  --nb-paper: oklch(0.265 0.006 265);
+  --nb-rule: oklch(0.355 0.012 255);
+  --nb-margin: oklch(0.42 0.05 20);
+  --nb-spine: oklch(0.08 0.01 265 / 0.3);
+  --fg: oklch(0.92 0.005 265);
+  --fg-muted: oklch(0.77 0.008 265);
+  --fg-faint: oklch(0.63 0.01 265);
+  --accent: oklch(0.83 0.075 292);
+  --tint: oklch(0.32 0.009 280);
+  --panel: oklch(0.235 0.006 265);
+  --rule: oklch(0.34 0.007 265);
+  --rule-strong: oklch(0.42 0.009 265);
+  --ok: oklch(0.83 0.09 155);
+  --warn: oklch(0.86 0.09 85);
+  --bad: oklch(0.77 0.11 25);
+  --violet: oklch(0.8 0.08 350);
+  --highlight-yellow: oklch(0.45 0.065 95);
+  --highlight-yellow-foreground: oklch(0.97 0.02 95);
+  --highlight-blue: oklch(0.44 0.055 245);
+  --highlight-blue-foreground: oklch(0.97 0.015 245);
+  --highlight-green: oklch(0.44 0.06 155);
+  --highlight-green-foreground: oklch(0.97 0.02 155);
+  --highlight-red: oklch(0.45 0.075 25);
+  --highlight-red-foreground: oklch(0.97 0.015 25);
+  --highlight-purple: oklch(0.45 0.065 300);
+  --highlight-purple-foreground: oklch(0.97 0.02 300);
+  --highlight-orange: oklch(0.46 0.07 60);
+  --highlight-orange-foreground: oklch(0.97 0.02 60);
+  color-scheme: dark;
+}
+
+/* The reading styles use the --color-* aliases, which resolve where they're declared (the
+   document root). Re-declare them on the paper so they pick up the paper's own colours. */
+.notebook-paper-light,
+.notebook-paper-dark {
+  --color-fg: var(--fg);
+  --color-fg-muted: var(--fg-muted);
+  --color-fg-faint: var(--fg-faint);
+  --color-accent: var(--accent);
+  --color-tint: var(--tint);
+  --color-panel: var(--panel);
+  --color-rule: var(--rule);
+  --color-rule-strong: var(--rule-strong);
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+  --color-bad: var(--bad);
+  --color-violet: var(--violet);
+  --color-highlight-yellow: var(--highlight-yellow);
+  --color-highlight-yellow-foreground: var(--highlight-yellow-foreground);
+  --color-highlight-blue: var(--highlight-blue);
+  --color-highlight-blue-foreground: var(--highlight-blue-foreground);
+  --color-highlight-green: var(--highlight-green);
+  --color-highlight-green-foreground: var(--highlight-green-foreground);
+  --color-highlight-red: var(--highlight-red);
+  --color-highlight-red-foreground: var(--highlight-red-foreground);
+  --color-highlight-purple: var(--highlight-purple);
+  --color-highlight-purple-foreground: var(--highlight-purple-foreground);
+  --color-highlight-orange: var(--highlight-orange);
+  --color-highlight-orange-foreground: var(--highlight-orange-foreground);
+}
+
+.notebook-flow {
+  line-height: var(--nb-line);
+}
+
+.notebook-flow .study-prose {
+  font-size: var(--nb-font);
+  line-height: var(--nb-line);
+}
+
+.notebook-flow .study-prose > *,
+.notebook-flow .notebook-head > * {
+  margin-top: 0 !important;
+  margin-bottom: var(--nb-line);
+}
+
+.notebook-flow .study-prose > :last-child {
+  margin-bottom: 0;
+}
+
+.notebook-flow .study-prose :where(h1, h2, h3, h4, h5, h6) {
+  line-height: var(--nb-line);
+  margin-bottom: 0;
+  break-after: avoid;
+}
+
+.notebook-flow .study-prose :where(h1) {
+  font-size: 1.32em;
+}
+
+.notebook-flow .study-prose :where(h2) {
+  font-size: 1.2em;
+}
+
+.notebook-flow .study-prose :where(h3, h4, h5, h6) {
+  font-size: 1.05em;
+}
+
+.notebook-flow .study-prose :where(p, li, td, th, blockquote, dd, dt) {
+  line-height: var(--nb-line);
+}
+
+.notebook-flow .study-prose :where(li, li > p, ul ul, ul ol, ol ul, ol ol) {
+  margin: 0;
+}
+
+.notebook-flow .study-prose :where(blockquote) {
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.notebook-flow .study-prose :where(table) {
+  border-collapse: separate;
+  border-spacing: 0;
+  max-width: 100%;
+}
+
+/* Table rows sit on the ruling: no vertical padding or borders, the paper's lines divide them. */
+.notebook-flow .study-prose :where(th, td) {
+  padding-top: 0;
+  padding-bottom: 0;
+  border: 0;
+  line-height: var(--nb-line);
+}
+
+.notebook-flow .study-prose :where(th) {
+  box-shadow: inset 0 -1.5px 0 var(--fg-faint);
+}
+
+.notebook-flow .study-prose :where(pre) {
+  line-height: var(--nb-line);
+  padding-top: 0;
+  padding-bottom: 0;
+  background: transparent;
+  border-color: var(--rule-strong);
+}
+
+.notebook-flow .study-prose :where(hr) {
+  border-top-color: var(--fg-faint);
+}
+
+.notebook-flow .study-prose :where(img) {
+  max-height: var(--nb-content-height);
+  object-fit: contain;
+}
+
+.notebook-flow .study-prose :where(table, pre, img, .katex-display, figure, blockquote) {
+  break-inside: avoid;
+}
+
+.notebook-flow .study-prose > div {
+  break-inside: avoid;
+}
+
+.notebook-flow .study-prose .katex-display {
+  margin: 0;
+}
+
+.notebook-flow * {
+  max-width: 100%;
+}
+
+/* Callouts keep to the ruling too: no vertical padding, the label takes one line. */
+.notebook-flow .study-prose .callout {
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.notebook-flow .study-prose .callout-label {
+  margin: 0;
+  line-height: var(--nb-line);
+}
+
+.notebook-flow .study-prose .callout p {
+  margin: 0;
 }

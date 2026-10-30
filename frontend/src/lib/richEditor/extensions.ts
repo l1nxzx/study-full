@@ -1,5 +1,6 @@
 import { TableKit } from "@tiptap/extension-table";
 import StarterKit from "@tiptap/starter-kit";
+import { AiAddMark } from "@/lib/richEditor/schema/aiAddMark";
 import { CalloutNode } from "@/lib/richEditor/schema/calloutNode";
 import { HighlightMark } from "@/lib/richEditor/schema/highlightMark";
 import { MathBlock, MathInline } from "@/lib/richEditor/schema/mathNode";
@@ -16,6 +17,7 @@ export function buildRichEditorExtensions() {
       table: { resizable: false },
     }),
     HighlightMark,
+    AiAddMark,
     CalloutNode,
     MathInline,
     MathBlock,

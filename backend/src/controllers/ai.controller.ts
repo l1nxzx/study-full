@@ -5,7 +5,7 @@ import * as notesService from "../services/notes.service";
 import * as aiService from "../services/openai.service";
 import { buildCacheKey, getCached, hashText, ONE_HOUR_MS, setCached } from "../services/aiCache.service";
 
-async function loadOwnedNotes(userId: string, noteIds: string[]) {
+export async function loadOwnedNotes(userId: string, noteIds: string[]) {
   const notes = await Promise.all(noteIds.map((id) => notesService.getNoteRaw(userId, id)));
   return notes.map((n) => ({ title: n.title, contentMarkdown: stripReviewMarkup(n.contentMarkdown) }));
 }
@@ -53,6 +53,7 @@ export const quiz = asyncHandler(async (req: Request, res: Response) => {
     difficulty: req.body.difficulty,
     questionTypes: req.body.questionTypes,
     includeBeyondNotes: req.body.includeBeyondNotes,
+    instructions: req.body.instructions,
   });
   res.json(result);
 });
@@ -60,16 +61,6 @@ export const quiz = asyncHandler(async (req: Request, res: Response) => {
 export const flashcards = asyncHandler(async (req: Request, res: Response) => {
   const notes = await loadOwnedNotes(req.user!.userId, req.body.noteIds);
   const result = await aiService.generateFlashcards(notes, req.body.count);
-  res.json(result);
-});
-
-export const practice = asyncHandler(async (req: Request, res: Response) => {
-  const notes = await loadOwnedNotes(req.user!.userId, req.body.noteIds);
-  const result = await aiService.generatePracticeQuestions(notes, {
-    numQuestions: req.body.numQuestions,
-    difficulty: req.body.difficulty,
-    includeBeyondNotes: req.body.includeBeyondNotes,
-  });
   res.json(result);
 });
 

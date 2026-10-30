@@ -5,8 +5,9 @@ import {
   chatResultSchema,
   explainResultSchema,
   flashcardsResultSchema,
-  practiceResultSchema,
   quizResultSchema,
+  testGenerationResultSchema,
+  testGradingResultSchema,
   rewriteResultSchema,
   summaryResultSchema,
 } from "../models/ai.model";
@@ -91,12 +92,14 @@ async function requestJson<T>(params: {
   user: string;
   schema: z.ZodType<T>;
   temperature?: number;
+  maxTokens?: number;
 }): Promise<T> {
   const client = requireOpenAI();
 
   const completion = await client.chat.completions.create({
     model: params.model,
     temperature: params.temperature ?? 0.4,
+    ...(params.maxTokens ? { max_tokens: params.maxTokens } : {}),
     response_format: { type: "json_object" },
     messages: [
       { role: "system", content: params.system },
@@ -165,9 +168,13 @@ export async function generateQuiz(
     difficulty: "easy" | "medium" | "hard";
     questionTypes: string[];
     includeBeyondNotes?: boolean;
+    instructions?: string;
   }
 ) {
   const model = config.difficulty === "hard" ? AI_MODELS.capable : AI_MODELS.fast;
+  const instructionsLine = config.instructions
+    ? ` The student added these notes about the quiz they want - follow them as long as they fit the rules above: "${config.instructions}".`
+    : "";
 
   const beyondNotesInstruction = config.includeBeyondNotes
     ? ` In addition to the ${config.numQuestions} questions above, include exactly one extra question (so ` +
@@ -187,7 +194,7 @@ export async function generateQuiz(
       "using only the concepts, facts, and definitions actually present in the notes - never invent facts that " +
       "aren't there or aren't reasonably implied. " +
       `Create exactly ${config.numQuestions} questions at ${config.difficulty} difficulty, using only these question ` +
-      `types: ${config.questionTypes.join(", ")}.${beyondNotesInstruction} Respond as JSON matching this shape: ` +
+      `types: ${config.questionTypes.join(", ")}.${beyondNotesInstruction}${instructionsLine} Respond as JSON matching this shape: ` +
       '{ "questions": [ { "type": "multiple_choice", "question": string, "options": string[4], "correctIndex": number, "explanation": string, "beyondNotes": boolean (optional) } ' +
       '| { "type": "true_false", "question": string, "correctAnswer": boolean, "explanation": string, "beyondNotes": boolean (optional) } ' +
       '| { "type": "short_answer", "question": string, "sampleAnswer": string, "explanation": string, "beyondNotes": boolean (optional) } ] }. ' +
@@ -213,35 +220,6 @@ export async function generateFlashcards(notes: NoteContext[], count: number) {
   });
 }
 
-export async function generatePracticeQuestions(
-  notes: NoteContext[],
-  config: { numQuestions: number; difficulty: "easy" | "medium" | "hard"; includeBeyondNotes?: boolean }
-) {
-  const beyondNotesInstruction = config.includeBeyondNotes
-    ? ` In addition to the ${config.numQuestions} questions above, include exactly one extra question (so ` +
-      `${config.numQuestions + 1} total) that goes a bit beyond what's directly in the notes but is relevant to the ` +
-      'same topic. Mark only that one question\'s JSON object with "beyondNotes": true; every other question must ' +
-      "omit that field or set it to false."
-    : "";
-
-  return requestJson({
-    model: AI_MODELS.capable,
-    schema: practiceResultSchema,
-    temperature: 0.6,
-    system:
-      "You create practice questions that require real thinking, not just recall - calculations, short-answer " +
-      "reasoning, applying a concept to a new situation. When the subject matter involves math, physics, or similar, " +
-      "include problems that require solving, not just defining terms. Use your own judgment for how to phrase and " +
-      "structure each question - the requirement is that it must be answerable using only the concepts and facts " +
-      `actually in the notes (except an explicitly marked beyond-notes question, see below). Write exactly ` +
-      `${config.numQuestions} questions at ${config.difficulty} difficulty.${beyondNotesInstruction} Respond as JSON: ` +
-      '{ "questions": [ { "question": string, "type": "calculation" | "short_answer" | "application" | "concept", "hint": string (optional), "answer": string, "beyondNotes": boolean (optional) } ] }.' +
-      MATH_FORMATTING_INSTRUCTION +
-      SLOVAK_INSTRUCTION,
-    user: `Generate the practice questions from these notes:\n\n${buildNotesContext(notes)}`,
-  });
-}
-
 export async function askNote(
   note: NoteContext,
   question: string,
@@ -257,9 +235,14 @@ export async function askNote(
       {
         role: "system",
         content:
-          `You are answering questions about a single note titled "${note.title}". Only use the note content below ` +
-          "as your source of truth. If the note does not contain enough information to answer, say so plainly instead " +
-          'of guessing. Respond as JSON: { "answer": string, "groundedInNote": boolean }.' +
+          `You are a study assistant helping a student understand their note titled "${note.title}" (content below). ` +
+          "Use the note as your main source and stay consistent with it. Often, to understand the note the student " +
+          "needs something the note doesn't explain - a prerequisite concept, background, a related topic, a worked " +
+          "example. In that case answer fully and accurately from reliable general knowledge instead of refusing; " +
+          "connect it back to the note where that helps. Never claim the note says something it doesn't. Set " +
+          '"groundedInNote" to true when the answer comes from the note, and false when a meaningful part of it ' +
+          "comes from outside the note. Do not add disclaimers about this in the answer text itself - the app shows " +
+          'that separately. Respond as JSON: { "answer": string, "groundedInNote": boolean }.' +
           MARKDOWN_FORMATTING_INSTRUCTION +
           SLOVAK_INSTRUCTION +
           `\n\nNote content:\n${note.contentMarkdown.slice(0, MAX_CHARS_PER_NOTE)}`,
@@ -391,5 +374,117 @@ export async function rewriteNote(note: NoteContext, options: RewriteOptions) {
       MARKDOWN_FORMATTING_INSTRUCTION +
       SLOVAK_INSTRUCTION,
     user: `Note title: ${note.title}\n\nCurrent note content (Markdown):\n${note.contentMarkdown.slice(0, MAX_CHARS_PER_NOTE)}`,
+  });
+}
+
+// ---- Tests: long, written-answer exams generated from notes and graded by the AI ----
+
+export interface TestSettings {
+  difficulty: "easy" | "medium" | "hard" | "very_hard";
+  thinking: "recall" | "understanding" | "deep";
+  logic: "low" | "medium" | "high";
+  durationMinutes: number;
+  instructions?: string;
+}
+
+const DIFFICULTY_TEXT: Record<TestSettings["difficulty"], string> = {
+  easy: "easy - checks that the basics are understood",
+  medium: "medium - a normal school test",
+  hard: "hard - a demanding test that separates good from excellent answers",
+  very_hard: "very hard - the hardest fair test you can write from this material",
+};
+
+const THINKING_TEXT: Record<TestSettings["thinking"], string> = {
+  recall: "mostly recall: definitions, facts, formulas, stating and describing",
+  understanding: "mostly understanding: explaining why, comparing, giving examples, applying a rule to a new case",
+  deep: "mostly deep thinking: analysing, combining several ideas, multi-step reasoning, justifying conclusions",
+};
+
+const LOGIC_TEXT: Record<TestSettings["logic"], string> = {
+  low: "few logic or problem-solving tasks",
+  medium: "a fair share of tasks that need logical reasoning or problem solving (calculations, derivations, cause and effect)",
+  high: "mostly tasks built on logical reasoning and problem solving (calculations, proofs, derivations, puzzles of cause and effect)",
+};
+
+// Generates a long written test. Every question carries its own point value (scaled to the
+// effort it takes), an estimated time, a model answer and grading criteria - the latter two
+// are kept on the server until the attempt is graded.
+export async function generateTest(notes: NoteContext[], settings: TestSettings) {
+  const instructionsLine = settings.instructions
+    ? ` The student described the test they want like this - follow it as long as it fits the material: "${settings.instructions}".`
+    : "";
+
+  return requestJson({
+    model: AI_MODELS.capable,
+    schema: testGenerationResultSchema,
+    temperature: 0.6,
+    maxTokens: 14000,
+    system:
+      "You write real written school tests from a student's class notes. There are no answer options: every question " +
+      "must be answered in writing (a sentence, a paragraph, a calculation, a derivation). Questions must be answerable " +
+      "from the material in the notes (you may require combining and applying it). Write clear, unambiguous questions. " +
+      `Difficulty: ${DIFFICULTY_TEXT[settings.difficulty]}. Kind of thinking: ${THINKING_TEXT[settings.thinking]}. ` +
+      `Logic: ${LOGIC_TEXT[settings.logic]}. The whole test should take a well-prepared student about ` +
+      `${settings.durationMinutes} minutes - choose the number of questions to fit that (between 3 and 40), and give each ` +
+      'question an honest "estimatedMinutes". Give each question "points" (an integer from 1 to 20) proportional to ' +
+      "the work and understanding it requires. For every question also write a complete, correct \"modelAnswer\" " +
+      'and "criteria": a short list of what an answer must contain to earn full points (each criterion should be ' +
+      'checkable). Give each question a short "topic" (2-4 words) naming what it tests.' +
+      instructionsLine +
+      ' Respond as JSON: { "title": string (a short test title), "questions": [ { "prompt": string, "points": number, ' +
+      '"estimatedMinutes": number, "topic": string, "modelAnswer": string, "criteria": string[] } ] }.' +
+      MATH_FORMATTING_INSTRUCTION +
+      SLOVAK_INSTRUCTION,
+    user: `Write the test from these notes:\n\n${buildNotesContext(notes)}`,
+  });
+}
+
+export interface GradingQuestion {
+  id: string;
+  prompt: string;
+  points: number;
+  modelAnswer: string;
+  criteria: string[];
+  answer: string;
+}
+
+// Grades written answers against the model answer and criteria. The prompt asks for fair,
+// objective marking: real partial credit for partially correct work, no points for wrong or
+// irrelevant content, and no invented faults in a correct answer.
+export async function gradeTest(notes: NoteContext[], questions: GradingQuestion[]) {
+  const payload = questions.map((q) => ({
+    id: q.id,
+    question: q.prompt,
+    maxPoints: q.points,
+    modelAnswer: q.modelAnswer,
+    criteria: q.criteria,
+    studentAnswer: q.answer,
+  }));
+
+  return requestJson({
+    model: AI_MODELS.capable,
+    schema: testGradingResultSchema,
+    temperature: 0.2,
+    maxTokens: 12000,
+    system:
+      "You are an experienced, fair teacher grading a student's written test. For each question compare the student's " +
+      "answer with the model answer and the criteria, and award points from 0 to maxPoints in steps of 0.5. Be " +
+      "objective: give full points to an answer that is correct and complete, even if worded differently, ordered " +
+      "differently, or using different but valid notation or method. Give partial points for answers that are partly " +
+      "correct, in proportion to what they get right. Give no points for content that is wrong, irrelevant, or only " +
+      "restates the question, and do not reward length or confident wording. Do not invent mistakes in a correct answer " +
+      "and do not be harsh for the sake of it; small slips (spelling, a typo, a missing unit when the method and result " +
+      "are clearly right) cost at most a little. Judge only what is actually written. For each question write short, " +
+      'specific "feedback" for the student (what was right, what was wrong or missing), a concise "correctAnswer" ' +
+      '(what a full-mark answer contains), and "toLearn": one sentence on what to study to do better, or an empty ' +
+      'string when the answer earned full points. Then write a two or three sentence "summary" of the whole test, ' +
+      'a list of "strengths" and a list of "toReview" topics (short noun phrases). Respond as JSON: { "results": ' +
+      '[ { "id": string, "awarded": number, "feedback": string, "correctAnswer": string, "toLearn": string } ], ' +
+      '"summary": string, "strengths": string[], "toReview": string[] }. Include every question id you were given.' +
+      MATH_FORMATTING_INSTRUCTION +
+      SLOVAK_INSTRUCTION,
+    user:
+      `The notes the test was written from (for reference):\n\n${buildNotesContext(notes)}\n\n---\n\n` +
+      `Questions with the student's answers (JSON):\n${JSON.stringify(payload)}`,
   });
 }

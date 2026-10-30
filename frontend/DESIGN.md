@@ -4,10 +4,11 @@ Study should feel like a quiet academic workspace: something you can sit in for 
 answering questions and planning work. It is not a dashboard of cards. Typography, alignment, spacing and
 hairline rules do most of the visual work; colour and containers are used only when they mean something.
 
-## Palette: graphite and chalk
+## Palette: soft graphite and lilac
 
 Tokens live in `src/index.css` (`:root` = light "paper", `.dark` = dark, the default). Use the tokens,
-never raw colours, in components.
+never raw colours, in components. Greys are near-neutral (a faint cool cast, very low chroma) and the
+dark ground is a lifted graphite rather than near-black, so long sessions stay relaxed.
 
 | Token | Use |
 | --- | --- |
@@ -17,7 +18,7 @@ never raw colours, in components.
 | `raised` | Menus, dialogs, toasts. |
 | `rule` / `rule-strong` | Hairlines between rows / borders on controls. |
 | `fg` / `fg-muted` / `fg-faint` | Primary text (chalk, never pure white) / secondary / metadata. |
-| `accent` / `accent-fill` / `on-accent` | The single interactive colour (verdigris): links, active states, focus, the one primary button. |
+| `accent` / `accent-fill` / `on-accent` | The single interactive colour (pastel lilac): links, active states, focus, the one primary button. In dark mode the primary button is a pastel fill with dark text. |
 | `ok` / `warn` / `bad` | Meaning only: correct and incorrect answers, changes, overdue work, errors. |
 | `--kind-*` | Muted task-kind colours (homework, unit test, big exam, oral). |
 
@@ -28,7 +29,11 @@ desaturated, never as tinted rows or cards.
 
 - **Instrument Sans** is the interface: navigation, controls, labels, page titles, lists of tasks.
 - **Literata** is the material you study: note bodies and titles, assistant answers, quiz questions,
-  flashcards, practice questions. Rule of thumb: if you would revise from it, it's serif.
+  flashcards, test questions. Rule of thumb: if you would revise from it, it's serif.
+- Both faces are user preferences (Settings > Fonts): the reading font (`--reading-font`, used by
+  `font-serif`) can be Literata, Instrument Sans or the system serif/sans; the interface font
+  (`--ui-font`, used by `font-sans`) Instrument Sans or the system font. Preferences are stored on the
+  account, cached in `localStorage` (`study.prefs`) and applied in `index.html` before first paint.
 - Tables inside notes switch to the sans face for scanning. Code uses the system monospace.
 - Sizes: `.page-title` 22px, `.material-title` 28 to 32px, `.section-title` 15px, body 14px,
   `.group-label` 12px semibold (sentence case, never all caps), `text-meta` 12px. Nothing is smaller
@@ -60,18 +65,42 @@ desaturated, never as tinted rows or cards.
 
 The assistant is a workspace beside the page: a pushed column on wide screens, a sheet over the right
 edge on mid-size screens, the full screen on phones (Ctrl/Cmd+J toggles it). With a note open it offers
-Ask, Quiz, Flashcards and Practice as tabs; tools stay mounted while switching so progress isn't lost.
+Ask, Quiz and Flashcards as tabs, plus a link to make a written test; tools stay mounted while switching.
 
 - **Ask**: user turns are small tinted blocks; answers are unboxed serif prose with Copy / Regenerate.
-  Note-based answers state their source ("From your note ...", or a warning when they go beyond it).
-  Failed requests render as errors with "Try again" and are never sent back as history.
+  The assistant also answers beyond the note; such answers carry one quiet italic line ("Goes a little
+  beyond your note."), never a warning box. Failed requests render as errors with "Try again" and are
+  never sent back as history. Conversations are saved to the account (History, New).
 - **Quiz**: one question at a time, answer choices as keyed rows (A-D), a verdict plus explanation
   ruled in ok/bad, a segmented progress bar that lets you revisit answered questions, a results review.
+  Optional instructions steer generation. Every attempt is saved as you answer, resumable, and retryable.
 - **Flashcards**: a single sheet, answer revealed beneath the question, sorted into "again" / "got it",
   with a second round for the "again" pile.
-- **Practice**: numbered open questions with hint and answer revealed on request.
 
-No gamification: no points, streaks, badges or celebratory animation. Progress is stated as facts
+## Tests
+
+Written tests have their own pages (`/tests`, `/tests/new`, `/tests/:id`, `/tests/attempts/:id`). You pick
+notes, difficulty, how much thinking, how much logic, an estimated length and optional instructions.
+Every answer is handwritten (a textarea, no options), saved to the server as you type with a local backup,
+so a refresh or a dropped connection loses nothing. Handing in sends the answers to be graded: each
+question has points, partial credit in half points, feedback, the expected answer and what to revisit.
+Results stay stored; a test can be retaken or a new one generated from the same notes.
+
+## Notebook reader
+
+`/notes/:id/read` lays a note out as lined notebook pages: a two-page spread on wide screens, one page on
+phones. Text snaps to the ruled baseline grid. Paper is white or dark and text has three sizes (both
+preferences). Pages turn by swipe (follows the finger, flick or 60px), edge taps, arrows, Page Up/Down,
+Space, wheel or the slider; the position is kept per note across reloads, resizes and rotation.
+
+## Statistics
+
+Time is tracked while the app is visible and in use (idle after 4 minutes) and attributed to an area,
+note, subject and test. The profile page (`/profile`) shows time by day, subject, activity, hour and
+weekday, sessions, quiz accuracy and missed questions, test scores and topics to review. Notes and
+subjects show their own figures. Charts are thin bars in the accent colour with hover tooltips.
+
+No gamification: no streaks, badges or celebratory animation (test points are grading, not rewards). Progress is stated as facts
 ("7 of 10 correct").
 
 ## Motion and states

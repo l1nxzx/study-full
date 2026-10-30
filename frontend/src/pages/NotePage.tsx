@@ -1,11 +1,12 @@
-import { ChevronDown, Eye, MessagesSquare, Pencil, Trash2, Type, Wand2 } from "lucide-react";
+import { BookOpenText, ChevronDown, ClipboardPen, Eye, MessagesSquare, Pencil, Trash2, Type, Wand2 } from "lucide-react";
 import { lazy, Suspense, useEffect, useState } from "react";
-import { Navigate, useNavigate, useParams } from "react-router-dom";
+import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import { getErrorMessage } from "@/api/client";
 import { BackLink, Page } from "@/components/layout/PageHeader";
 import { AiReviewBanner } from "@/components/notes/AiReviewBanner";
 import { AiRewriteDialog } from "@/components/notes/AiRewriteDialog";
 import { AttachmentList } from "@/components/notes/AttachmentList";
+import { NoteStatsSection } from "@/components/stats/EntityStats";
 import { MarkdownRenderer } from "@/components/notes/MarkdownRenderer";
 import { NoteEditor, type NoteEditorValues } from "@/components/notes/NoteEditor";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
@@ -100,14 +101,15 @@ export function NotePage() {
   }
 
   function openStudyTools() {
-    if (toolMode === "quiz" || toolMode === "practice") setToolMode("none");
+    if (toolMode === "quiz") setToolMode("none");
     openAiPanel();
   }
 
   const alterations = findAlterations(note.contentMarkdown);
   const additions = findAdditions(note.contentMarkdown);
-  const hasPendingReview = alterations.length + additions.length > 0;
-  const notesHiddenForQuiz = panelOpen && (toolMode === "quiz" || toolMode === "practice") && !notesRevealed;
+  // Only unresolved corrections block visual formatting; AI-added passages are kept as marked text.
+  const hasPendingCorrections = alterations.length > 0;
+  const notesHiddenForQuiz = panelOpen && toolMode === "quiz" && !notesRevealed;
   const backTo = subject ? { to: `/subjects/${subject.id}`, label: subject.name } : { to: "/notes", label: "Notes" };
 
   if (isEditing) {
@@ -166,6 +168,11 @@ export function NotePage() {
           </p>
 
           <div className="-ml-2.5 flex items-center gap-1 sm:ml-0">
+            <Button variant="ghost" size="sm" asChild>
+              <Link to={`/notes/${note.id}/read`} title="Read as a paper notebook">
+                <BookOpenText /> Notebook
+              </Link>
+            </Button>
             <Button variant="ghost" size="sm" onClick={openStudyTools}>
               <MessagesSquare /> Study with assistant
             </Button>
@@ -179,15 +186,18 @@ export function NotePage() {
                 <DropdownMenuItem onSelect={() => setIsEditing(true)}>
                   <Pencil /> Edit Markdown and details
                 </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => setIsRichEditing(true)} disabled={hasPendingReview}>
+                <DropdownMenuItem onSelect={() => setIsRichEditing(true)} disabled={hasPendingCorrections}>
                   <Type />
                   <span className="flex-1">
                     Format visually
-                    {hasPendingReview && <span className="block text-meta text-fg-faint">Review the AI corrections first</span>}
+                    {hasPendingCorrections && <span className="block text-meta text-fg-faint">Accept or reject the AI corrections first</span>}
                   </span>
                 </DropdownMenuItem>
                 <DropdownMenuItem onSelect={() => setRewriteOpen(true)}>
                   <Wand2 /> Rewrite with AI
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => navigate(`/tests/new?noteIds=${note.id}`)}>
+                  <ClipboardPen /> Make a test from it
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem variant="destructive" onSelect={() => setConfirmDelete(true)}>
@@ -229,8 +239,9 @@ export function NotePage() {
         )}
       </article>
 
-      <div className="mt-16">
+      <div className="mt-16 space-y-14">
         <AttachmentList noteId={note.id} attachments={note.attachments} />
+        <NoteStatsSection noteId={note.id} />
       </div>
 
       <ConfirmDialog

@@ -1,8 +1,8 @@
 import { Eye, EyeOff } from "lucide-react";
 import { useAiPanel } from "@/hooks/useAiPanel";
 
-// Notes are hidden behind an overlay on the note page while this is off, so quiz/
-// practice questions can't just be answered by reading the note underneath.
+// Notes are hidden behind an overlay on the note page while this is off, so quiz
+// questions can't just be answered by reading the note underneath.
 export function NotesRevealToggle() {
   const { notesRevealed, toggleNotesRevealed } = useAiPanel();
 

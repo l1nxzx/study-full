@@ -7,7 +7,6 @@ import {
   chatRequestSchema,
   explainRequestSchema,
   flashcardsRequestSchema,
-  practiceRequestSchema,
   quizRequestSchema,
   rewriteRequestSchema,
   summaryRequestSchema,
@@ -21,7 +20,6 @@ router.post("/summary", validateBody(summaryRequestSchema), controller.summary);
 router.post("/explain", validateBody(explainRequestSchema), controller.explain);
 router.post("/quiz", validateBody(quizRequestSchema), controller.quiz);
 router.post("/flashcards", validateBody(flashcardsRequestSchema), controller.flashcards);
-router.post("/practice", validateBody(practiceRequestSchema), controller.practice);
 router.post("/ask", validateBody(askRequestSchema), controller.ask);
 router.post("/chat", validateBody(chatRequestSchema), controller.chat);
 router.post("/rewrite", validateBody(rewriteRequestSchema), controller.rewrite);
