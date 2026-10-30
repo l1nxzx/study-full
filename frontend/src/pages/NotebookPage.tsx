@@ -433,7 +433,7 @@ export function NotebookPage() {
           <X className="size-5" />
         </button>
         <p className="min-w-0 flex-1 truncate text-sm font-medium">{note?.title}</p>
-        <div className="hidden sm:block">
+        <div className="shrink-0">
           <Segmented
             label="Text size"
             size="sm"

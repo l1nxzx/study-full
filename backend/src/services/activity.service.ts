@@ -59,13 +59,13 @@ export async function recordHeartbeat(userId: string, input: ActivityHeartbeatIn
     }
     return obj;
   };
-  const counters = {
-    seconds: FieldValue.increment(total),
-    byArea: nested("byArea"),
-    bySubject: nested("bySubject"),
-    byNote: nested("byNote"),
-    byTest: nested("byTest"),
-  };
+  // Only maps with something in them: with merge, Firestore writes an empty map as a value,
+  // which would wipe that day's (and session's) totals for every note, subject or test.
+  const counters: Record<string, unknown> = { seconds: FieldValue.increment(total) };
+  for (const prefix of ["byArea", "bySubject", "byNote", "byTest"]) {
+    const map = nested(prefix);
+    if (Object.keys(map).length > 0) counters[prefix] = map;
+  }
 
   const now = Date.now();
   const metaRef = metaCollection.doc(userId);
