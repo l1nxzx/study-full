@@ -7,6 +7,10 @@ export interface Preferences {
   notebookPaper?: "light" | "dark";
   notebookTextSize?: "small" | "medium" | "large";
   dismissedTips?: string[];
+  /** Subjects pinned to the top of the sidebar, in order. */
+  pinnedSubjects?: string[];
+  /** How many subjects the sidebar shows before "Show more"; 0 shows all. */
+  sidebarSubjectCount?: number;
 }
 
 export interface User {

@@ -62,6 +62,8 @@ export function NotePage() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [rewriteOpen, setRewriteOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // What you were saving when a save failed: the editor reopens with it, so nothing is lost.
+  const [unsaved, setUnsaved] = useState<{ values?: NoteEditorValues; markdown?: string } | null>(null);
 
   // Registers this note as the AI panel's active context (quick actions + chat become
   // scoped to it) for as long as this page is mounted.
@@ -77,26 +79,42 @@ export function NotePage() {
     return <Navigate to="/notes" replace />;
   }
 
-  async function handleUpdate(values: NoteEditorValues) {
+  // Saving shows the changed note at once (the cache is updated before the server answers).
+  // If the server refuses, the note goes back and the editor reopens with your changes.
+  function handleUpdate(values: NoteEditorValues) {
     setError(null);
-    try {
-      await updateNote.mutateAsync({ id: note!.id, input: values });
-      setIsEditing(false);
-    } catch (err) {
-      setError(getErrorMessage(err, "Could not save changes"));
-    }
+    setUnsaved(null);
+    setIsEditing(false);
+    updateNote.mutate(
+      { id: note!.id, input: values },
+      {
+        onError: (err) => {
+          setError(getErrorMessage(err, "Could not save changes"));
+          setUnsaved({ values });
+          setIsEditing(true);
+        },
+      }
+    );
   }
 
-  async function handleDelete() {
-    await deleteNote.mutateAsync(note!.id);
+  function handleDelete() {
+    deleteNote.mutate(note!.id);
     navigate(note!.subjectId ? `/subjects/${note!.subjectId}` : "/notes");
   }
 
-  function saveContent(nextContent: string) {
+  function saveContent(nextContent: string, fromFormatting = false) {
     setError(null);
     updateNote.mutate(
       { id: note!.id, input: { contentMarkdown: nextContent } },
-      { onError: (err) => setError(getErrorMessage(err, "Could not save changes")) }
+      {
+        onError: (err) => {
+          setError(getErrorMessage(err, "Could not save changes"));
+          if (fromFormatting) {
+            setUnsaved({ markdown: nextContent });
+            setIsRichEditing(true);
+          }
+        },
+      }
     );
   }
 
@@ -117,17 +135,22 @@ export function NotePage() {
       <Page width="wide">
         <NoteEditor
           heading="Editing note"
-          initialValues={{
-            title: note.title,
-            subjectId: note.subjectId,
-            sessionId: note.sessionId,
-            date: note.date,
-            contentMarkdown: note.contentMarkdown,
-          }}
+          initialValues={
+            unsaved?.values ?? {
+              title: note.title,
+              subjectId: note.subjectId,
+              sessionId: note.sessionId,
+              date: note.date,
+              contentMarkdown: note.contentMarkdown,
+            }
+          }
           onSubmit={handleUpdate}
-          onCancel={() => setIsEditing(false)}
+          onCancel={() => {
+            setUnsaved(null);
+            setIsEditing(false);
+          }}
           closeOnBack
-          isSubmitting={updateNote.isPending}
+          isSubmitting={false}
           submitLabel="Save changes"
           error={error}
         />
@@ -140,13 +163,17 @@ export function NotePage() {
       <Page width="wide">
         <Suspense fallback={<SkeletonLines lines={6} className="max-w-[46rem]" />}>
           <RichNoteEditor
-            content={note.contentMarkdown}
-            isSaving={updateNote.isPending}
+            content={unsaved?.markdown ?? note.contentMarkdown}
+            isSaving={false}
             onSave={(markdown) => {
-              saveContent(markdown);
+              setUnsaved(null);
+              saveContent(markdown, true);
               setIsRichEditing(false);
             }}
-            onCancel={() => setIsRichEditing(false)}
+            onCancel={() => {
+              setUnsaved(null);
+              setIsRichEditing(false);
+            }}
           />
         </Suspense>
       </Page>

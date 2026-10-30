@@ -7,7 +7,7 @@ import { useAiPanel } from "@/hooks/useAiPanel";
 import { useShell } from "@/hooks/useShell";
 import { mainNavItems } from "@/lib/nav";
 import { cn } from "@/lib/utils";
-import { AccountRows, NavigationList } from "./Sidebar";
+import { AccountRows, Brand, NavigationList } from "./Sidebar";
 
 const headerButton =
   "flex size-10 shrink-0 items-center justify-center rounded-md text-fg-muted transition-colors hover:bg-tint hover:text-fg";
@@ -40,7 +40,11 @@ export function MobileHeader() {
             className="fixed inset-y-0 left-0 z-50 flex w-[17.5rem] max-w-[85vw] flex-col border-r border-rule bg-panel pt-[env(safe-area-inset-top)] outline-none"
           >
             <div className="flex h-14 items-center justify-between pl-5 pr-2">
-              <DialogPrimitive.Title className="text-[0.9375rem] font-semibold tracking-[-0.01em]">Study</DialogPrimitive.Title>
+              <DialogPrimitive.Title asChild>
+                <span>
+                  <Brand />
+                </span>
+              </DialogPrimitive.Title>
               <DialogPrimitive.Close className={headerButton} aria-label="Close menu">
                 <X className="size-5" strokeWidth={1.75} />
               </DialogPrimitive.Close>

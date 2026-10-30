@@ -121,6 +121,21 @@ subjects show their own figures. Charts are thin bars in the accent colour with 
 No gamification: no streaks, badges or celebratory animation (test points are grading, not rewards). Progress is stated as facts
 ("7 of 10 correct").
 
+## Instant feedback
+
+Edits show before the server answers: saving a note (both editors), resolving AI corrections and
+removing AI-added text, deleting a note, editing or deleting a task, renaming or recolouring a subject,
+and preferences. The cached data is changed at once and put back if the server refuses; a failed note
+save reopens the editor with your text. Creating things still waits, since it needs the server's id.
+
+## Press menus and the sidebar
+
+Actions that shouldn't sit on screen as buttons (easy to hit by accident) open from a right-click or a
+long press, at the pointer (`usePressMenu` in `components/shared/PressMenu.tsx`): removing AI-added text,
+and pinning or reordering subjects. The sidebar shows pinned subjects first, in the chosen order, then
+the rest; only the first few (Settings > Sidebar, default 6) show before "Show more", and the open
+subject always shows. Both are account preferences.
+
 ## Back button
 
 Anything that covers the page closes with the system Back button (phones' back gesture included)

@@ -73,7 +73,9 @@ export function TaskFormDialog({
         dueDate: dueDate || null,
       };
       if (editingTask) {
-        await updateTask.mutateAsync({ id: editingTask.id, input });
+        // Shown at once (the task list updates before the server answers); a failure puts it
+        // back and says so.
+        updateTask.mutate({ id: editingTask.id, input });
       } else {
         await createTask.mutateAsync({ ...input, sessionId: defaultSessionId || null });
         setTitle("");
@@ -87,13 +89,13 @@ export function TaskFormDialog({
     }
   }
 
-  async function handleDelete() {
+  function handleDelete() {
     if (!editingTask) return;
-    await deleteTask.mutateAsync(editingTask.id);
+    deleteTask.mutate(editingTask.id);
     onOpenChange(false);
   }
 
-  const isSubmitting = createTask.isPending || updateTask.isPending;
+  const isSubmitting = createTask.isPending;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
