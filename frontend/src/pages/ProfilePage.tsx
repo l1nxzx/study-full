@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/useAuth";
 import { todayISO } from "@/lib/date";
 import { cn } from "@/lib/utils";
+import { FRESHNESS } from "@/lib/freshness";
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -52,7 +53,7 @@ function SessionRow({ session }: { session: statsApi.SessionView }) {
 
 export function ProfilePage() {
   const { user } = useAuth();
-  const { data, isLoading, isError } = useQuery({ queryKey: ["stats", "overview"], queryFn: statsApi.getOverview, staleTime: 30_000 });
+  const { data, isLoading, isError } = useQuery({ queryKey: ["stats", "overview"], queryFn: statsApi.getOverview, staleTime: FRESHNESS.stats });
   const today = todayISO();
 
   const name = user?.name || user?.email?.split("@")[0] || "You";

@@ -4,14 +4,27 @@ import { pickUnusedColor } from "../utils/colorPalette";
 import { CreateSubjectInput, UpdateSubjectInput } from "../models/subject.model";
 import { deleteAllAttachmentsForNote } from "./attachments.service";
 import { invalidateClasses } from "./classes.service";
+import { invalidateNotes } from "./notes.service";
+import { invalidateTasks } from "./tasks.service";
+import { invalidateTests } from "./tests.service";
+import { userCache } from "../utils/userCache";
 
 const collection = db.collection("subjects");
 
-export async function listSubjects(userId: string) {
-  const snapshot = await collection.where("userId", "==", userId).get();
-  return snapshot.docs
-    .map((doc) => ({ id: doc.id, ...doc.data() }))
-    .sort((a: any, b: any) => a.name.localeCompare(b.name));
+// The user's subjects, kept in memory until one is written (see utils/userCache).
+const subjectsCache = userCache<any[]>();
+
+export function invalidateSubjects(userId: string): void {
+  subjectsCache.invalidate(userId);
+}
+
+export function listSubjects(userId: string) {
+  return subjectsCache.get(userId, async () => {
+    const snapshot = await collection.where("userId", "==", userId).get();
+    return snapshot.docs
+      .map((doc) => ({ id: doc.id, ...doc.data() }))
+      .sort((a: any, b: any) => a.name.localeCompare(b.name));
+  });
 }
 
 export async function getSubject(userId: string, id: string) {
@@ -22,18 +35,20 @@ export async function getSubject(userId: string, id: string) {
   return { id: doc.id, ...doc.data() };
 }
 
-export async function createSubject(userId: string, input: CreateSubjectInput) {
-  const docRef = collection.doc();
-  const payload = {
-    userId,
-    name: input.name,
-    icon: input.icon ?? null,
-    color: input.color ?? null,
-    createdAt: FieldValue.serverTimestamp(),
-    updatedAt: FieldValue.serverTimestamp(),
-  };
-  await docRef.set(payload);
-  return { id: docRef.id, ...payload };
+export function createSubject(userId: string, input: CreateSubjectInput) {
+  return subjectsCache.afterWrite(userId, async () => {
+    const docRef = collection.doc();
+    const payload = {
+      userId,
+      name: input.name,
+      icon: input.icon ?? null,
+      color: input.color ?? null,
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    };
+    await docRef.set(payload);
+    return { id: docRef.id, ...payload };
+  });
 }
 
 // Used by the EduPage sync: looks up a subject by exact name for this user, or creates
@@ -54,10 +69,12 @@ export async function findOrCreateSubjectByName(userId: string, name: string): P
   return { id: created.id, color };
 }
 
-export async function updateSubject(userId: string, id: string, input: UpdateSubjectInput) {
-  await getSubject(userId, id);
-  await collection.doc(id).update({ ...input, updatedAt: FieldValue.serverTimestamp() });
-  return getSubject(userId, id);
+export function updateSubject(userId: string, id: string, input: UpdateSubjectInput) {
+  return subjectsCache.afterWrite(userId, async () => {
+    await getSubject(userId, id);
+    await collection.doc(id).update({ ...input, updatedAt: FieldValue.serverTimestamp() });
+    return getSubject(userId, id);
+  });
 }
 
 // Writes in batches below Firestore's 500-operation limit.
@@ -97,6 +114,10 @@ export async function deleteSubject(userId: string, id: string, options: { delet
   await inBatches([...tests.docs, ...templates.docs].map((d) => d.ref), (batch, ref) => batch.update(ref, { subjectId: null }));
   await inBatches([...classes.docs, ...sessions.docs].map((d) => d.ref), (batch, ref) => batch.delete(ref));
   invalidateClasses(userId);
+  invalidateNotes(userId);
+  invalidateTasks(userId);
+  invalidateTests(userId);
   await collection.doc(id).delete();
+  invalidateSubjects(userId);
   return { notesDeleted: options.deleteNotes ? notes.size : 0, notesKept: options.deleteNotes ? 0 : notes.size };
 }

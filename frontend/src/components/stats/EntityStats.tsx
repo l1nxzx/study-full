@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { todayISO } from "@/lib/date";
 import { BarChart, Figure } from "./Charts";
 import { formatShort, formatStudyTime } from "./format";
+import { FRESHNESS } from "@/lib/freshness";
 
 function last30(days: statsApi.DaySeconds[]) {
   const today = todayISO();
@@ -26,7 +27,7 @@ function pct(n: number | null) {
 
 /** "Your study of this note": time, sessions, quiz accuracy, tests and questions asked. */
 export function NoteStatsSection({ noteId }: { noteId: string }) {
-  const { data, isLoading } = useQuery({ queryKey: ["stats", "note", noteId], queryFn: () => statsApi.getNoteStats(noteId), staleTime: 30_000 });
+  const { data, isLoading } = useQuery({ queryKey: ["stats", "note", noteId], queryFn: () => statsApi.getNoteStats(noteId), staleTime: FRESHNESS.stats });
 
   return (
     <Section title="Your study of this note">
@@ -99,7 +100,7 @@ export function SubjectStatsSection({ subjectId }: { subjectId: string }) {
   const { data, isLoading } = useQuery({
     queryKey: ["stats", "subject", subjectId],
     queryFn: () => statsApi.getSubjectStats(subjectId),
-    staleTime: 30_000,
+    staleTime: FRESHNESS.stats,
   });
 
   return (

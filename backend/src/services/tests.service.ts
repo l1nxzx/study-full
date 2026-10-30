@@ -4,10 +4,18 @@ import { stripReviewMarkup } from "../utils/noteMarkup";
 import type { CreateTestInput, SaveTestAnswersInput } from "../models/test.model";
 import * as aiService from "./openai.service";
 import { getNoteRaw } from "./notes.service";
+import { userCache } from "../utils/userCache";
 import { planTest } from "./testPlan";
 
 const testsCollection = db.collection("tests");
 const attemptsCollection = db.collection("testAttempts");
+
+// The list of tests (with their try counts), kept in memory until a test or a try is written.
+const testsCache = userCache<any[]>();
+
+export function invalidateTests(userId: string): void {
+  testsCache.invalidate(userId);
+}
 
 // A grading run that hasn't finished after this long is treated as abandoned (e.g. the
 // server restarted mid-request), so the attempt can be graded again.
@@ -120,33 +128,35 @@ async function listAttemptDocs(userId: string) {
   return snapshot.docs;
 }
 
-export async function listTests(userId: string) {
-  const [testsSnap, attemptDocs] = await Promise.all([
-    testsCollection.where("userId", "==", userId).get(),
-    listAttemptDocs(userId),
-  ]);
-  const attemptsByTest = new Map<string, ReturnType<typeof attemptSummary>[]>();
-  for (const doc of attemptDocs) {
-    const a = attemptSummary(doc.id, doc.data());
-    const list = attemptsByTest.get(a.testId) ?? [];
-    list.push(a);
-    attemptsByTest.set(a.testId, list);
-  }
-  return testsSnap.docs
-    .map((doc) => {
-      const attempts = (attemptsByTest.get(doc.id) ?? []).sort((a, b) => String(b.startedAt).localeCompare(String(a.startedAt)));
-      const graded = attempts.filter((a) => a.status === "graded");
-      return {
-        ...testSummary(doc.id, doc.data()),
-        attemptCount: attempts.length,
-        gradedCount: graded.length,
-        bestPercent: graded.length ? Math.max(...graded.map((a) => a.percent ?? 0)) : null,
-        lastPercent: graded[0]?.percent ?? null,
-        openAttemptId: attempts.find((a) => a.status !== "graded")?.id ?? null,
-        lastActivityAt: attempts[0]?.updatedAt ?? doc.data().createdAt,
-      };
-    })
-    .sort((a, b) => String(b.lastActivityAt).localeCompare(String(a.lastActivityAt)));
+export function listTests(userId: string) {
+  return testsCache.get(userId, async () => {
+    const [testsSnap, attemptDocs] = await Promise.all([
+      testsCollection.where("userId", "==", userId).get(),
+      listAttemptDocs(userId),
+    ]);
+    const attemptsByTest = new Map<string, ReturnType<typeof attemptSummary>[]>();
+    for (const doc of attemptDocs) {
+      const a = attemptSummary(doc.id, doc.data());
+      const list = attemptsByTest.get(a.testId) ?? [];
+      list.push(a);
+      attemptsByTest.set(a.testId, list);
+    }
+    return testsSnap.docs
+      .map((doc) => {
+        const attempts = (attemptsByTest.get(doc.id) ?? []).sort((a, b) => String(b.startedAt).localeCompare(String(a.startedAt)));
+        const graded = attempts.filter((a) => a.status === "graded");
+        return {
+          ...testSummary(doc.id, doc.data()),
+          attemptCount: attempts.length,
+          gradedCount: graded.length,
+          bestPercent: graded.length ? Math.max(...graded.map((a) => a.percent ?? 0)) : null,
+          lastPercent: graded[0]?.percent ?? null,
+          openAttemptId: attempts.find((a) => a.status !== "graded")?.id ?? null,
+          lastActivityAt: attempts[0]?.updatedAt ?? doc.data().createdAt,
+        };
+      })
+      .sort((a, b) => String(b.lastActivityAt).localeCompare(String(a.lastActivityAt)));
+  });
 }
 
 export async function getTest(userId: string, id: string) {
@@ -169,127 +179,137 @@ async function loadNotes(userId: string, noteIds: string[]) {
 
 // Stores the test at once as "generating" and writes its questions in the background, so
 // leaving the page (or closing the app) doesn't lose it; the test pages poll its status.
-export async function createTest(userId: string, input: CreateTestInput) {
-  const notes = await loadNotes(userId, input.noteIds);
-  const slots = planTest(input.settings);
-  const subjectIds = [...new Set(notes.map((n) => n.subjectId).filter(Boolean))];
-  const docRef = testsCollection.doc();
-  const now = nowIso();
-  const payload = {
-    userId,
-    title: input.title || "",
-    subjectId: subjectIds.length === 1 ? subjectIds[0] : null,
-    noteIds: input.noteIds,
-    noteTitles: notes.map((n) => n.title),
-    settings: input.settings,
-    questions: [],
-    plannedQuestionCount: slots.length,
-    totalPoints: slots.reduce((sum, q) => sum + q.points, 0),
-    estimatedMinutes: input.settings.durationMinutes,
-    status: "generating",
-    generationStartedAt: now,
-    generationError: null,
-    createdAt: now,
-  };
-  await docRef.set(payload);
-  void writeTest(userId, docRef.id, now);
-  return { ...testSummary(docRef.id, payload), questions: [], attempts: [] };
+export function createTest(userId: string, input: CreateTestInput) {
+  return testsCache.afterWrite(userId, async () => {
+    const notes = await loadNotes(userId, input.noteIds);
+    const slots = planTest(input.settings);
+    const subjectIds = [...new Set(notes.map((n) => n.subjectId).filter(Boolean))];
+    const docRef = testsCollection.doc();
+    const now = nowIso();
+    const payload = {
+      userId,
+      title: input.title || "",
+      subjectId: subjectIds.length === 1 ? subjectIds[0] : null,
+      noteIds: input.noteIds,
+      noteTitles: notes.map((n) => n.title),
+      settings: input.settings,
+      questions: [],
+      plannedQuestionCount: slots.length,
+      totalPoints: slots.reduce((sum, q) => sum + q.points, 0),
+      estimatedMinutes: input.settings.durationMinutes,
+      status: "generating",
+      generationStartedAt: now,
+      generationError: null,
+      createdAt: now,
+    };
+    await docRef.set(payload);
+    void writeTest(userId, docRef.id, now);
+    return { ...testSummary(docRef.id, payload), questions: [], attempts: [] };
+  });
 }
 
 // Writes the questions of a "generating" test. Never throws: a failure is stored on the test.
 // `run` identifies this run, so a run that was superseded (retried) or whose test was deleted
 // doesn't write anything.
-async function writeTest(userId: string, testId: string, run: string) {
-  const ref = testsCollection.doc(testId);
-  const stillCurrent = async () => {
-    const doc = await ref.get();
-    return doc.exists && doc.data()!.generationStartedAt === run;
-  };
-  try {
-    const data = (await ref.get()).data();
-    if (!data) return;
-    const notes = await loadNotes(userId, data.noteIds);
-    const generated = await aiService.generateTest(
-      notes.map((n) => ({ title: n.title, contentMarkdown: stripReviewMarkup(n.contentMarkdown) })),
-      data.settings
-    );
-    const questions: StoredQuestion[] = generated.questions.map((q, i) => ({
-      id: `q${i + 1}`,
-      prompt: q.prompt,
-      points: q.points,
-      estimatedMinutes: Math.round(q.estimatedMinutes * 2) / 2,
-      topic: q.topic,
-      modelAnswer: q.modelAnswer,
-      criteria: q.criteria,
-      kind: q.kind,
-      problem: q.problem,
-    }));
-    if (!(await stillCurrent())) return;
-    await ref.update({
-      title: data.title || generated.title,
-      questions,
-      totalPoints: questions.reduce((sum, q) => sum + q.points, 0),
-      estimatedMinutes: Math.round(questions.reduce((sum, q) => sum + q.estimatedMinutes, 0)),
-      status: "ready",
-      generationError: null,
-      generatedAt: nowIso(),
-    });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Writing the test failed.";
+function writeTest(userId: string, testId: string, run: string) {
+  return testsCache.afterWrite(userId, async () => {
+    const ref = testsCollection.doc(testId);
+    const stillCurrent = async () => {
+      const doc = await ref.get();
+      return doc.exists && doc.data()!.generationStartedAt === run;
+    };
     try {
-      if (await stillCurrent()) await ref.update({ status: "failed", generationError: message });
-    } catch {
-      // The test is gone or the database is unreachable; nothing left to record.
+      const data = (await ref.get()).data();
+      if (!data) return;
+      const notes = await loadNotes(userId, data.noteIds);
+      const generated = await aiService.generateTest(
+        notes.map((n) => ({ title: n.title, contentMarkdown: stripReviewMarkup(n.contentMarkdown) })),
+        data.settings
+      );
+      const questions: StoredQuestion[] = generated.questions.map((q, i) => ({
+        id: `q${i + 1}`,
+        prompt: q.prompt,
+        points: q.points,
+        estimatedMinutes: Math.round(q.estimatedMinutes * 2) / 2,
+        topic: q.topic,
+        modelAnswer: q.modelAnswer,
+        criteria: q.criteria,
+        kind: q.kind,
+        problem: q.problem,
+      }));
+      if (!(await stillCurrent())) return;
+      await ref.update({
+        title: data.title || generated.title,
+        questions,
+        totalPoints: questions.reduce((sum, q) => sum + q.points, 0),
+        estimatedMinutes: Math.round(questions.reduce((sum, q) => sum + q.estimatedMinutes, 0)),
+        status: "ready",
+        generationError: null,
+        generatedAt: nowIso(),
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Writing the test failed.";
+      try {
+        if (await stillCurrent()) await ref.update({ status: "failed", generationError: message });
+      } catch {
+        // The test is gone or the database is unreachable; nothing left to record.
+      }
     }
-  }
+  });
 }
 
 // Writes a failed (or cut-off) test again with the same notes and settings.
-export async function retryTest(userId: string, id: string) {
-  const doc = await getOwnedTest(userId, id);
-  const { status } = testState(doc.data()!);
-  if (status !== "failed") throw AppError.conflict("This test isn't waiting to be written again.", "TEST_NOT_FAILED");
-  const run = nowIso();
-  await doc.ref.update({ status: "generating", generationStartedAt: run, generationError: null });
-  void writeTest(userId, id, run);
-  return getTest(userId, id);
+export function retryTest(userId: string, id: string) {
+  return testsCache.afterWrite(userId, async () => {
+    const doc = await getOwnedTest(userId, id);
+    const { status } = testState(doc.data()!);
+    if (status !== "failed") throw AppError.conflict("This test isn't waiting to be written again.", "TEST_NOT_FAILED");
+    const run = nowIso();
+    await doc.ref.update({ status: "generating", generationStartedAt: run, generationError: null });
+    void writeTest(userId, id, run);
+    return getTest(userId, id);
+  });
 }
 
-export async function deleteTest(userId: string, id: string) {
-  const doc = await getOwnedTest(userId, id);
-  const attempts = await attemptsCollection.where("userId", "==", userId).where("testId", "==", id).get();
-  const batch = db.batch();
-  attempts.docs.forEach((d) => batch.delete(d.ref));
-  batch.delete(doc.ref);
-  await batch.commit();
+export function deleteTest(userId: string, id: string) {
+  return testsCache.afterWrite(userId, async () => {
+    const doc = await getOwnedTest(userId, id);
+    const attempts = await attemptsCollection.where("userId", "==", userId).where("testId", "==", id).get();
+    const batch = db.batch();
+    attempts.docs.forEach((d) => batch.delete(d.ref));
+    batch.delete(doc.ref);
+    await batch.commit();
+  });
 }
 
 // Returns the test's unfinished attempt if there is one (so a refresh or a second device
 // picks up where you left off), otherwise starts a new one.
-export async function startAttempt(userId: string, testId: string) {
-  const test = await getOwnedTest(userId, testId);
-  if (testState(test.data()!).status !== "ready") {
-    throw AppError.conflict("This test is still being written.", "TEST_NOT_READY");
-  }
-  const existing = await attemptsCollection.where("userId", "==", userId).where("testId", "==", testId).get();
-  const open = existing.docs.find((d) => d.data().status !== "graded");
-  if (open) return getAttempt(userId, open.id);
+export function startAttempt(userId: string, testId: string) {
+  return testsCache.afterWrite(userId, async () => {
+    const test = await getOwnedTest(userId, testId);
+    if (testState(test.data()!).status !== "ready") {
+      throw AppError.conflict("This test is still being written.", "TEST_NOT_READY");
+    }
+    const existing = await attemptsCollection.where("userId", "==", userId).where("testId", "==", testId).get();
+    const open = existing.docs.find((d) => d.data().status !== "graded");
+    if (open) return getAttempt(userId, open.id);
 
-  const now = nowIso();
-  const docRef = attemptsCollection.doc();
-  await docRef.set({
-    userId,
-    testId,
-    subjectId: test.data()!.subjectId ?? null,
-    noteIds: test.data()!.noteIds,
-    status: "in_progress",
-    answers: {},
-    elapsedSeconds: 0,
-    totalPoints: test.data()!.totalPoints,
-    startedAt: now,
-    updatedAt: now,
+    const now = nowIso();
+    const docRef = attemptsCollection.doc();
+    await docRef.set({
+      userId,
+      testId,
+      subjectId: test.data()!.subjectId ?? null,
+      noteIds: test.data()!.noteIds,
+      status: "in_progress",
+      answers: {},
+      elapsedSeconds: 0,
+      totalPoints: test.data()!.totalPoints,
+      startedAt: now,
+      updatedAt: now,
+    });
+    return getAttempt(userId, docRef.id);
   });
-  return getAttempt(userId, docRef.id);
 }
 
 export async function getAttempt(userId: string, id: string) {
@@ -309,19 +329,21 @@ export async function getAttempt(userId: string, id: string) {
   };
 }
 
-export async function saveAnswers(userId: string, id: string, input: SaveTestAnswersInput) {
-  const doc = await getOwnedAttempt(userId, id);
-  const data = doc.data()!;
-  if (data.status !== "in_progress") {
-    throw AppError.conflict("This attempt has already been submitted.", "ATTEMPT_SUBMITTED");
-  }
-  const patch = {
-    answers: input.answers,
-    ...(input.elapsedSeconds !== undefined ? { elapsedSeconds: Math.max(data.elapsedSeconds ?? 0, input.elapsedSeconds) } : {}),
-    updatedAt: nowIso(),
-  };
-  await doc.ref.update(patch);
-  return attemptSummary(doc.id, { ...data, ...patch });
+export function saveAnswers(userId: string, id: string, input: SaveTestAnswersInput) {
+  return testsCache.afterWrite(userId, async () => {
+    const doc = await getOwnedAttempt(userId, id);
+    const data = doc.data()!;
+    if (data.status !== "in_progress") {
+      throw AppError.conflict("This attempt has already been submitted.", "ATTEMPT_SUBMITTED");
+    }
+    const patch = {
+      answers: input.answers,
+      ...(input.elapsedSeconds !== undefined ? { elapsedSeconds: Math.max(data.elapsedSeconds ?? 0, input.elapsedSeconds) } : {}),
+      updatedAt: nowIso(),
+    };
+    await doc.ref.update(patch);
+    return attemptSummary(doc.id, { ...data, ...patch });
+  });
 }
 
 type GradedResult = Awaited<ReturnType<typeof aiService.gradeTest>>["results"][number];
@@ -344,94 +366,98 @@ function roundToHalf(n: number) {
 // Hands in an attempt and grades it. With `regrade`, an already graded attempt is graded again
 // from the same answers. It stays "graded" (with its earlier result) until the new grade is
 // written, so a failed or interrupted regrade changes nothing.
-export async function submitAttempt(userId: string, id: string, input?: SaveTestAnswersInput, options: { regrade?: boolean } = {}) {
-  const doc = await getOwnedAttempt(userId, id);
-  const data = doc.data()!;
+export function submitAttempt(userId: string, id: string, input?: SaveTestAnswersInput, options: { regrade?: boolean } = {}) {
+  return testsCache.afterWrite(userId, async () => {
+    const doc = await getOwnedAttempt(userId, id);
+    const data = doc.data()!;
 
-  if (options.regrade && data.status !== "graded") {
-    throw AppError.conflict("Only a graded test can be graded again.", "ATTEMPT_NOT_GRADED");
-  }
-  if (data.status === "graded" && !options.regrade) return getAttempt(userId, id);
-  if (data.status === "grading" && Date.now() - Date.parse(data.gradingStartedAt ?? 0) < GRADING_STALE_MS) {
-    throw AppError.conflict("This test is already being graded.", "ATTEMPT_GRADING");
-  }
-
-  const answers: Record<string, string> = data.status === "in_progress" && input ? input.answers : data.answers ?? {};
-  const now = nowIso();
-  if (!options.regrade) {
-    await doc.ref.update({
-      answers,
-      status: "grading",
-      gradingStartedAt: now,
-      submittedAt: data.submittedAt ?? now,
-      updatedAt: now,
-      ...(input?.elapsedSeconds !== undefined ? { elapsedSeconds: Math.max(data.elapsedSeconds ?? 0, input.elapsedSeconds) } : {}),
-    });
-  }
-
-  try {
-    const testDoc = await getOwnedTest(userId, data.testId);
-    const test = testDoc.data()!;
-    const questions = test.questions as StoredQuestion[];
-    const answered = questions.filter((q) => (answers[q.id] ?? "").trim());
-
-    let aiResult: Awaited<ReturnType<typeof aiService.gradeTest>> | null = null;
-    if (answered.length > 0) {
-      const notes = await loadNotes(userId, test.noteIds).catch(() => []);
-      aiResult = await aiService.gradeTest(
-        notes.map((n) => ({ title: n.title, contentMarkdown: stripReviewMarkup(n.contentMarkdown) })),
-        answered.map((q) => ({ ...q, answer: answers[q.id] }))
-      );
+    if (options.regrade && data.status !== "graded") {
+      throw AppError.conflict("Only a graded test can be graded again.", "ATTEMPT_NOT_GRADED");
+    }
+    if (data.status === "graded" && !options.regrade) return getAttempt(userId, id);
+    if (data.status === "grading" && Date.now() - Date.parse(data.gradingStartedAt ?? 0) < GRADING_STALE_MS) {
+      throw AppError.conflict("This test is already being graded.", "ATTEMPT_GRADING");
     }
 
-    const byId = new Map((aiResult?.results ?? []).map((r) => [r.id, r]));
-    const results: QuestionGrade[] = questions.map((q) => {
-      const answer = (answers[q.id] ?? "").trim();
-      const r = byId.get(q.id);
-      if (!answer) {
-        return { id: q.id, awarded: 0, max: q.points, feedback: "", correctAnswer: q.modelAnswer, toLearn: "" };
+    const answers: Record<string, string> = data.status === "in_progress" && input ? input.answers : data.answers ?? {};
+    const now = nowIso();
+    if (!options.regrade) {
+      await doc.ref.update({
+        answers,
+        status: "grading",
+        gradingStartedAt: now,
+        submittedAt: data.submittedAt ?? now,
+        updatedAt: now,
+        ...(input?.elapsedSeconds !== undefined ? { elapsedSeconds: Math.max(data.elapsedSeconds ?? 0, input.elapsedSeconds) } : {}),
+      });
+    }
+
+    try {
+      const testDoc = await getOwnedTest(userId, data.testId);
+      const test = testDoc.data()!;
+      const questions = test.questions as StoredQuestion[];
+      const answered = questions.filter((q) => (answers[q.id] ?? "").trim());
+
+      let aiResult: Awaited<ReturnType<typeof aiService.gradeTest>> | null = null;
+      if (answered.length > 0) {
+        const notes = await loadNotes(userId, test.noteIds).catch(() => []);
+        aiResult = await aiService.gradeTest(
+          notes.map((n) => ({ title: n.title, contentMarkdown: stripReviewMarkup(n.contentMarkdown) })),
+          answered.map((q) => ({ ...q, answer: answers[q.id] }))
+        );
       }
-      if (!r) {
-        throw AppError.serviceUnavailable("The AI skipped some answers while grading. Please try again.", "AI_BAD_RESPONSE");
-      }
-      return {
-        id: q.id,
-        ...finalAward(q, r),
-        max: q.points,
-        feedback: r.feedback,
-        correctAnswer: r.correctAnswer || q.modelAnswer,
+
+      const byId = new Map((aiResult?.results ?? []).map((r) => [r.id, r]));
+      const results: QuestionGrade[] = questions.map((q) => {
+        const answer = (answers[q.id] ?? "").trim();
+        const r = byId.get(q.id);
+        if (!answer) {
+          return { id: q.id, awarded: 0, max: q.points, feedback: "", correctAnswer: q.modelAnswer, toLearn: "" };
+        }
+        if (!r) {
+          throw AppError.serviceUnavailable("The AI skipped some answers while grading. Please try again.", "AI_BAD_RESPONSE");
+        }
+        return {
+          id: q.id,
+          ...finalAward(q, r),
+          max: q.points,
+          feedback: r.feedback,
+          correctAnswer: r.correctAnswer || q.modelAnswer,
+        };
+      });
+
+      const awardedPoints = results.reduce((sum, r) => sum + r.awarded, 0);
+      const totalPoints = questions.reduce((sum, q) => sum + q.points, 0);
+      const grading = {
+        results,
+        summary: aiResult?.summary ?? "",
+        strengths: aiResult?.strengths ?? [],
+        toReview: aiResult?.toReview ?? questions.map((q) => q.topic).filter(Boolean),
       };
-    });
+      const gradedAt = nowIso();
+      await doc.ref.update({
+        status: "graded",
+        grading,
+        awardedPoints,
+        totalPoints,
+        percent: totalPoints ? Math.round((awardedPoints / totalPoints) * 1000) / 10 : 0,
+        gradedAt,
+        gradingError: null,
+        updatedAt: gradedAt,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Grading failed";
+      if (!options.regrade) await doc.ref.update({ status: "submitted", gradingError: message, updatedAt: nowIso() });
+      throw err;
+    }
 
-    const awardedPoints = results.reduce((sum, r) => sum + r.awarded, 0);
-    const totalPoints = questions.reduce((sum, q) => sum + q.points, 0);
-    const grading = {
-      results,
-      summary: aiResult?.summary ?? "",
-      strengths: aiResult?.strengths ?? [],
-      toReview: aiResult?.toReview ?? questions.map((q) => q.topic).filter(Boolean),
-    };
-    const gradedAt = nowIso();
-    await doc.ref.update({
-      status: "graded",
-      grading,
-      awardedPoints,
-      totalPoints,
-      percent: totalPoints ? Math.round((awardedPoints / totalPoints) * 1000) / 10 : 0,
-      gradedAt,
-      gradingError: null,
-      updatedAt: gradedAt,
-    });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Grading failed";
-    if (!options.regrade) await doc.ref.update({ status: "submitted", gradingError: message, updatedAt: nowIso() });
-    throw err;
-  }
-
-  return getAttempt(userId, id);
+    return getAttempt(userId, id);
+  });
 }
 
-export async function deleteAttempt(userId: string, id: string) {
-  const doc = await getOwnedAttempt(userId, id);
-  await doc.ref.delete();
+export function deleteAttempt(userId: string, id: string) {
+  return testsCache.afterWrite(userId, async () => {
+    const doc = await getOwnedAttempt(userId, id);
+    await doc.ref.delete();
+  });
 }
