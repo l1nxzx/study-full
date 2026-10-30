@@ -114,7 +114,7 @@ export function NewTestPage() {
       <Page width="reading">
         <PageHeader
           title="Writing your test"
-          description={`The AI plans ${plan.total} questions across your notes, then writes them with the answers it will grade against. This usually takes a minute or two.`}
+          description={`The AI plans ${plan.total} questions across your notes, then writes them with the answers it will grade against. This usually takes one to three minutes.`}
         />
         <SkeletonLines lines={4} />
         <SkeletonLines lines={3} className="mt-8" />
