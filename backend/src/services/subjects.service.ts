@@ -74,13 +74,14 @@ const ownedBySubject = (name: string, userId: string, subjectId: string) =>
 /**
  * Deletes a subject and settles everything that pointed at it. Its notes are deleted (with
  * their attachments) or kept without a subject, as the student chose. Tasks and tests are kept
- * without a subject; the subject's classes and class sessions only make sense with it and go.
+ * (and test templates) without a subject; the subject's classes and class sessions only make
+ * sense with it and go.
  * Recorded study time stays, but statistics no longer list a subject that doesn't exist.
  */
 export async function deleteSubject(userId: string, id: string, options: { deleteNotes: boolean }) {
   await getSubject(userId, id);
-  const [notes, tasks, tests, classes, sessions] = await Promise.all(
-    ["notes", "tasks", "tests", "classes", "classSessions"].map((name) => ownedBySubject(name, userId, id))
+  const [notes, tasks, tests, classes, sessions, templates] = await Promise.all(
+    ["notes", "tasks", "tests", "classes", "classSessions", "testTemplates"].map((name) => ownedBySubject(name, userId, id))
   );
 
   if (options.deleteNotes) {
@@ -92,7 +93,7 @@ export async function deleteSubject(userId: string, id: string, options: { delet
     await inBatches(notes.docs.map((d) => d.ref), (batch, ref) => batch.update(ref, { subjectId: null, sessionId: null }));
   }
   await inBatches(tasks.docs.map((d) => d.ref), (batch, ref) => batch.update(ref, { subjectId: null, sessionId: null }));
-  await inBatches(tests.docs.map((d) => d.ref), (batch, ref) => batch.update(ref, { subjectId: null }));
+  await inBatches([...tests.docs, ...templates.docs].map((d) => d.ref), (batch, ref) => batch.update(ref, { subjectId: null }));
   await inBatches([...classes.docs, ...sessions.docs].map((d) => d.ref), (batch, ref) => batch.delete(ref));
   await collection.doc(id).delete();
   return { notesDeleted: options.deleteNotes ? notes.size : 0, notesKept: options.deleteNotes ? 0 : notes.size };

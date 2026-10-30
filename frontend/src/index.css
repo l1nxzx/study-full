@@ -163,6 +163,8 @@
 
 @layer base {
   html {
+    /* Also what shows when a phone scrolls past the top or bottom of the page. */
+    background-color: var(--color-canvas);
     -webkit-text-size-adjust: 100%;
     -webkit-tap-highlight-color: transparent;
   }

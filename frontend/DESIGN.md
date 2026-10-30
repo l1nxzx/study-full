@@ -88,6 +88,11 @@ estimate in `frontend/src/lib/testPlan.ts`): the number of questions, the mix of
 deep-thinking questions, which are problems to reason through, and each question's minutes and points
 (which add up to the chosen length). The AI outlines a distinct topic for every slot across all the notes,
 then writes the questions a few at a time; the New test page shows the plan before you create it.
+Templates are saved set-ups, typically one per teacher: the settings plus notes for the AI on how that
+teacher writes tests. Choosing one fills the page in (still editable); a template linked to the subject of
+the chosen notes is applied automatically until something is changed by hand, and a changed set-up can be
+written back to it. The "only from the notes" check stays on with a template unless its notes explicitly
+ask for material beyond the notes.
 Writing runs in the background on the server: the test is stored at once as "being written", its page
 says so (and that you can leave), the Tests list and the New test page show it, and a toast says when it's
 ready or failed wherever you are. A failed test can be written again or deleted.
@@ -120,6 +125,13 @@ subjects show their own figures. Charts are thin bars in the accent colour with 
 
 No gamification: no streaks, badges or celebratory animation (test points are grading, not rewards). Progress is stated as facts
 ("7 of 10 correct").
+
+## Phone bars
+
+`<meta name="theme-color">` always matches what's behind the page (`lib/themeColor.ts`): the canvas of the
+current theme (set before the app starts, in `index.html`, and on every theme change), or the notebook's
+desk while it's open. The page root has the canvas colour too, for overscroll, and the bottom navigation
+is opaque.
 
 ## Instant feedback
 

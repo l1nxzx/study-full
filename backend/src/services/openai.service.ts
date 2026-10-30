@@ -469,6 +469,14 @@ function instructionsLine(settings: TestSettings) {
     : "";
 }
 
+// Whether the student's notes for the AI ask for questions beyond the notes (English or Slovak).
+export function asksBeyondNotes(instructions?: string) {
+  if (!instructions) return false;
+  return /beyond (the |my )?notes|outside (the |my )?notes|not (only )?(in|from) (the |my )?notes|real[- ]world|current events|internet|mimo (moj(ich|e) )?poznámok|nad rámec|aj (to )?čo nie je v poznámkach|z internetu|aktuáln/i.test(
+    instructions
+  );
+}
+
 // Lower-case letters and digits only, single-spaced: quotes are compared ignoring formatting.
 function normalizeForMatch(text: string) {
   return text
@@ -561,10 +569,11 @@ export async function generateTest(notes: NoteContext[], settings: TestSettings)
   const notesContext = buildNotesContext(notes, TEST_NOTES_LIMITS);
   const { title, outline } = await outlineTest(notesContext, settings, slots);
   // A question whose quoted basis isn't in the notes is probably about something else: it is
-  // written again (unless the student asked for outside material, or it's the last round).
+  // written again (unless it's the last round, or the student's notes for the AI ask for
+  // material beyond the notes - templates usually carry notes that don't).
   const normalizedNotes = normalizeForMatch(notes.map((n) => n.contentMarkdown).join("\n"));
   const noteWords = new Set(normalizedNotes.split(" "));
-  const checkBasis = !settings.instructions;
+  const checkBasis = !asksBeyondNotes(settings.instructions);
 
   const written = new Map<number, Awaited<ReturnType<typeof writeQuestions>>[number]>();
   for (let round = 0; round < 3; round++) {

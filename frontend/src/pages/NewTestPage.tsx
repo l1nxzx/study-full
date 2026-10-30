@@ -20,6 +20,7 @@ import { useAiStatus } from "@/hooks/useAiStatus";
 import { useNotes } from "@/hooks/useNotes";
 import { useSubjects } from "@/hooks/useSubjects";
 import { rememberWritingTest } from "@/hooks/useTestWritingWatcher";
+import { TestTemplatePicker } from "@/components/tests/TestTemplatePicker";
 import { formatDateShort } from "@/lib/date";
 import { DIFFICULTY_LABELS, DURATIONS, LOGIC_LABELS, testTitle, THINKING_LABELS } from "@/lib/testLabels";
 import { describePlan } from "@/lib/testPlan";
@@ -64,9 +65,20 @@ export function NewTestPage() {
   const [logic, setLogic] = useState<testsApi.TestLogic>("medium");
   const [duration, setDuration] = useState<string>("45");
   const [instructions, setInstructions] = useState("");
+  // Set once you change a setting by hand; until then a template may be applied automatically.
+  const [touched, setTouched] = useState(false);
+  const byHand =
+    <T,>(set: (v: T) => void) =>
+    (v: T) => {
+      setTouched(true);
+      set(v);
+    };
   const [title, setTitle] = useState("");
 
   const subjectById = new Map((subjects || []).map((s) => [s.id, s]));
+  // The subject the chosen notes share, if they share one: its template is offered first.
+  const chosenSubjects = new Set((notes || []).filter((n) => selected.has(n.id)).map((n) => n.subjectId));
+  const templateSubject = chosenSubjects.size === 1 ? [...chosenSubjects][0] : null;
   const plan = describePlan({ difficulty, thinking, logic, durationMinutes: Number(duration) });
   // Until the student picks a subject, show the subject of the preselected note (if any).
   const effectiveSubject =
@@ -208,11 +220,25 @@ export function NewTestPage() {
 
         <Section title="The test" description="Shape it to what you're preparing for.">
           <div className="divide-y divide-rule">
+            <SettingRow label="Template">
+              <TestTemplatePicker
+                settings={{ difficulty, thinking, logic, durationMinutes: Number(duration), ...(instructions.trim() ? { instructions } : {}) }}
+                onApply={(t) => {
+                  setDifficulty(t.difficulty);
+                  setThinking(t.thinking);
+                  setLogic(t.logic);
+                  setDuration(String(t.durationMinutes));
+                  setInstructions(t.instructions ?? "");
+                }}
+                subjectId={templateSubject}
+                untouched={!touched}
+              />
+            </SettingRow>
             <SettingRow label="Difficulty">
               <Segmented
                 label="Difficulty"
                 value={difficulty}
-                onChange={setDifficulty}
+                onChange={byHand(setDifficulty)}
                 options={(Object.keys(DIFFICULTY_LABELS) as testsApi.TestDifficulty[]).map((v) => ({ value: v, label: DIFFICULTY_LABELS[v] }))}
                 className="w-full sm:w-auto"
               />
@@ -221,7 +247,7 @@ export function NewTestPage() {
               <Segmented
                 label="Kind of thinking"
                 value={thinking}
-                onChange={setThinking}
+                onChange={byHand(setThinking)}
                 options={(Object.keys(THINKING_LABELS) as testsApi.TestThinking[]).map((v) => ({ value: v, label: THINKING_LABELS[v].label }))}
                 className="w-full sm:w-auto"
               />
@@ -230,7 +256,7 @@ export function NewTestPage() {
               <Segmented
                 label="Logic and problem solving"
                 value={logic}
-                onChange={setLogic}
+                onChange={byHand(setLogic)}
                 options={(Object.keys(LOGIC_LABELS) as testsApi.TestLogic[]).map((v) => ({ value: v, label: LOGIC_LABELS[v].label }))}
                 className="w-full sm:w-auto"
               />
@@ -239,7 +265,7 @@ export function NewTestPage() {
               <Segmented
                 label="Length"
                 value={duration}
-                onChange={setDuration}
+                onChange={byHand(setDuration)}
                 options={DURATIONS.map((d) => ({ value: String(d), label: `${d} min` }))}
                 className="w-full sm:w-auto"
               />
@@ -247,8 +273,8 @@ export function NewTestPage() {
             <SettingRow label="Notes for the AI" hint="Optional. Anything that helps it write the test you need.">
               <Textarea
                 value={instructions}
-                onChange={(e) => setInstructions(e.target.value)}
-                maxLength={1500}
+                onChange={(e) => byHand(setInstructions)(e.target.value)}
+                maxLength={3000}
                 rows={4}
                 placeholder="e.g. like our end-of-term exam, mostly calculations, include one question comparing the two theories, skip chapter 3"
               />
