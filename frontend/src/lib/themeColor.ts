@@ -32,16 +32,22 @@ function colorAt(x: number, y: number): string | null {
   return `#${[r, g, b].map((v) => v.toString(16).padStart(2, "0")).join("")}`;
 }
 
-let frame = 0;
+// The colour is read once the page has settled. Reading on the very next frame catches
+// in-between states (an opening sidebar isn't hit-testable for a frame or two, so the backdrop
+// behind it was read first), and the bars flashed that colour.
+const SETTLE_MS = 90;
+let timer = 0;
 
-/** Re-reads the colour at the top of the screen on the next frame. */
+/** Re-reads the colour at the top of the screen once the page has settled. */
 export function syncThemeColor() {
-  cancelAnimationFrame(frame);
-  frame = requestAnimationFrame(() => {
-    const meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
-    const color = colorAt(window.innerWidth / 2, 0);
-    if (meta && color && meta.content !== color) meta.content = color;
-  });
+  window.clearTimeout(timer);
+  timer = window.setTimeout(() => {
+    requestAnimationFrame(() => {
+      const meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+      const color = colorAt(window.innerWidth / 2, 0);
+      if (meta && color && meta.content !== color) meta.content = color;
+    });
+  }, SETTLE_MS);
 }
 
 /** Keeps the bars in step with the page from now on. */

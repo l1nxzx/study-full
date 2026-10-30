@@ -242,10 +242,18 @@
     }
   }
 
-  /*
-   * Slim scrollbars for mouse and trackpad only. Styling them on a phone turns its fading
-   * scroll indicator into a permanent bar, so touch screens keep their own.
-   */
+  /* Touch screens show no scrollbars at all, as in a native app. */
+  @media (pointer: coarse) {
+    * {
+      scrollbar-width: none;
+    }
+
+    *::-webkit-scrollbar {
+      display: none;
+    }
+  }
+
+  /* Slim scrollbars for mouse and trackpad. */
   @media (pointer: fine) {
     * {
       scrollbar-width: thin;
