@@ -460,7 +460,7 @@ function instructionsLine(settings: TestSettings) {
 
 // Tests read more of the notes than other tools: a test can cover up to 15 notes.
 const TEST_NOTES_LIMITS = { perNote: 16000, total: 40000 };
-const TEST_WRITE_BATCH_SIZE = 4;
+const TEST_WRITE_BATCH_SIZE = 6;
 
 async function outlineTest(notesContext: string, settings: TestSettings, slots: QuestionSlot[]) {
   return requestJson({
@@ -500,7 +500,7 @@ async function writeQuestions(
     model: AI_MODELS.capable,
     schema: testQuestionsSchema,
     temperature: 0.6,
-    maxTokens: 6000,
+    maxTokens: 8000,
     system:
       "You write questions for a real written school test from a student's class notes. There are no answer options: " +
       "every question is answered in writing (a sentence, a paragraph, a calculation, a derivation). Write exactly one " +

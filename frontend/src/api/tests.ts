@@ -95,9 +95,9 @@ export function getTest(id: string) {
   return apiClient.get<TestDetail>(`/tests/${id}`).then((r) => r.data);
 }
 
-// Generating a long test takes a while; give it room.
+// Generating or grading a long test takes a while (several AI calls); give it room.
 export function createTest(input: { noteIds: string[]; title?: string; settings: TestSettings }) {
-  return apiClient.post<TestDetail>("/tests", input, { timeout: 180_000 }).then((r) => r.data);
+  return apiClient.post<TestDetail>("/tests", input, { timeout: 300_000 }).then((r) => r.data);
 }
 
 export function deleteTest(id: string) {
@@ -118,13 +118,13 @@ export function saveAnswers(id: string, answers: Record<string, string>, elapsed
 
 export function submitAttempt(id: string, answers?: Record<string, string>, elapsedSeconds?: number) {
   return apiClient
-    .post<TestAttempt>(`/test-attempts/${id}/submit`, answers ? { answers, elapsedSeconds } : {}, { timeout: 180_000 })
+    .post<TestAttempt>(`/test-attempts/${id}/submit`, answers ? { answers, elapsedSeconds } : {}, { timeout: 300_000 })
     .then((r) => r.data);
 }
 
 // Grades a graded attempt again from the same answers; the new result replaces the old one.
 export function regradeAttempt(id: string) {
-  return apiClient.post<TestAttempt>(`/test-attempts/${id}/regrade`, {}, { timeout: 180_000 }).then((r) => r.data);
+  return apiClient.post<TestAttempt>(`/test-attempts/${id}/regrade`, {}, { timeout: 300_000 }).then((r) => r.data);
 }
 
 export function deleteAttempt(id: string) {

@@ -5,7 +5,7 @@ import type { TestSettings } from "@/api/tests";
 
 type QuestionKind = "recall" | "understanding" | "deep";
 
-const KIND_MINUTES: Record<QuestionKind, number> = { recall: 2, understanding: 3.5, deep: 5 };
+const KIND_MINUTES: Record<QuestionKind, number> = { recall: 1.5, understanding: 2.25, deep: 3.25 };
 const PROBLEM_FACTOR = 1.25;
 const DIFFICULTY_FACTOR: Record<TestSettings["difficulty"], number> = { easy: 0.85, medium: 1, hard: 1.1, very_hard: 1.2 };
 const KIND_MIX: Record<TestSettings["thinking"], Record<QuestionKind, number>> = {
