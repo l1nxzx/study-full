@@ -1,12 +1,12 @@
-import { AlertCircle, BookOpen, Check, Copy, RefreshCw } from "lucide-react";
+import { AlertCircle, Check, Copy, RefreshCw } from "lucide-react";
 import { useState } from "react";
 import { MarkdownRenderer } from "@/components/notes/MarkdownRenderer";
-import { SkeletonLines } from "@/components/ui/skeleton";
 import type { AiChatMessage } from "@/hooks/useAiPanel";
 import { cn } from "@/lib/utils";
 
 const actionButton =
   "inline-flex h-7 items-center gap-1.5 rounded-sm px-1.5 text-meta text-fg-faint transition-colors hover:bg-tint hover:text-fg";
+const iconButton = "flex size-7 items-center justify-center rounded-sm text-fg-faint transition-colors hover:bg-tint hover:text-fg";
 
 function MessageActions({ message, onRegenerate }: { message: AiChatMessage; onRegenerate?: (id: string) => void }) {
   const [copied, setCopied] = useState(false);
@@ -22,33 +22,34 @@ function MessageActions({ message, onRegenerate }: { message: AiChatMessage; onR
   }
 
   return (
-    <div className="-ml-1.5 flex items-center">
-      <button type="button" onClick={handleCopy} className={actionButton}>
-        {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
-        {copied ? "Copied" : "Copy"}
+    <div className="-ml-1.5 flex items-center gap-0.5">
+      <button type="button" onClick={handleCopy} className={iconButton} aria-label={copied ? "Copied" : "Copy"} title={copied ? "Copied" : "Copy"}>
+        {copied ? <Check className="size-3.5 text-ok" /> : <Copy className="size-3.5" />}
       </button>
       {onRegenerate && (
-        <button type="button" onClick={() => onRegenerate(message.id)} className={actionButton}>
+        <button type="button" onClick={() => onRegenerate(message.id)} className={iconButton} aria-label="Regenerate" title="Regenerate">
           <RefreshCw className="size-3.5" />
-          Regenerate
         </button>
       )}
     </div>
   );
 }
 
-// Where an answer came from, stated plainly under it. Only note-based answers carry this.
-function SourceLine({ message, sourceTitle }: { message: AiChatMessage; sourceTitle?: string }) {
-  if (message.groundedInNote === undefined || !sourceTitle) return null;
-  if (message.groundedInNote) {
-    return (
-      <p className="flex items-center gap-1.5 text-meta text-fg-faint">
-        <BookOpen className="size-3.5 shrink-0" />
-        <span className="truncate">From your note "{sourceTitle}"</span>
-      </p>
-    );
-  }
+// Answers come from the note by default; only one that goes beyond it says so, quietly.
+function BeyondNote({ message, sourceTitle }: { message: AiChatMessage; sourceTitle?: string }) {
+  if (message.groundedInNote !== false || !sourceTitle) return null;
   return <p className="text-meta italic text-fg-faint">Goes a little beyond your note.</p>;
+}
+
+// Three soft dots while an answer is being written.
+function Typing({ label }: { label: string }) {
+  return (
+    <div className="flex h-7 items-center gap-1" role="status" aria-label={label}>
+      {[0, 1, 2].map((i) => (
+        <span key={i} className="size-1.5 animate-pulse rounded-full bg-fg-faint" style={{ animationDelay: `${i * 180}ms` }} />
+      ))}
+    </div>
+  );
 }
 
 function UserMessage({ message }: { message: AiChatMessage }) {
@@ -64,7 +65,7 @@ function UserMessage({ message }: { message: AiChatMessage }) {
     );
   }
   return (
-    <div className="ml-auto w-fit max-w-[88%] whitespace-pre-wrap rounded-lg rounded-br-xs bg-tint px-3.5 py-2 text-sm leading-relaxed text-fg">
+    <div className="ml-auto w-fit max-w-[85%] whitespace-pre-wrap rounded-lg rounded-br-xs bg-tint px-4 py-2.5 text-[0.9375rem] leading-relaxed text-fg">
       {message.content}
     </div>
   );
@@ -80,12 +81,7 @@ function AssistantMessage({
   onRegenerate?: (id: string) => void;
 }) {
   if (message.isRegenerating) {
-    return (
-      <div className="space-y-2" aria-live="polite">
-        <p className="text-meta text-fg-faint">Writing a new answer...</p>
-        <SkeletonLines lines={4} />
-      </div>
-    );
+    return <Typing label="Writing a new answer" />;
   }
 
   if (message.isError) {
@@ -106,10 +102,10 @@ function AssistantMessage({
   }
 
   return (
-    <div className="space-y-2.5">
+    <div className="group/answer space-y-2">
       {message.label && <p className="text-meta font-medium text-fg-faint">{message.label}</p>}
       <MarkdownRenderer content={message.content} variant="compact" emptyLabel="(No answer)" />
-      <SourceLine message={message} sourceTitle={sourceTitle} />
+      <BeyondNote message={message} sourceTitle={sourceTitle} />
       <MessageActions message={message} onRegenerate={onRegenerate} />
     </div>
   );
@@ -127,7 +123,7 @@ export function ChatMessages({
   onRegenerate?: (id: string) => void;
 }) {
   return (
-    <div className="space-y-7">
+    <div className="space-y-8">
       {messages.map((m) =>
         m.role === "user" ? (
           <UserMessage key={m.id} message={m} />
@@ -135,12 +131,7 @@ export function ChatMessages({
           <AssistantMessage key={m.id} message={m} sourceTitle={sourceTitle} onRegenerate={onRegenerate} />
         )
       )}
-      {isPending && (
-        <div className="space-y-2" aria-live="polite">
-          <p className="text-meta text-fg-faint">Writing an answer...</p>
-          <SkeletonLines lines={3} />
-        </div>
-      )}
+      {isPending && <Typing label="Writing an answer" />}
     </div>
   );
 }

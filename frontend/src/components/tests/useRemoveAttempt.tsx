@@ -1,38 +1,25 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Trash2 } from "lucide-react";
 import { useState } from "react";
 import { getErrorMessage } from "@/api/client";
 import * as testsApi from "@/api/tests";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { useToast } from "@/hooks/useToast";
 import { clearBackup } from "@/lib/testAttemptBackup";
-import { cn } from "@/lib/utils";
 
-// Cancels a try that's still open (started by accident, say) or deletes a finished one. Either
-// way the try is gone: its answers, its grade, and its place in the statistics.
-export function RemoveAttemptButton({
-  attempt,
-  onRemoved,
-  className,
-  compact,
-}: {
-  attempt: Pick<testsApi.TestAttemptSummary, "id" | "status">;
-  onRemoved?: () => void;
-  className?: string;
-  /** Icon only, for a row in a list. */
-  compact?: boolean;
-}) {
+// Cancels a try that's still open (started by accident, say) or deletes a finished one, after
+// asking. Either way the try is gone: its answers, its grade, and its place in the statistics.
+// Returns the menu label, a function to ask, and the dialog to render.
+export function useRemoveAttempt(attempt: Pick<testsApi.TestAttemptSummary, "id" | "status"> | undefined, onRemoved?: () => void) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [confirm, setConfirm] = useState(false);
-  const open = attempt.status === "in_progress";
-  const label = open ? "Cancel this try" : "Delete this try";
-
-  const remove = useMutation({ mutationFn: () => testsApi.deleteAttempt(attempt.id) });
+  const open = attempt?.status === "in_progress";
+  const remove = useMutation({ mutationFn: (id: string) => testsApi.deleteAttempt(id) });
 
   function confirmRemove() {
+    if (!attempt) return;
     remove
-      .mutateAsync()
+      .mutateAsync(attempt.id)
       .then(() => {
         clearBackup(attempt.id);
         setConfirm(false);
@@ -47,25 +34,12 @@ export function RemoveAttemptButton({
       });
   }
 
-  // A try that's being graded right now can't be removed until grading finishes.
-  if (attempt.status === "grading") return null;
-
-  return (
-    <>
-      <button
-        type="button"
-        onClick={() => setConfirm(true)}
-        aria-label={label}
-        title={label}
-        className={cn(
-          "inline-flex shrink-0 items-center gap-1.5 rounded-sm text-[0.8125rem] text-fg-faint transition-colors hover:text-bad",
-          compact && "size-8 justify-center hover:bg-tint",
-          className
-        )}
-      >
-        <Trash2 className="size-3.5" />
-        {!compact && label}
-      </button>
+  return {
+    // A try that's being graded right now can't be removed until grading finishes.
+    available: Boolean(attempt) && attempt?.status !== "grading",
+    label: open ? "Cancel this try" : "Delete this try",
+    ask: () => setConfirm(true),
+    dialog: (
       <ConfirmDialog
         open={confirm}
         onOpenChange={setConfirm}
@@ -80,6 +54,6 @@ export function RemoveAttemptButton({
         onConfirm={confirmRemove}
         isLoading={remove.isPending}
       />
-    </>
-  );
+    ),
+  };
 }

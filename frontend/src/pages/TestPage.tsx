@@ -1,13 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format, formatDistanceToNow, parseISO } from "date-fns";
-import { Trash2 } from "lucide-react";
 import { useState } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import { getErrorMessage } from "@/api/client";
 import * as testsApi from "@/api/tests";
 import { Page, PageHeader, Section } from "@/components/layout/PageHeader";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
-import { RemoveAttemptButton } from "@/components/tests/RemoveAttemptButton";
+import { MoreMenu } from "@/components/shared/MoreMenu";
+import { useRemoveAttempt } from "@/components/tests/useRemoveAttempt";
 import { InlineError } from "@/components/shared/EmptyState";
 import { SubjectLabel } from "@/components/shared/SubjectSwatch";
 import { Button } from "@/components/ui/button";
@@ -32,6 +32,48 @@ function AttemptBars({ attempts }: { attempts: testsApi.TestAttemptSummary[] }) 
         ))}
       </div>
     </div>
+  );
+}
+
+function TryRow({ attempt: a, questionCount }: { attempt: testsApi.TestAttemptSummary; questionCount: number }) {
+  const navigate = useNavigate();
+  const remove = useRemoveAttempt(a);
+  const to = `/tests/attempts/${a.id}`;
+  return (
+    <li className="flex items-center gap-2">
+      <Link to={to} className="group flex min-w-0 flex-1 items-baseline justify-between gap-4 py-3">
+        <span className="min-w-0">
+          <span className="block text-sm text-fg group-hover:text-accent">{format(parseISO(a.startedAt), "EEE, MMM d, HH:mm")}</span>
+          <span className="block text-meta text-fg-faint">
+            {a.status === "graded"
+              ? `${formatDuration(a.elapsedSeconds)} · ${a.answeredCount} of ${questionCount} answered`
+              : a.status === "in_progress"
+                ? `In progress · ${a.answeredCount} of ${questionCount} answered`
+                : a.gradingError
+                  ? "Handed in, grading failed - open to try again"
+                  : "Being graded"}
+          </span>
+        </span>
+        {a.status === "graded" && a.percent !== null && (
+          <span className="shrink-0 text-right">
+            <span className={cn("block text-sm font-medium tabular", a.percent >= 85 ? "text-ok" : a.percent >= 50 ? "text-fg" : "text-bad")}>
+              {Math.round(a.percent)}%
+            </span>
+            <span className="block text-meta text-fg-faint tabular">
+              {formatPoints(a.awardedPoints ?? 0)} / {a.totalPoints} pts
+            </span>
+          </span>
+        )}
+      </Link>
+      <MoreMenu
+        label="Actions for this try"
+        items={[
+          { label: a.status === "in_progress" ? "Continue" : a.status === "graded" ? "See results" : "Open", onSelect: () => navigate(to) },
+          remove.available && { label: remove.label, onSelect: remove.ask, destructive: true },
+        ]}
+      />
+      {remove.dialog}
+    </li>
   );
 }
 
@@ -74,6 +116,9 @@ export function TestPage() {
       queryClient.invalidateQueries({ queryKey: ["tests"], exact: true });
     },
   });
+
+  const openAttempt = test?.attempts.find((a) => a.status === "in_progress");
+  const cancelOpen = useRemoveAttempt(openAttempt);
 
   const remove = useMutation({
     mutationFn: () => testsApi.deleteTest(id!),
@@ -123,6 +168,7 @@ export function TestPage() {
           back={{ to: "/tests", label: "Tests" }}
           title={writing ? "Writing your test" : "The test couldn't be written"}
           description={`${testTitle(test)} · ${test.plannedQuestionCount} questions · about ${test.estimatedMinutes} min`}
+          menu={<MoreMenu items={[{ label: writing ? "Cancel and delete" : "Delete this test", onSelect: () => setConfirmDelete(true), destructive: true }]} />}
         />
         {writing ? (
           <div role="status">
@@ -148,13 +194,6 @@ export function TestPage() {
             <InlineError className="mt-3">{retry.error ? getErrorMessage(retry.error, "Couldn't start writing it again") : null}</InlineError>
           </div>
         )}
-        <button
-          type="button"
-          onClick={() => setConfirmDelete(true)}
-          className="mt-12 inline-flex items-center gap-1.5 text-[0.8125rem] text-fg-faint transition-colors hover:text-bad"
-        >
-          <Trash2 className="size-3.5" /> {writing ? "Cancel and delete" : "Delete this test"}
-        </button>
         {deleteDialog}
       </Page>
     );
@@ -173,6 +212,16 @@ export function TestPage() {
               {test.questionCount} questions · {test.totalPoints} points · about {test.estimatedMinutes} min
             </span>
           </span>
+        }
+        menu={
+          <MoreMenu
+            items={[
+              { label: "New test, same settings", onSelect: () => regenerate.mutate(), disabled: regenerate.isPending },
+              open && { label: open.status === "in_progress" ? "Continue the open try" : "See grading", onSelect: () => navigate(`/tests/attempts/${open.id}`) },
+              cancelOpen.available && { label: "Cancel the open try", onSelect: cancelOpen.ask, destructive: true },
+              { label: "Delete this test", onSelect: () => setConfirmDelete(true), destructive: true },
+            ]}
+          />
         }
       />
 
@@ -193,11 +242,7 @@ export function TestPage() {
                   {start.isPending ? "Starting..." : graded.length > 0 ? "Take it again" : "Start the test"}
                 </Button>
               )}
-              <Button variant="ghost" onClick={() => regenerate.mutate()} disabled={regenerate.isPending}>
-                New test, same settings
-              </Button>
             </div>
-            {open?.status === "in_progress" && <RemoveAttemptButton attempt={open} className="mt-3" />}
             {!open && graded.length === 0 && (
               <p className="mt-3 text-meta text-fg-faint">Your answers are saved as you write, so you can stop and come back.</p>
             )}
@@ -212,33 +257,7 @@ export function TestPage() {
             ) : (
               <ul className="divide-y divide-rule">
                 {test.attempts.map((a) => (
-                  <li key={a.id} className="flex items-center gap-2">
-                    <Link to={`/tests/attempts/${a.id}`} className="group flex min-w-0 flex-1 items-baseline justify-between gap-4 py-3">
-                      <span className="min-w-0">
-                        <span className="block text-sm text-fg group-hover:text-accent">{format(parseISO(a.startedAt), "EEE, MMM d, HH:mm")}</span>
-                        <span className="block text-meta text-fg-faint">
-                          {a.status === "graded"
-                            ? `${formatDuration(a.elapsedSeconds)} · ${a.answeredCount} of ${test.questionCount} answered`
-                            : a.status === "in_progress"
-                              ? `In progress · ${a.answeredCount} of ${test.questionCount} answered`
-                              : a.gradingError
-                                ? "Handed in, grading failed - open to try again"
-                                : "Being graded"}
-                        </span>
-                      </span>
-                      {a.status === "graded" && a.percent !== null && (
-                        <span className="shrink-0 text-right">
-                          <span className={cn("block text-sm font-medium tabular", a.percent >= 85 ? "text-ok" : a.percent >= 50 ? "text-fg" : "text-bad")}>
-                            {Math.round(a.percent)}%
-                          </span>
-                          <span className="block text-meta text-fg-faint tabular">
-                            {formatPoints(a.awardedPoints ?? 0)} / {a.totalPoints} pts
-                          </span>
-                        </span>
-                      )}
-                    </Link>
-                    <RemoveAttemptButton attempt={a} compact />
-                  </li>
+                  <TryRow key={a.id} attempt={a} questionCount={test.questionCount} />
                 ))}
               </ul>
             )}
@@ -259,17 +278,11 @@ export function TestPage() {
               ))}
             </ul>
           </section>
-          <button
-            type="button"
-            onClick={() => setConfirmDelete(true)}
-            className="inline-flex items-center gap-1.5 text-[0.8125rem] text-fg-faint transition-colors hover:text-bad"
-          >
-            <Trash2 className="size-3.5" /> Delete this test
-          </button>
         </aside>
       </div>
 
       {deleteDialog}
+      {cancelOpen.dialog}
     </Page>
   );
 }

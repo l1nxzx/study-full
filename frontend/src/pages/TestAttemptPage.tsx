@@ -8,7 +8,8 @@ import * as testsApi from "@/api/tests";
 import { BackLink, Page } from "@/components/layout/PageHeader";
 import { InlineMarkdown } from "@/components/notes/InlineMarkdown";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
-import { RemoveAttemptButton } from "@/components/tests/RemoveAttemptButton";
+import { MoreMenu } from "@/components/shared/MoreMenu";
+import { useRemoveAttempt } from "@/components/tests/useRemoveAttempt";
 import { InlineError } from "@/components/shared/EmptyState";
 import { Button } from "@/components/ui/button";
 import { Segmented } from "@/components/ui/segmented";
@@ -76,6 +77,12 @@ function TakeTest({ attempt, onSubmitted }: { attempt: testsApi.TestAttempt; onS
   const lastSavedJson = useRef(initial.fromBackup ? "" : JSON.stringify(attempt.answers));
   const lastSentElapsed = useRef(attempt.elapsedSeconds);
   const handedIn = useRef(false);
+  const cancelTry = useRemoveAttempt(attempt, () => {
+    // Nothing more to save: stop the page from writing the deleted try back.
+    handedIn.current = true;
+    clearBackup(attempt.id);
+    navigate(`/tests/${attempt.testId}`);
+  });
   const answersRef = useRef(answers);
   const elapsedRef = useRef(elapsed);
   answersRef.current = answers;
@@ -235,6 +242,14 @@ function TakeTest({ attempt, onSubmitted }: { attempt: testsApi.TestAttempt; onS
           <Button size="sm" onClick={() => setConfirmOpen(true)}>
             Hand in
           </Button>
+          <MoreMenu
+            className="-mr-2"
+            items={[
+              { label: "Hand in for grading", onSelect: () => setConfirmOpen(true) },
+              { label: "Back to the test", onSelect: () => navigate(`/tests/${attempt.testId}`) },
+              { label: cancelTry.label, onSelect: cancelTry.ask, destructive: true },
+            ]}
+          />
         </div>
         <div className="mt-2 h-0.5 w-full bg-rule">
           <div className="h-full bg-accent transition-[width]" style={{ width: `${(answeredCount / questions.length) * 100}%` }} />
@@ -304,21 +319,11 @@ function TakeTest({ attempt, onSubmitted }: { attempt: testsApi.TestAttempt; onS
         <p className="text-sm text-fg-muted">
           {answeredCount === questions.length ? "Every question has an answer." : `${questions.length - answeredCount} still unanswered.`}
         </p>
-        <div className="flex flex-col-reverse items-center gap-3 sm:flex-row sm:gap-5">
-          <RemoveAttemptButton
-            attempt={attempt}
-            onRemoved={() => {
-              // Nothing more to save: stop the page from writing the deleted try back.
-              handedIn.current = true;
-              clearBackup(attempt.id);
-              navigate(`/tests/${attempt.testId}`);
-            }}
-          />
-          <Button size="lg" onClick={() => setConfirmOpen(true)} className="w-full sm:w-auto">
-            Hand in for grading
-          </Button>
-        </div>
+        <Button size="lg" onClick={() => setConfirmOpen(true)}>
+          Hand in for grading
+        </Button>
       </div>
+      {cancelTry.dialog}
 
       <ConfirmDialog
         open={confirmOpen}
@@ -442,6 +447,7 @@ function Results({ attempt, onRegrade, regradeError }: { attempt: testsApi.TestA
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState<"all" | "lost">("all");
   const [confirmRegrade, setConfirmRegrade] = useState(false);
+  const removeTry = useRemoveAttempt(attempt, () => navigate(`/tests/${attempt.testId}`));
   const grading = attempt.grading!;
   const byId = new Map(grading.results.map((r) => [r.id, r]));
   const questions = attempt.test.questions;
@@ -465,7 +471,16 @@ function Results({ attempt, onRegrade, regradeError }: { attempt: testsApi.TestA
   return (
     <Page width="reading">
       <BackLink to={`/tests/${attempt.testId}`} label={attempt.test.title} />
-      <header>
+      <header className="relative">
+        <MoreMenu
+          className="absolute -right-2 -top-1"
+          items={[
+            { label: "Take it again", onSelect: () => retake.mutate(), disabled: retake.isPending },
+            { label: "Grade again", onSelect: () => setConfirmRegrade(true) },
+            { label: "All tries", onSelect: () => navigate(`/tests/${attempt.testId}`) },
+            removeTry.available && { label: removeTry.label, onSelect: removeTry.ask, destructive: true },
+          ]}
+        />
         <p className="text-meta text-fg-faint">Graded</p>
         <h1 className="mt-1 flex flex-wrap items-baseline gap-x-4">
           <span className={cn("text-[2rem] font-semibold leading-tight tabular", toneText[tone])}>{Math.round(percent)}%</span>
@@ -511,11 +526,8 @@ function Results({ attempt, onRegrade, regradeError }: { attempt: testsApi.TestA
         <Button variant="ghost" asChild>
           <Link to={`/tests/${attempt.testId}`}>All tries</Link>
         </Button>
-        <Button variant="ghost" onClick={() => setConfirmRegrade(true)}>
-          Grade again
-        </Button>
-        <RemoveAttemptButton attempt={attempt} onRemoved={() => navigate(`/tests/${attempt.testId}`)} className="ml-auto" />
       </div>
+      {removeTry.dialog}
       <InlineError className="mt-3">
         {retake.error
           ? getErrorMessage(retake.error, "Couldn't start a new try")

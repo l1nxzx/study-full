@@ -9,6 +9,7 @@ import { ConversationHistory } from "@/components/ai-panel/ConversationHistory";
 import { Composer } from "@/components/ai-panel/Composer";
 import { chatHintFor, useAiContextSummary } from "@/hooks/useAiContext";
 import { useAiPanel, type AiChatMessage } from "@/hooks/useAiPanel";
+import { cn } from "@/lib/utils";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useCloseOnBack } from "@/lib/closeOnBack";
 
@@ -22,7 +23,7 @@ const GENERAL_SUGGESTIONS = ["What's due this week?", "What does my next school 
 const NOTE_SUGGESTIONS = ["What are the key ideas I need to remember?", "What would a test on this probably ask?", "Give me a worked example"];
 
 const quickActionButton =
-  "inline-flex h-7 items-center gap-1.5 rounded-sm px-1.5 text-meta text-fg-muted transition-colors hover:bg-tint hover:text-fg disabled:opacity-45";
+  "inline-flex h-7 items-center gap-1.5 rounded-md border border-rule px-2.5 text-meta text-fg-muted transition-colors hover:border-rule-strong hover:text-fg disabled:opacity-45";
 
 /** The conversation: a general study chat, or questions answered from the open note. */
 export function AskView({ active }: { active: boolean }) {
@@ -168,7 +169,7 @@ export function AskView({ active }: { active: boolean }) {
   const suggestions = activeNote ? NOTE_SUGGESTIONS : GENERAL_SUGGESTIONS;
 
   const toolbarButton =
-    "inline-flex h-7 items-center gap-1.5 rounded-sm px-1.5 text-meta text-fg-muted transition-colors hover:bg-tint hover:text-fg";
+    "flex size-8 items-center justify-center rounded-md text-fg-faint transition-colors hover:bg-tint hover:text-fg disabled:opacity-40";
 
   if (showHistory) {
     return (
@@ -180,54 +181,42 @@ export function AskView({ active }: { active: boolean }) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex h-10 shrink-0 items-center justify-between gap-2 border-b border-rule px-3.5">
-        <p className="truncate pl-1.5 text-meta text-fg-faint">
-          {messages.length === 0
-            ? "New conversation"
-            : saveState === "saving"
-              ? "Saving..."
-              : saveState === "error"
-                ? "Not saved - will retry with the next message"
-                : saveState === "saved"
-                  ? "Saved"
-                  : ""}
+      <div className="flex h-11 shrink-0 items-center justify-between gap-2 px-3.5">
+        {/* Only say something about saving when it isn't simply saved. */}
+        <p className={cn("truncate pl-1.5 text-meta", saveState === "error" ? "text-warn" : "text-fg-faint")}>
+          {messages.length > 0 && saveState === "saving" ? "Saving..." : messages.length > 0 && saveState === "error" ? "Not saved yet - will retry" : ""}
         </p>
-        <div className="flex shrink-0 items-center">
-          <button type="button" onClick={() => setShowHistory(true)} className={toolbarButton}>
-            <History className="size-3.5" /> History
+        <div className="flex shrink-0 items-center gap-0.5">
+          <button type="button" onClick={() => setShowHistory(true)} className={toolbarButton} aria-label="Past chats" title="Past chats">
+            <History className="size-4" />
           </button>
-          {messages.length > 0 && (
-            <button type="button" onClick={clearMessages} className={toolbarButton} disabled={isPending}>
-              <PenLine className="size-3.5" /> New
-            </button>
-          )}
+          <button type="button" onClick={clearMessages} className={toolbarButton} disabled={isPending || messages.length === 0} aria-label="New chat" title="New chat">
+            <PenLine className="size-4" />
+          </button>
         </div>
       </div>
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-6">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 pb-6 pt-2">
         {messages.length === 0 ? (
-          <div>
-            <p className="text-sm leading-relaxed text-fg-muted">
-              {activeNote ? (
-                <>
-                  Ask anything about <span className="text-fg">"{activeNote.title}"</span>, including things the note assumes you
-                  already know. Answers that go beyond the note say so underneath.
-                </>
-              ) : (
-                <>{chatHintFor(location.pathname)} I can see your subjects, timetable, open tasks and note titles - not the notes themselves.</>
-              )}
+          <div className="flex min-h-full flex-col justify-end pb-2">
+            <p className="font-serif text-[1.1875rem] font-medium leading-snug text-fg">
+              {activeNote ? <>What would you like to know about "{activeNote.title}"?</> : "What can I help you with?"}
             </p>
-            <p className="group-label mb-1 mt-7">Try asking</p>
-            <ul className="divide-y divide-rule border-y border-rule">
+            <p className="mt-1.5 text-sm leading-relaxed text-fg-muted">
+              {activeNote
+                ? "Ask anything, including what the note assumes you already know."
+                : `${chatHintFor(location.pathname)} I can see your subjects, timetable, tasks and note titles.`}
+            </p>
+            <ul className="mt-6 space-y-2">
               {suggestions.map((s) => (
                 <li key={s}>
                   <button
                     type="button"
                     onClick={() => ask(s)}
                     disabled={isPending}
-                    className="group flex w-full items-center gap-3 py-2.5 text-left text-sm text-fg-muted transition-colors hover:text-fg"
+                    className="group flex w-full items-center gap-3 rounded-lg border border-rule px-3.5 py-2.5 text-left text-[0.9375rem] text-fg-muted transition-colors hover:border-rule-strong hover:bg-tint/50 hover:text-fg"
                   >
                     <span className="flex-1">{s}</span>
-                    <ArrowRight className="size-3.5 text-fg-faint opacity-0 transition-opacity group-hover:opacity-100" />
+                    <ArrowRight className="size-3.5 text-fg-faint transition-colors group-hover:text-fg" />
                   </button>
                 </li>
               ))}

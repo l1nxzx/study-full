@@ -44,8 +44,8 @@ export function Composer({ value, onChange, onSubmit, disabled, placeholder, act
   const canSend = value.trim().length > 0 && !disabled;
 
   return (
-    <form onSubmit={handleSubmit} className="border-t border-rule px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
-      <div className="flex items-end gap-2 rounded-lg border border-rule-strong bg-canvas py-1.5 pl-3 pr-1.5 transition-colors focus-within:border-accent">
+    <form onSubmit={handleSubmit} className="px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2">
+      <div className="flex items-end gap-2 rounded-lg border border-rule-strong bg-raised py-2 pl-3.5 pr-2 shadow-sm transition-colors focus-within:border-accent">
         <textarea
           ref={ref}
           rows={1}
@@ -54,7 +54,7 @@ export function Composer({ value, onChange, onSubmit, disabled, placeholder, act
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
           aria-label={placeholder}
-          className="max-h-48 min-h-7 flex-1 resize-none bg-transparent py-1 text-sm leading-relaxed text-fg placeholder:text-fg-faint focus:outline-none"
+          className="max-h-48 min-h-8 flex-1 resize-none bg-transparent py-1 text-[0.9375rem] leading-relaxed text-fg placeholder:text-fg-faint focus:outline-none"
         />
         <button
           type="submit"
@@ -68,10 +68,7 @@ export function Composer({ value, onChange, onSubmit, disabled, placeholder, act
           <ArrowUp className="size-4" strokeWidth={2.25} />
         </button>
       </div>
-      <div className="mt-2 flex min-h-7 items-center justify-between gap-3">
-        <div className="-ml-1.5 flex flex-wrap items-center">{actions}</div>
-        {!actions && <p className="hidden shrink-0 text-meta text-fg-faint lg:block">Enter to send, Shift+Enter for a new line</p>}
-      </div>
+      {actions && <div className="mt-2 flex flex-wrap items-center gap-1.5">{actions}</div>}
     </form>
   );
 }
