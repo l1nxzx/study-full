@@ -8,6 +8,7 @@ import { usePreferences } from "@/hooks/usePreferences";
 import { useSubject } from "@/hooks/useSubjects";
 import { formatDateLong } from "@/lib/date";
 import { useCloseOnBack } from "@/lib/closeOnBack";
+import { setThemeColor } from "@/lib/themeColor";
 import { cn } from "@/lib/utils";
 
 /*
@@ -147,6 +148,14 @@ export function NotebookPage() {
   const stride = layout ? layout.pageW + layout.gap : 0;
   const perView = layout?.perView ?? 1;
   const lastStart = Math.max(0, Math.floor((pageCount - 1) / perView) * perView);
+
+  // The phone's bars take the desk colour while the notebook is open.
+  const rootRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const desk = rootRef.current && getComputedStyle(rootRef.current).getPropertyValue("--nb-desk").trim();
+    if (desk) setThemeColor(desk);
+  }, [paper, note]);
+  useEffect(() => () => setThemeColor(), []);
 
   // Track the reading area's size.
   useLayoutEffect(() => {
@@ -527,7 +536,7 @@ export function NotebookPage() {
     "flex size-11 shrink-0 items-center justify-center rounded-full text-[var(--nb-desk-fg-faint)] transition-colors hover:bg-[color-mix(in_oklch,var(--nb-desk-fg)_9%,transparent)] hover:text-[var(--nb-desk-fg)] disabled:pointer-events-none disabled:opacity-25";
 
   return (
-    <div className={cn("flex h-dvh flex-col overflow-hidden bg-[var(--nb-desk)] text-[var(--nb-desk-fg)]", `notebook-paper-${paper}`)}>
+    <div ref={rootRef} className={cn("flex h-dvh flex-col overflow-hidden bg-[var(--nb-desk)] text-[var(--nb-desk-fg)]", `notebook-paper-${paper}`)}>
       {!fullscreen && (
         <header className="flex h-12 shrink-0 items-center gap-1 px-2 pt-[env(safe-area-inset-top)] sm:h-14 sm:gap-2 sm:px-4">
           <button type="button" onClick={close} className={cn(turnButton, "size-10")} aria-label="Close notebook view" title="Close (Esc)">

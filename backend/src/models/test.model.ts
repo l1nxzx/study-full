@@ -5,7 +5,7 @@ export const testSettingsSchema = z.object({
   thinking: z.enum(["recall", "understanding", "deep"]),
   logic: z.enum(["low", "medium", "high"]),
   durationMinutes: z.number().int().min(10).max(120),
-  instructions: z.string().trim().max(1500).optional(),
+  instructions: z.string().trim().max(3000).optional(),
 });
 
 export const createTestSchema = z.object({
