@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 import { AccountRows, Brand, NavigationList } from "./Sidebar";
 
 const headerButton =
-  "flex size-10 shrink-0 items-center justify-center rounded-md text-fg-muted transition-colors hover:bg-tint hover:text-fg";
+  "flex size-10 shrink-0 items-center justify-center rounded-md text-fg-muted transition-colors hover:bg-tint hover:text-fg active:bg-tint";
 
 function currentSectionLabel(pathname: string): string {
   const item = mainNavItems.find((i) => pathname.startsWith(i.to));
@@ -28,16 +28,16 @@ export function MobileHeader() {
   const { pathname } = useLocation();
 
   return (
-    <header className="flex h-14 shrink-0 items-center gap-1 border-b border-rule bg-canvas px-2 pt-[env(safe-area-inset-top)] lg:hidden">
+    <header className="flex h-[calc(3.5rem+env(safe-area-inset-top))] shrink-0 items-center gap-1 border-b border-rule bg-canvas px-2 pt-[env(safe-area-inset-top)] lg:hidden">
       <DialogPrimitive.Root open={open} onOpenChange={setOpen}>
         <DialogPrimitive.Trigger className={headerButton} aria-label="Open menu">
           <Menu className="size-5" strokeWidth={1.75} />
         </DialogPrimitive.Trigger>
         <DialogPrimitive.Portal>
-          <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-[oklch(0.14_0.01_265/0.55)]" />
+          <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-[oklch(0.14_0.01_265/0.55)] data-[state=open]:animate-[scrim-in_320ms_ease-out] data-[state=closed]:animate-[scrim-out_240ms_ease-in-out_forwards]" />
           <DialogPrimitive.Content
             aria-describedby={undefined}
-            className="fixed inset-y-0 left-0 z-50 flex w-[17.5rem] max-w-[85vw] flex-col border-r border-rule bg-panel pt-[env(safe-area-inset-top)] outline-none"
+            className="fixed inset-y-0 left-0 z-50 flex w-[17.5rem] max-w-[85vw] flex-col border-r border-rule bg-panel pt-[env(safe-area-inset-top)] outline-none data-[state=open]:animate-[drawer-in_320ms_cubic-bezier(0.2,0,0,1)] data-[state=closed]:animate-[drawer-out_240ms_cubic-bezier(0.4,0,0.6,1)_forwards]"
           >
             <div className="flex h-16 items-center justify-between pl-5 pr-2">
               <DialogPrimitive.Title asChild>
@@ -89,7 +89,7 @@ export function BottomNav() {
           to={item.to}
           className={({ isActive }) =>
             cn(
-              "flex h-14 flex-1 flex-col items-center justify-center gap-1 text-[0.6875rem] font-medium transition-colors",
+              "flex h-14 flex-1 flex-col items-center justify-center gap-1 text-[0.6875rem] font-medium transition-[color,opacity] active:opacity-60",
               isActive ? "text-fg" : "text-fg-faint"
             )
           }

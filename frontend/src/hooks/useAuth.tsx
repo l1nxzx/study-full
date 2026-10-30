@@ -4,6 +4,7 @@ import axios from "axios";
 import * as authApi from "@/api/auth";
 import { TOKEN_STORAGE_KEY } from "@/api/client";
 import { applyPreferences, cachePreferences } from "@/lib/preferences";
+import { clearPersistedCache } from "@/lib/queryClient";
 import type { User } from "@/types";
 
 interface AuthContextValue {
@@ -65,6 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem(TOKEN_STORAGE_KEY);
     setHasToken(false);
     queryClient.clear();
+    void clearPersistedCache();
   }, [queryClient]);
 
   const connectionError = hasToken && isError && !isUnauthorized(error);

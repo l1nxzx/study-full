@@ -21,8 +21,9 @@ const buttonVariants = cva(
         default: "h-10 px-3.5 sm:h-9",
         sm: "h-9 px-3 text-[0.8125rem] sm:h-8 sm:px-2.5",
         lg: "h-11 px-5 sm:h-10",
-        icon: "size-10 sm:size-9",
-        "icon-sm": "size-9 sm:size-8",
+        // Phones get a 44px touch target around icon buttons without changing how they look.
+        icon: "relative size-10 sm:size-9 pointer-coarse:after:absolute pointer-coarse:after:-inset-0.5",
+        "icon-sm": "relative size-9 sm:size-8 pointer-coarse:after:absolute pointer-coarse:after:-inset-1",
       },
     },
     compoundVariants: [{ variant: "link", class: "h-auto px-0 sm:h-auto sm:px-0" }],

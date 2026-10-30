@@ -118,7 +118,7 @@ export function SearchDialog() {
             <Kbd className="hidden sm:inline-flex">Esc</Kbd>
           </div>
 
-          <div ref={listRef} id="search-results" role="listbox" className="overflow-y-auto">
+          <div ref={listRef} id="search-results" role="listbox" className="overflow-y-auto overscroll-y-contain">
             {!enabled && <p className="px-4 py-4 text-[0.8125rem] text-fg-faint">Type at least two characters.</p>}
             {enabled && isFetching && !results && <p className="px-4 py-4 text-[0.8125rem] text-fg-faint">Searching...</p>}
             {enabled && isError && <p className="px-4 py-4 text-[0.8125rem] text-bad">Search isn't available right now.</p>}

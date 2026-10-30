@@ -8,7 +8,7 @@ import { usePreferences } from "@/hooks/usePreferences";
 import { useSubject } from "@/hooks/useSubjects";
 import { formatDateLong } from "@/lib/date";
 import { useCloseOnBack } from "@/lib/closeOnBack";
-import { setThemeColor } from "@/lib/themeColor";
+import { useBarColor } from "@/lib/themeColor";
 import { cn } from "@/lib/utils";
 
 /*
@@ -127,6 +127,8 @@ export function NotebookPage() {
   const { preferences, updatePreferences, isTipDismissed, dismissTip } = usePreferences();
 
   const paper = preferences.notebookPaper ?? "light";
+  const rootRef = useRef<HTMLDivElement>(null);
+  useBarColor(true, ["--nb-desk"], { scope: rootRef, key: paper });
   const textSize: TextSize = preferences.notebookTextSize ?? "medium";
 
   const areaRef = useRef<HTMLDivElement>(null);
@@ -149,13 +151,6 @@ export function NotebookPage() {
   const perView = layout?.perView ?? 1;
   const lastStart = Math.max(0, Math.floor((pageCount - 1) / perView) * perView);
 
-  // The phone's bars take the desk colour while the notebook is open.
-  const rootRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const desk = rootRef.current && getComputedStyle(rootRef.current).getPropertyValue("--nb-desk").trim();
-    if (desk) setThemeColor(desk);
-  }, [paper, note]);
-  useEffect(() => () => setThemeColor(), []);
 
   // Track the reading area's size.
   useLayoutEffect(() => {
@@ -538,7 +533,7 @@ export function NotebookPage() {
   return (
     <div ref={rootRef} className={cn("flex h-dvh flex-col overflow-hidden bg-[var(--nb-desk)] text-[var(--nb-desk-fg)]", `notebook-paper-${paper}`)}>
       {!fullscreen && (
-        <header className="flex h-12 shrink-0 items-center gap-1 px-2 pt-[env(safe-area-inset-top)] sm:h-14 sm:gap-2 sm:px-4">
+        <header className="flex h-[calc(3rem+env(safe-area-inset-top))] shrink-0 items-center gap-1 px-2 pt-[env(safe-area-inset-top)] sm:h-[calc(3.5rem+env(safe-area-inset-top))] sm:gap-2 sm:px-4">
           <button type="button" onClick={close} className={cn(turnButton, "size-10")} aria-label="Close notebook view" title="Close (Esc)">
             <X className="size-5" />
           </button>
