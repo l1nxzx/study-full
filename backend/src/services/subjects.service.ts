@@ -3,6 +3,7 @@ import { AppError } from "../utils/AppError";
 import { pickUnusedColor } from "../utils/colorPalette";
 import { CreateSubjectInput, UpdateSubjectInput } from "../models/subject.model";
 import { deleteAllAttachmentsForNote } from "./attachments.service";
+import { invalidateClasses } from "./classes.service";
 
 const collection = db.collection("subjects");
 
@@ -95,6 +96,7 @@ export async function deleteSubject(userId: string, id: string, options: { delet
   await inBatches(tasks.docs.map((d) => d.ref), (batch, ref) => batch.update(ref, { subjectId: null, sessionId: null }));
   await inBatches([...tests.docs, ...templates.docs].map((d) => d.ref), (batch, ref) => batch.update(ref, { subjectId: null }));
   await inBatches([...classes.docs, ...sessions.docs].map((d) => d.ref), (batch, ref) => batch.delete(ref));
+  invalidateClasses(userId);
   await collection.doc(id).delete();
   return { notesDeleted: options.deleteNotes ? notes.size : 0, notesKept: options.deleteNotes ? 0 : notes.size };
 }

@@ -10,6 +10,8 @@ import type { ScheduleEventStatus } from "./scheduleEvents.service";
 // what's actually relevant to "what's my schedule right now."
 const SYNC_WINDOW_PAST_DAYS = 3;
 const SYNC_WINDOW_FUTURE_DAYS = 60;
+// Imported lessons older than this are deleted on each sync. The Schedule page never looks further back.
+const RETENTION_PAST_DAYS = 28;
 
 // EduPage's feed encodes lesson times in UTC (confirmed against a real feed), so this
 // must always render wall-clock time for the school's own timezone rather than
@@ -197,11 +199,15 @@ export async function syncUserSchedule(userId: string): Promise<SyncResult> {
 
     await scheduleEventsService.batchUpsertScheduleEvents(userId, existingDocs, items);
     await scheduleEventsService.pruneStaleFutureEvents(userId, existingDocs, seenUids, formatDateInSchoolTz(now));
+    await scheduleEventsService.pruneOldEvents(existingDocs, formatDateInSchoolTz(addDays(now, -RETENTION_PAST_DAYS)));
     await scheduleIntegrationService.recordSyncResult(userId, "ok");
     return { ok: true, count: seenUids.size };
   } catch (err) {
     const message = err instanceof Error ? err.message : "Could not process the calendar feed";
     await scheduleIntegrationService.recordSyncResult(userId, "error", message);
     return { ok: false, error: message };
+  } finally {
+    // Whatever was written (even part of it, if the sync failed midway), the next read comes from Firestore.
+    scheduleEventsService.invalidateScheduleEvents(userId);
   }
 }

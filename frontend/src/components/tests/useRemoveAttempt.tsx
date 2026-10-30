@@ -23,10 +23,13 @@ export function useRemoveAttempt(attempt: Pick<testsApi.TestAttemptSummary, "id"
       .then(() => {
         clearBackup(attempt.id);
         setConfirm(false);
-        queryClient.removeQueries({ queryKey: ["test-attempts", attempt.id] });
+        // The try's own cached copy is left alone: clearing it here would make the try page (still
+        // on screen until it navigates away) redirect to the Tests list instead of the test.
         queryClient.invalidateQueries({ queryKey: ["tests"] });
         queryClient.invalidateQueries({ queryKey: ["stats"] });
-        onRemoved?.();
+        // Leave a moment later: the dialog's history entry is removed on close (closeOnBack), and
+        // that must happen before the navigation, or it would undo it.
+        window.setTimeout(() => onRemoved?.(), 100);
       })
       .catch((err) => {
         setConfirm(false);
