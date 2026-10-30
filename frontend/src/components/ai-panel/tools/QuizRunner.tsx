@@ -1,19 +1,15 @@
 import { Check, ChevronLeft, X } from "lucide-react";
-import { type ReactNode, useEffect, useState } from "react";
-import type { QuizQuestion, QuizResult } from "@/api/ai";
+import { useQueryClient } from "@tanstack/react-query";
+import { type ReactNode, useEffect, useRef, useState } from "react";
+import type { QuizQuestion } from "@/api/ai";
+import * as quizzesApi from "@/api/quizzes";
 import { InlineMarkdown } from "@/components/notes/InlineMarkdown";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { BeyondNotesMark } from "./ToolParts";
 
-interface Answer {
-  checked: boolean;
-  selectedIndex?: number;
-  selectedBool?: boolean;
-  shortAnswerText?: string;
-  markedCorrect?: boolean;
-}
+type Answer = quizzesApi.QuizAnswer;
 
 const LETTERS = "ABCDEFGH";
 
@@ -107,10 +103,52 @@ function correctAnswerText(question: QuizQuestion): string {
   return "";
 }
 
-export function QuizRunner({ quiz, onNewQuiz, active }: { quiz: QuizResult; onNewQuiz: () => void; active: boolean }) {
-  const [index, setIndex] = useState(0);
-  const [answers, setAnswers] = useState<Answer[]>(() => quiz.questions.map(() => ({ checked: false })));
-  const [finished, setFinished] = useState(false);
+interface QuizRunnerProps {
+  attempt: quizzesApi.QuizAttempt;
+  onNewQuiz: () => void;
+  /** Start a new attempt with the same questions. */
+  onRetry: () => void;
+  isRetrying?: boolean;
+  active: boolean;
+}
+
+export function QuizRunner({ attempt, onNewQuiz, onRetry, isRetrying, active }: QuizRunnerProps) {
+  const quiz = attempt;
+  const queryClient = useQueryClient();
+  const [answers, setAnswers] = useState<Answer[]>(() => quiz.questions.map((_, i) => attempt.answers[i] ?? { checked: false }));
+  const [finished, setFinished] = useState(attempt.status === "completed");
+  const [index, setIndex] = useState(() => {
+    const open = quiz.questions.findIndex((q, i) => !isSettled(q, answers[i] ?? { checked: false }));
+    return open === -1 ? 0 : open;
+  });
+  const [saveFailed, setSaveFailed] = useState(false);
+  const [retryTick, setRetryTick] = useState(0);
+
+  // Every answer is saved as you go, so a refresh or closing the panel never loses a quiz.
+  const lastSaved = useRef(JSON.stringify({ answers, finished }));
+  useEffect(() => {
+    if (!attempt.id) return;
+    const key = JSON.stringify({ answers, finished });
+    if (key === lastSaved.current) return;
+    const timer = setTimeout(() => {
+      quizzesApi
+        .saveQuiz(attempt.id, answers, finished)
+        .then(() => {
+          lastSaved.current = key;
+          setSaveFailed(false);
+          queryClient.invalidateQueries({ queryKey: ["quizzes"] });
+        })
+        .catch(() => setSaveFailed(true));
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [answers, finished, attempt.id, queryClient, retryTick]);
+
+  // After a failed save, try again every few seconds until it goes through.
+  useEffect(() => {
+    if (!saveFailed) return;
+    const timer = setTimeout(() => setRetryTick((t) => t + 1), 8000);
+    return () => clearTimeout(timer);
+  }, [saveFailed, retryTick]);
 
   const question = quiz.questions[index];
   const answer = answers[index];
@@ -128,11 +166,6 @@ export function QuizRunner({ quiz, onNewQuiz, active }: { quiz: QuizResult; onNe
     else setFinished(true);
   }
 
-  function retry() {
-    setAnswers(quiz.questions.map(() => ({ checked: false })));
-    setIndex(0);
-    setFinished(false);
-  }
 
   // Keyboard: A-D / 1-4 to choose, T/F for true-false, Enter to check and continue, arrows to move.
   useEffect(() => {
@@ -188,8 +221,8 @@ export function QuizRunner({ quiz, onNewQuiz, active }: { quiz: QuizResult; onNe
             {missed === 0 ? "Every answer was right." : `${missed} ${missed === 1 ? "question is" : "questions are"} worth another look - they're marked below.`}
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
-            <Button size="sm" variant="outline" onClick={retry}>
-              Retry these questions
+            <Button size="sm" variant="outline" onClick={onRetry} disabled={isRetrying}>
+              {isRetrying ? "Starting..." : "Retry these questions"}
             </Button>
             <Button size="sm" variant="ghost" onClick={onNewQuiz}>
               New quiz
@@ -252,6 +285,7 @@ export function QuizRunner({ quiz, onNewQuiz, active }: { quiz: QuizResult; onNe
 
   return (
     <div className="space-y-6">
+      {saveFailed && <p className="text-meta text-warn">Your answers aren't being saved right now. They'll be saved when the connection is back.</p>}
       {/* Progress: one tick per question, coloured once answered. Answered ones can be revisited. */}
       <div>
         <div className="mb-2 flex items-baseline justify-between text-meta">

@@ -1,5 +1,5 @@
 import { apiClient } from "./client";
-import type { User } from "@/types";
+import type { Preferences, User } from "@/types";
 
 interface AuthResponse {
   token: string;
@@ -24,4 +24,8 @@ export function changePassword(currentPassword: string, newPassword: string) {
 
 export function updateProfile(name: string | null) {
   return apiClient.patch<User>("/auth/me", { name: name ?? "" }).then((r) => r.data);
+}
+
+export function updatePreferences(preferences: Preferences) {
+  return apiClient.patch<User>("/auth/me", { preferences }).then((r) => r.data);
 }

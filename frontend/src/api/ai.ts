@@ -27,18 +27,6 @@ export interface FlashcardsResult {
   cards: Flashcard[];
 }
 
-export interface PracticeQuestion {
-  question: string;
-  type: "calculation" | "short_answer" | "application" | "concept";
-  hint?: string;
-  answer: string;
-  beyondNotes?: boolean;
-}
-
-export interface PracticeResult {
-  questions: PracticeQuestion[];
-}
-
 export interface AskResult {
   answer: string;
   groundedInNote: boolean;
@@ -58,21 +46,13 @@ export function generateQuiz(params: {
   difficulty: "easy" | "medium" | "hard";
   questionTypes: ("multiple_choice" | "true_false" | "short_answer")[];
   includeBeyondNotes?: boolean;
+  instructions?: string;
 }) {
   return apiClient.post<QuizResult>("/ai/quiz", params).then((r) => r.data);
 }
 
 export function generateFlashcards(noteIds: string[], count: number) {
   return apiClient.post<FlashcardsResult>("/ai/flashcards", { noteIds, count }).then((r) => r.data);
-}
-
-export function generatePractice(params: {
-  noteIds: string[];
-  numQuestions: number;
-  difficulty: "easy" | "medium" | "hard";
-  includeBeyondNotes?: boolean;
-}) {
-  return apiClient.post<PracticeResult>("/ai/practice", params).then((r) => r.data);
 }
 
 export function askNote(noteId: string, question: string, history: { role: "user" | "assistant"; content: string }[]) {

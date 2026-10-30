@@ -22,18 +22,12 @@ export const quizRequestSchema = z.object({
     .array(z.enum(["multiple_choice", "true_false", "short_answer"]))
     .min(1),
   includeBeyondNotes: z.boolean().optional().default(false),
+  instructions: z.string().trim().max(1000).optional(),
 });
 
 export const flashcardsRequestSchema = z.object({
   noteIds: z.array(z.string().min(1)).min(1).max(10),
   count: z.number().int().min(5).max(20).default(10),
-});
-
-export const practiceRequestSchema = z.object({
-  noteIds: z.array(z.string().min(1)).min(1).max(10),
-  numQuestions: z.number().int().min(3).max(15).default(5),
-  difficulty: z.enum(["easy", "medium", "hard"]).default("medium"),
-  includeBeyondNotes: z.boolean().optional().default(false),
 });
 
 export const chatRequestSchema = z.object({
@@ -133,16 +127,36 @@ export const flashcardsResultSchema = z.object({
   cards: z.array(flashcardSchema).min(1),
 });
 
-export const practiceQuestionSchema = z.object({
-  question: z.string(),
-  type: z.enum(["calculation", "short_answer", "application", "concept"]),
-  hint: z.string().optional(),
-  answer: z.string(),
-  beyondNotes: z.boolean().optional(),
+export const testGenerationResultSchema = z.object({
+  title: z.string().min(1).max(200),
+  questions: z
+    .array(
+      z.object({
+        prompt: z.string().min(1),
+        points: z.coerce.number().int().min(1).max(20),
+        estimatedMinutes: z.coerce.number().min(0.5).max(60),
+        topic: z.string().max(80).default(""),
+        modelAnswer: z.string().min(1),
+        criteria: z.array(z.string()).default([]),
+      })
+    )
+    .min(3)
+    .max(40),
 });
 
-export const practiceResultSchema = z.object({
-  questions: z.array(practiceQuestionSchema).min(1),
+export const testGradingResultSchema = z.object({
+  results: z.array(
+    z.object({
+      id: z.string(),
+      awarded: z.coerce.number(),
+      feedback: z.string().default(""),
+      correctAnswer: z.string().default(""),
+      toLearn: z.string().default(""),
+    })
+  ),
+  summary: z.string().default(""),
+  strengths: z.array(z.string()).default([]),
+  toReview: z.array(z.string()).default([]),
 });
 
 export const askResultSchema = z.object({
@@ -160,7 +174,6 @@ export const rewriteResultSchema = z.object({
 
 export type QuizRequestInput = z.infer<typeof quizRequestSchema>;
 export type FlashcardsRequestInput = z.infer<typeof flashcardsRequestSchema>;
-export type PracticeRequestInput = z.infer<typeof practiceRequestSchema>;
 export type AskRequestInput = z.infer<typeof askRequestSchema>;
 export type ChatRequestInput = z.infer<typeof chatRequestSchema>;
 export type ExplainRequestInput = z.infer<typeof explainRequestSchema>;

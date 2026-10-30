@@ -3,7 +3,7 @@ import remarkMath from "remark-math";
 import remarkParse from "remark-parse";
 import { unified } from "unified";
 import type { Blockquote, Content, List, PhrasingContent, Root, Table, TableRow, Text } from "mdast";
-import { findHighlights, prepareContentForRendering, SENTINEL_PATTERN, type AiHighlight } from "@/lib/aiMarkup";
+import { findAdditions, findHighlights, prepareContentForRendering, SENTINEL_PATTERN, type AiAddition, type AiHighlight } from "@/lib/aiMarkup";
 import { CALLOUT_PATTERN, CALLOUT_TYPES } from "@/lib/remarkCallouts";
 import { MARK_PATTERN } from "@/lib/remarkHighlightMark";
 
@@ -23,10 +23,14 @@ export interface TiptapNode {
 const processor = unified().use(remarkParse).use(remarkGfm).use(remarkMath);
 
 // Converts this app's Markdown dialect into a Tiptap/ProseMirror JSON document. Assumes
-// the caller has already ruled out pending <aialter>/<aiadd> review tags (see the
-// "Format" button's guard in NotePage.tsx) - those are never modeled here.
+// the caller has already ruled out pending <aialter> corrections (see the "Format visually"
+// guard in NotePage.tsx) - those are never modeled here. <aiadd> additions become the
+// aiAdd mark and are written back out by tiptapToMarkdown.ts.
+let currentAdditions: AiAddition[] = [];
+
 export function markdownToTiptap(markdown: string): TiptapNode {
   const highlights = findHighlights(markdown);
+  currentAdditions = findAdditions(markdown);
   const sentinelSource = prepareContentForRendering(markdown);
   const tree = processor.parse(sentinelSource) as Root;
   const content = tree.children.flatMap((node) => convertBlock(node, highlights));
@@ -156,7 +160,12 @@ function convertText(value: string, highlights: AiHighlight[], marks: TiptapMark
     }
 
     const [, sentinelKind, sentinelIndex, markText] = match;
-    if (sentinelKind === "H" && sentinelIndex !== undefined) {
+    if (sentinelKind === "D" && sentinelIndex !== undefined) {
+      const addition = currentAdditions.find((a) => a.index === Number(sentinelIndex));
+      if (addition?.text) {
+        result.push({ type: "text", text: addition.text, marks: [...marks, { type: "aiAdd" }] });
+      }
+    } else if (sentinelKind === "H" && sentinelIndex !== undefined) {
       const highlight = findHighlightByIndex(highlights, Number(sentinelIndex));
       if (highlight?.text) {
         result.push({

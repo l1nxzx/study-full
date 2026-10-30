@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import { AiPanel } from "@/components/ai-panel/AiPanel";
-import { AiPanelProvider, useAiPanel } from "@/hooks/useAiPanel";
+import { useAiPanel } from "@/hooks/useAiPanel";
 import { ShellProvider } from "@/hooks/useShell";
 import { BottomNav, MobileHeader } from "./MobileNav";
 import { SearchDialog } from "./SearchDialog";
@@ -48,10 +48,8 @@ function Shell() {
 
 export function AppLayout() {
   return (
-    <AiPanelProvider>
-      <ShellProvider>
-        <Shell />
-      </ShellProvider>
-    </AiPanelProvider>
+    <ShellProvider>
+      <Shell />
+    </ShellProvider>
   );
 }

@@ -1,10 +1,11 @@
 import { useMutation } from "@tanstack/react-query";
-import { ArrowRight, FileText, TextSelect } from "lucide-react";
+import { ArrowRight, FileText, History, PenLine, TextSelect } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import * as aiApi from "@/api/ai";
 import { getErrorMessage } from "@/api/client";
 import { ChatMessages } from "@/components/ai-panel/ChatMessages";
+import { ConversationHistory } from "@/components/ai-panel/ConversationHistory";
 import { Composer } from "@/components/ai-panel/Composer";
 import { chatHintFor, useAiContextSummary } from "@/hooks/useAiContext";
 import { useAiPanel, type AiChatMessage } from "@/hooks/useAiPanel";
@@ -23,8 +24,9 @@ const quickActionButton =
 
 /** The conversation: a general study chat, or questions answered from the open note. */
 export function AskView({ active }: { active: boolean }) {
-  const { isOpen, activeNote, messages, appendMessage, updateMessage } = useAiPanel();
+  const { isOpen, activeNote, messages, appendMessage, updateMessage, clearMessages, saveState } = useAiPanel();
   const [input, setInput] = useState("");
+  const [showHistory, setShowHistory] = useState(false);
   const contextSummary = useAiContextSummary(isOpen && !activeNote);
   const location = useLocation();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -154,16 +156,50 @@ export function AskView({ active }: { active: boolean }) {
 
   const suggestions = activeNote ? NOTE_SUGGESTIONS : GENERAL_SUGGESTIONS;
 
+  const toolbarButton =
+    "inline-flex h-7 items-center gap-1.5 rounded-sm px-1.5 text-meta text-fg-muted transition-colors hover:bg-tint hover:text-fg";
+
+  if (showHistory) {
+    return (
+      <div className="flex min-h-0 flex-1 flex-col">
+        <ConversationHistory onClose={() => setShowHistory(false)} />
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex h-10 shrink-0 items-center justify-between gap-2 border-b border-rule px-3.5">
+        <p className="truncate pl-1.5 text-meta text-fg-faint">
+          {messages.length === 0
+            ? "New conversation"
+            : saveState === "saving"
+              ? "Saving..."
+              : saveState === "error"
+                ? "Not saved - will retry with the next message"
+                : saveState === "saved"
+                  ? "Saved"
+                  : ""}
+        </p>
+        <div className="flex shrink-0 items-center">
+          <button type="button" onClick={() => setShowHistory(true)} className={toolbarButton}>
+            <History className="size-3.5" /> History
+          </button>
+          {messages.length > 0 && (
+            <button type="button" onClick={clearMessages} className={toolbarButton} disabled={isPending}>
+              <PenLine className="size-3.5" /> New
+            </button>
+          )}
+        </div>
+      </div>
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-6">
         {messages.length === 0 ? (
           <div>
             <p className="text-sm leading-relaxed text-fg-muted">
               {activeNote ? (
                 <>
-                  Questions here are answered from <span className="text-fg">"{activeNote.title}"</span>. If something isn't covered by the
-                  note, the answer says so.
+                  Ask anything about <span className="text-fg">"{activeNote.title}"</span>, including things the note assumes you
+                  already know. Answers that go beyond the note say so underneath.
                 </>
               ) : (
                 <>{chatHintFor(location.pathname)} I can see your subjects, timetable, open tasks and note titles - not the notes themselves.</>

@@ -7,6 +7,7 @@ import { ClassSessionFormDialog } from "@/components/schedule/ClassSessionFormDi
 import { EmptyState } from "@/components/shared/EmptyState";
 import { SubjectSwatch } from "@/components/shared/SubjectSwatch";
 import { SubjectFormDialog } from "@/components/subjects/SubjectFormDialog";
+import { SubjectStatsSection } from "@/components/stats/EntityStats";
 import { TaskFormDialog } from "@/components/tasks/TaskFormDialog";
 import { TaskItem } from "@/components/tasks/TaskItem";
 import { Button } from "@/components/ui/button";
@@ -65,6 +66,9 @@ export function SubjectPage() {
                 </Button>
               }
             />
+            <Button variant="ghost" size="sm" asChild>
+              <Link to={`/tests/new?subjectId=${subject.id}`}>Make a test</Link>
+            </Button>
             <Button asChild>
               <Link to={`/notes/new?subjectId=${subject.id}`}>
                 <Plus /> New note
@@ -127,6 +131,8 @@ export function SubjectPage() {
         </div>
 
         <aside className="space-y-10">
+          <SubjectStatsSection subjectId={subject.id} />
+
           <section>
             <h2 className="group-label border-b border-rule pb-2">Weekly classes</h2>
             {sortedSchedule.length === 0 ? (

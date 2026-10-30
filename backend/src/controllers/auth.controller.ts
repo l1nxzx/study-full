@@ -28,7 +28,7 @@ export const me = asyncHandler(async (req: Request, res: Response) => {
 export const updateProfile = asyncHandler(async (req: Request, res: Response) => {
   if (!req.user) throw AppError.unauthorized();
   const input = updateProfileSchema.parse(req.body);
-  const user = await authService.updateProfile(req.user.userId, input.name);
+  const user = await authService.updateProfile(req.user.userId, input);
   res.json(user);
 });
 

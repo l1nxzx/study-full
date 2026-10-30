@@ -1,4 +1,4 @@
-import { LogOut, MessagesSquare, Plus, Search, Settings } from "lucide-react";
+import { ChartNoAxesColumn, LogOut, MessagesSquare, Plus, Search, Settings } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { SubjectFormDialog } from "@/components/subjects/SubjectFormDialog";
 import { SubjectSwatch } from "@/components/shared/SubjectSwatch";
@@ -80,6 +80,14 @@ export function AccountRows({ onNavigate }: { onNavigate?: () => void }) {
   const { user, logout } = useAuth();
   return (
     <div className="space-y-px">
+      <NavLink to="/profile" onClick={onNavigate} className={({ isActive }) => navRowClasses(isActive)}>
+        {({ isActive }) => (
+          <>
+            <ChartNoAxesColumn className={navIconClasses(isActive)} strokeWidth={1.75} />
+            Profile and statistics
+          </>
+        )}
+      </NavLink>
       <NavLink to="/settings" onClick={onNavigate} className={({ isActive }) => navRowClasses(isActive)}>
         {({ isActive }) => (
           <>

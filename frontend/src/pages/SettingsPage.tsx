@@ -11,7 +11,11 @@ import { Field } from "@/components/ui/label";
 import { Segmented } from "@/components/ui/segmented";
 import { useAuth } from "@/hooks/useAuth";
 import { useTheme } from "@/hooks/useTheme";
+import { usePreferences } from "@/hooks/usePreferences";
 import { useUpdateProfile } from "@/hooks/useUpdateProfile";
+import { READING_FONTS, UI_FONTS } from "@/lib/preferences";
+import { cn } from "@/lib/utils";
+import type { ReadingFont, UiFont } from "@/types";
 
 function ProfileNameForm({ initialName }: { initialName: string | null }) {
   const [name, setName] = useState(initialName ?? "");
@@ -35,6 +39,63 @@ function ProfileNameForm({ initialName }: { initialName: string | null }) {
         {updateProfile.isPending ? "Saving..." : saved ? "Saved" : "Save"}
       </Button>
     </form>
+  );
+}
+
+function FontSettings() {
+  const { preferences, updatePreferences } = usePreferences();
+  const reading = preferences.readingFont ?? "literata";
+  const ui = preferences.uiFont ?? "instrument";
+
+  return (
+    <SettingsSection
+      title="Fonts"
+      description="The reading font is used for notes, assistant answers, quizzes and tests. Saved to your account, so it follows you to every device."
+    >
+      <div className="space-y-6">
+        <fieldset>
+          <legend className="mb-2 text-[0.8125rem] font-medium text-fg-muted">Reading font</legend>
+          <div role="radiogroup" aria-label="Reading font" className="divide-y divide-rule border-y border-rule">
+            {(Object.keys(READING_FONTS) as ReadingFont[]).map((key) => {
+              const font = READING_FONTS[key];
+              const selected = reading === key;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected}
+                  onClick={() => updatePreferences({ readingFont: key })}
+                  className={cn("flex w-full items-start gap-3 px-2 py-3 text-left transition-colors", selected ? "bg-accent/[0.08]" : "hover:bg-tint/60")}
+                >
+                  <span
+                    aria-hidden
+                    className={cn("mt-1 flex size-4 shrink-0 items-center justify-center rounded-full border", selected ? "border-accent-fill" : "border-rule-strong")}
+                  >
+                    {selected && <span className="size-2 rounded-full bg-accent-fill" />}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-[1.0625rem] leading-snug text-fg" style={{ fontFamily: font.stack }}>
+                      {font.label} - the discriminant decides how many roots there are.
+                    </span>
+                    <span className="mt-0.5 block text-meta text-fg-faint">{font.description}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </fieldset>
+        <div>
+          <p className="mb-2 text-[0.8125rem] font-medium text-fg-muted">Interface font</p>
+          <Segmented
+            label="Interface font"
+            value={ui}
+            onChange={(v) => updatePreferences({ uiFont: v as UiFont })}
+            options={(Object.keys(UI_FONTS) as UiFont[]).map((k) => ({ value: k, label: UI_FONTS[k].label }))}
+          />
+        </div>
+      </div>
+    </SettingsSection>
   );
 }
 
@@ -82,6 +143,8 @@ export function SettingsPage() {
           ]}
         />
       </SettingsSection>
+
+      <FontSettings />
 
       <ScheduleIntegrationCard />
 

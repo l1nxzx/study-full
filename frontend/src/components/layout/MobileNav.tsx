@@ -15,6 +15,7 @@ function currentSectionLabel(pathname: string): string {
   const item = mainNavItems.find((i) => pathname.startsWith(i.to));
   if (item) return item.label;
   if (pathname.startsWith("/settings")) return "Settings";
+  if (pathname.startsWith("/profile")) return "Profile";
   return "Study";
 }
 
@@ -31,7 +32,7 @@ export function MobileHeader() {
           <Menu className="size-5" strokeWidth={1.75} />
         </DialogPrimitive.Trigger>
         <DialogPrimitive.Portal>
-          <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-[oklch(0.12_0.01_165/0.55)]" />
+          <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-[oklch(0.14_0.01_265/0.55)]" />
           <DialogPrimitive.Content
             aria-describedby={undefined}
             className="fixed inset-y-0 left-0 z-50 flex w-[17.5rem] max-w-[85vw] flex-col border-r border-rule bg-panel pt-[env(safe-area-inset-top)] outline-none"

@@ -1,9 +1,9 @@
-import { PenLine, X } from "lucide-react";
+import { ArrowUpRight, X } from "lucide-react";
+import { Link } from "react-router-dom";
 import { useState } from "react";
 import { AskView } from "@/components/ai-panel/AskView";
 import { FlashcardsTool } from "@/components/ai-panel/tools/FlashcardsTool";
 import { NotesRevealToggle } from "@/components/ai-panel/tools/NotesRevealToggle";
-import { PracticeTool } from "@/components/ai-panel/tools/PracticeTool";
 import { QuizTool } from "@/components/ai-panel/tools/QuizTool";
 import { ToolBody } from "@/components/ai-panel/tools/ToolParts";
 import { useAiPanel, type AiToolMode } from "@/hooks/useAiPanel";
@@ -14,7 +14,6 @@ const TABS: { mode: AiToolMode; label: string }[] = [
   { mode: "none", label: "Ask" },
   { mode: "quiz", label: "Quiz" },
   { mode: "flashcards", label: "Flashcards" },
-  { mode: "practice", label: "Practice" },
 ];
 
 const iconButton =
@@ -27,7 +26,7 @@ const iconButton =
  * for its job - and they stay mounted while you switch, so a half-finished quiz isn't lost.
  */
 export function AiPanel() {
-  const { isOpen, close, toolMode, setToolMode, activeNote, messages, clearMessages } = useAiPanel();
+  const { isOpen, close, toolMode, setToolMode, activeNote } = useAiPanel();
   const aiEnabled = useAiStatus();
   // Tools are mounted the first time they're opened and kept until the note changes. Derived
   // during render (React's "adjusting state when a prop changes" pattern), not in an effect.
@@ -38,7 +37,7 @@ export function AiPanel() {
   if (nextVisited !== visited) setVisited(nextVisited);
 
   const mode: AiToolMode = activeNote ? toolMode : "none";
-  const showNoteToggle = activeNote && (mode === "quiz" || mode === "practice");
+  const showNoteToggle = activeNote && mode === "quiz";
 
   return (
     <aside
@@ -61,11 +60,6 @@ export function AiPanel() {
               {activeNote ? <>Working from "{activeNote.title}"</> : "General study help"}
             </p>
           </div>
-          {mode === "none" && messages.length > 0 && (
-            <button type="button" onClick={clearMessages} className={iconButton} title="New conversation" aria-label="New conversation">
-              <PenLine className="size-4" />
-            </button>
-          )}
           <button type="button" onClick={close} className={iconButton} title="Close assistant" aria-label="Close assistant">
             <X className="size-4" />
           </button>
@@ -93,10 +87,22 @@ export function AiPanel() {
                 );
               })}
             </div>
-            {showNoteToggle && (
+            {showNoteToggle ? (
               <div className="mb-1.5 hidden lg:block">
                 <NotesRevealToggle />
               </div>
+            ) : (
+              <Link
+                to={`/tests/new?noteIds=${activeNote.id}`}
+                onClick={() => {
+                  // On narrower screens the panel covers the page; get it out of the way.
+                  if (!window.matchMedia("(min-width: 1280px)").matches) close();
+                }}
+                className="mb-1.5 inline-flex h-7 items-center gap-1 rounded-sm px-1.5 text-meta text-fg-muted transition-colors hover:bg-tint hover:text-fg"
+                title="Create a long written test from this note"
+              >
+                Test <ArrowUpRight className="size-3.5" />
+              </Link>
             )}
           </div>
         )}
@@ -106,7 +112,7 @@ export function AiPanel() {
         <div className="px-5 py-6">
           <p className="text-sm font-medium text-fg">The assistant isn't available</p>
           <p className="mt-1 text-sm leading-relaxed text-fg-muted">
-            The server has no OpenAI API key configured, so chat, quizzes, flashcards and practice questions are turned off. Everything
+            The server has no OpenAI API key configured, so chat, quizzes, flashcards and tests are turned off. Everything
             else works as usual.
           </p>
         </div>
@@ -131,11 +137,6 @@ export function AiPanel() {
                     noteTitle={activeNote.title}
                     active={isOpen && mode === "flashcards"}
                   />
-                </ToolBody>
-              )}
-              {nextVisited.modes.has("practice") && (
-                <ToolBody className={mode === "practice" ? "block" : "hidden"}>
-                  <PracticeTool key={activeNote.id} noteId={activeNote.id} noteTitle={activeNote.title} />
                 </ToolBody>
               )}
             </>

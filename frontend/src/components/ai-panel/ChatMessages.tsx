@@ -1,4 +1,4 @@
-import { AlertCircle, BookOpen, Check, Copy, RefreshCw, TriangleAlert } from "lucide-react";
+import { AlertCircle, BookOpen, Check, Copy, RefreshCw } from "lucide-react";
 import { useState } from "react";
 import { MarkdownRenderer } from "@/components/notes/MarkdownRenderer";
 import { SkeletonLines } from "@/components/ui/skeleton";
@@ -48,12 +48,7 @@ function SourceLine({ message, sourceTitle }: { message: AiChatMessage; sourceTi
       </p>
     );
   }
-  return (
-    <p className="flex items-start gap-1.5 text-meta text-warn">
-      <TriangleAlert className="mt-px size-3.5 shrink-0" />
-      <span>Partly beyond your note - check this against your class materials.</span>
-    </p>
-  );
+  return <p className="text-meta italic text-fg-faint">Goes a little beyond your note.</p>;
 }
 
 function UserMessage({ message }: { message: AiChatMessage }) {

@@ -10,7 +10,7 @@ const DialogClose = DialogPrimitive.Close;
 function DialogOverlay({ className, ...props }: ComponentProps<typeof DialogPrimitive.Overlay>) {
   return (
     <DialogPrimitive.Overlay
-      className={cn("fixed inset-0 z-50 bg-[oklch(0.12_0.01_165/0.55)]", className)}
+      className={cn("fixed inset-0 z-50 bg-[oklch(0.14_0.01_265/0.55)]", className)}
       {...props}
     />
   );

@@ -25,9 +25,13 @@ function wrapInlineCode(text: string): string {
 function wrapWithMarks(text: string, marks: TiptapMark[]): string {
   if (marks.some((m) => m.type === "code")) return wrapInlineCode(text);
 
-  let result = escapeText(text);
+  // AI-added text is read back as opaque plain text (see aiMarkup.ts), so it isn't escaped;
+  // only a literal closing tag inside it would break the marker.
+  const aiAdd = marks.some((m) => m.type === "aiAdd");
+  let result = aiAdd ? `<aiadd>${text.replace(/<\/aiadd>/gi, "")}</aiadd>` : escapeText(text);
 
-  const highlight = marks.find((m) => m.type === "highlight");
+  // Highlight and AI-added are both opaque tags that can't nest; the AI marker wins.
+  const highlight = aiAdd ? undefined : marks.find((m) => m.type === "highlight");
   if (highlight) {
     const color = (highlight.attrs?.color as string) || "blue";
     result = color === "blue" ? `==${result}==` : `<highlight color="${color}">${result}</highlight>`;
