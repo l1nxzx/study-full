@@ -435,15 +435,25 @@ const KIND_TEXT: Record<QuestionKind, string> = {
     "understanding: explain why or how, compare two things, give and justify an example, or apply a concept to a " +
     "given case",
   deep:
-    "deep thinking: analyse a situation, combine ideas from different parts of the notes (or different notes), " +
-    "evaluate or argue for a conclusion, or predict consequences in a new scenario the notes don't describe, " +
-    "justifying each step. It must not be answerable by repeating one passage of the notes",
+    "deep thinking: combine ideas from different parts of the notes (or different notes), analyse how they connect, " +
+    "explain causes and consequences, or argue for a conclusion, justifying each step - all with what the notes " +
+    "say. It must not be answerable by repeating one passage of the notes",
 };
 
 const PROBLEM_TEXT =
-  "It is a problem to reason through: a calculation, a cause-and-effect chain of several steps, interpreting data " +
-  "given in the question (numbers, a table, a described map or graph) and drawing conclusions, or a what-if " +
-  "prediction. Put all the data needed in the question.";
+  "It is a problem to reason through using the notes: a calculation with the rules the notes give, a cause-and-" +
+  "effect chain of several steps the notes support, or a what-if built only on relationships the notes state. " +
+  "Any numbers it needs are written out in the question itself.";
+
+// Questions are about the student's notes and nothing else. The examples are the kind of
+// question that slipped through before (a diagram and a city the notes never gave).
+const GROUNDING_RULE =
+  "Every question must be answerable using only what is written in the notes. Never ask about facts, places, " +
+  "examples, people, dates or data that are not in the notes, and never ask the student to read, analyse, draw or " +
+  "compare a diagram, map, graph, chart, picture, table or dataset - the student has only the question text. " +
+  'Bad: "Analyse the climate diagram for Chicago and compare it with another city." Bad: "Combine information ' +
+  'from climate diagrams and maps to predict trends in different regions, using examples of specific places." ' +
+  "Good: questions about the concepts, processes, causes, comparisons and examples the notes themselves contain.";
 
 function describeSlot(slot: QuestionSlot, index: number) {
   return (
@@ -454,8 +464,28 @@ function describeSlot(slot: QuestionSlot, index: number) {
 
 function instructionsLine(settings: TestSettings) {
   return settings.instructions
-    ? ` The student described the test they want like this - follow it as long as it fits the material: "${settings.instructions}".`
+    ? ` The student described the test they want like this - follow it as long as it fits the material, and only if ` +
+        `it explicitly asks for material beyond the notes may questions go beyond them: "${settings.instructions}".`
     : "";
+}
+
+// Lower-case letters and digits only, single-spaced: quotes are compared ignoring formatting.
+function normalizeForMatch(text: string) {
+  return text
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim();
+}
+
+// Whether a quoted "basis" really comes from the notes: found as written, or (allowing for small
+// edits) at least 80% of its words appear in the notes.
+export function basisInNotes(basis: string, normalizedNotes: string, noteWords: Set<string>) {
+  const quote = normalizeForMatch(basis);
+  if (quote.length < 8) return false;
+  if (normalizedNotes.includes(quote)) return true;
+  const words = quote.split(" ").filter((w) => w.length > 2);
+  if (words.length < 4) return false;
+  return words.filter((w) => noteWords.has(w)).length / words.length >= 0.8;
 }
 
 // Tests read more of the notes than other tools: a test can cover up to 15 notes.
@@ -473,7 +503,7 @@ async function outlineTest(notesContext: string, settings: TestSettings, slots: 
       "with the kind of thinking it asks for. For every slot choose a distinct topic and say in one sentence what the " +
       "question will ask (its focus), fitting the slot. Cover the material broadly: spread the slots over all the " +
       "notes and their main ideas, and never test the same thing twice. Deep-thinking slots should combine ideas, " +
-      `ideally from different notes. Overall difficulty: ${DIFFICULTY_TEXT[settings.difficulty]}.` +
+      `ideally from different notes. Overall difficulty: ${DIFFICULTY_TEXT[settings.difficulty]}. ${GROUNDING_RULE}` +
       instructionsLine(settings) +
       ' Respond as JSON: { "title": string (a short test title), "outline": [ { "slot": number, "topic": string ' +
       '(2-4 words), "focus": string } ] } with exactly one entry per slot.' +
@@ -507,12 +537,13 @@ async function writeQuestions(
       "question for each slot you are given, matching its kind of thinking, its problem flag, its topic and focus, " +
       "and its minutes: the expected answer should take about that long to write, so a long slot needs a substantial " +
       `task, not a one-line answer. Difficulty of every question: ${DIFFICULTY_TEXT[settings.difficulty]}. Questions ` +
-      "must be answerable from the notes (combining and applying them is fine), clear and unambiguous. For each " +
-      'question also write a complete, correct "modelAnswer" and "criteria": a short list of what an answer must ' +
-      'contain to earn full points, each one checkable. "topic" is 2-4 words naming what it tests.' +
+      `must be clear and unambiguous. ${GROUNDING_RULE} For each ` +
+      'question also write a complete, correct "modelAnswer" built from the notes, "criteria": a short list of what ' +
+      'an answer must contain to earn full points, each one checkable, and "basis": a sentence copied word for word ' +
+      'from the notes that the answer relies on most. "topic" is 2-4 words naming what it tests.' +
       instructionsLine(settings) +
       ' Respond as JSON: { "questions": [ { "slot": number, "prompt": string, "topic": string, "modelAnswer": string, ' +
-      '"criteria": string[] } ] } with one entry per slot you were given.' +
+      '"criteria": string[], "basis": string } ] } with one entry per slot you were given.' +
       MATH_FORMATTING_INSTRUCTION +
       SLOVAK_INSTRUCTION,
     user:
@@ -529,6 +560,11 @@ export async function generateTest(notes: NoteContext[], settings: TestSettings)
   const slots = planTest(settings);
   const notesContext = buildNotesContext(notes, TEST_NOTES_LIMITS);
   const { title, outline } = await outlineTest(notesContext, settings, slots);
+  // A question whose quoted basis isn't in the notes is probably about something else: it is
+  // written again (unless the student asked for outside material, or it's the last round).
+  const normalizedNotes = normalizeForMatch(notes.map((n) => n.contentMarkdown).join("\n"));
+  const noteWords = new Set(normalizedNotes.split(" "));
+  const checkBasis = !settings.instructions;
 
   const written = new Map<number, Awaited<ReturnType<typeof writeQuestions>>[number]>();
   for (let round = 0; round < 3; round++) {
@@ -538,7 +574,12 @@ export async function generateTest(notes: NoteContext[], settings: TestSettings)
     for (let i = 0; i < missing.length; i += TEST_WRITE_BATCH_SIZE) batches.push(missing.slice(i, i + TEST_WRITE_BATCH_SIZE));
     const results = await mapLimit(batches, AI_CONCURRENCY, (b) => writeQuestions(notesContext, settings, slots, outline, b));
     for (const r of results) {
-      if (r.status === "fulfilled") for (const q of r.value) if (!written.has(q.slot)) written.set(q.slot, q);
+      if (r.status !== "fulfilled") continue;
+      for (const q of r.value) {
+        if (written.has(q.slot)) continue;
+        if (checkBasis && round < 2 && !basisInNotes(q.basis, normalizedNotes, noteWords)) continue;
+        written.set(q.slot, q);
+      }
     }
   }
 

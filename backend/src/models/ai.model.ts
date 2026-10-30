@@ -151,6 +151,7 @@ export const testQuestionsSchema = z.object({
         topic: z.string().max(80).catch(""),
         modelAnswer: z.string().min(1),
         criteria: z.array(z.string()).default([]),
+        basis: z.string().catch(""),
       })
     )
     .default([]),
