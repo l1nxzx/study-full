@@ -55,7 +55,8 @@ export function SubjectFormDialog({ editingSubject, open: openProp, onOpenChange
     setError(null);
     try {
       if (editingSubject) {
-        await updateSubject.mutateAsync({ id: editingSubject.id, input: { name, icon: icon || undefined, color } });
+        // Shown at once; a failure puts the old name and colour back and says so.
+        updateSubject.mutate({ id: editingSubject.id, input: { name, icon: icon || undefined, color } });
       } else {
         await createSubject.mutateAsync({ name, icon: icon || undefined, color });
       }
@@ -72,7 +73,7 @@ export function SubjectFormDialog({ editingSubject, open: openProp, onOpenChange
     navigate("/dashboard");
   }
 
-  const isSubmitting = createSubject.isPending || updateSubject.isPending;
+  const isSubmitting = createSubject.isPending;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

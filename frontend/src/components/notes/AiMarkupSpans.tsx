@@ -1,5 +1,6 @@
 import { Check, Pencil, Undo2, X } from "lucide-react";
 import { type KeyboardEvent, useState } from "react";
+import { usePressMenu } from "@/components/shared/PressMenu";
 import type { AlterationAction } from "@/lib/aiMarkup";
 import { cn } from "@/lib/utils";
 
@@ -105,19 +106,22 @@ interface AiAddSpanProps {
 
 // Content the AI inferred should be there but wasn't legible/present in the photo at
 // all. Stays visibly marked permanently (by design) so it's never mistaken for the
-// student's own original notes, even after review.
+// student's own original notes, even after review. Removing it is in a menu opened by
+// right-click or a long press, never a button on the text that's easy to hit by accident.
 export function AiAddSpan({ text, onRemove }: AiAddSpanProps) {
+  const { handlers, menu } = usePressMenu([onRemove && { label: "Remove AI-added text", onSelect: onRemove, destructive: true }]);
   return (
-    <span className="inline align-baseline">
+    <span className="inline align-baseline [-webkit-touch-callout:none] pointer-coarse:select-none" {...(onRemove ? handlers : {})}>
       <span className="mr-1 align-[0.12em] font-sans text-[0.625rem] font-semibold tracking-wide text-accent" title="Added by the AI, not in the original notes">
         AI
       </span>
-      <span className="text-fg underline decoration-accent/60 decoration-dashed underline-offset-4">{text}</span>
-      {onRemove && (
-        <button type="button" onClick={onRemove} title="Remove this AI-added content" className={cn(markButton, "ml-0.5 align-middle hover:text-bad")}>
-          <X className="size-3.5" />
-        </button>
-      )}
+      <span
+        className="text-fg underline decoration-accent/60 decoration-dashed underline-offset-4"
+        title={onRemove ? "Added by the AI. Right-click or long-press for options." : undefined}
+      >
+        {text}
+      </span>
+      {menu}
     </span>
   );
 }

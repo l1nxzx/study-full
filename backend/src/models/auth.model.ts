@@ -24,6 +24,10 @@ export const preferencesSchema = z
     notebookPaper: z.enum(["light", "dark"]).optional(),
     notebookTextSize: z.enum(["small", "medium", "large"]).optional(),
     dismissedTips: z.array(z.string().max(60)).max(50).optional(),
+    // Subjects pinned to the top of the sidebar, in order, and how many subjects the sidebar
+    // shows before "Show more" (0 shows all).
+    pinnedSubjects: z.array(z.string().min(1).max(60)).max(50).optional(),
+    sidebarSubjectCount: z.number().int().min(0).max(50).optional(),
   })
   .strict();
 

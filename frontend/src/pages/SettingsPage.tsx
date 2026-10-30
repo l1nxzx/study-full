@@ -99,6 +99,30 @@ function FontSettings() {
   );
 }
 
+function SidebarSettings() {
+  const { preferences, updatePreferences } = usePreferences();
+  const count = String(preferences.sidebarSubjectCount ?? 6);
+  return (
+    <SettingsSection
+      title="Sidebar"
+      description="How many subjects the sidebar lists before Show more. Right-click or long-press a subject there to pin it to the top or change the order."
+    >
+      <Segmented
+        label="Subjects shown"
+        value={count}
+        onChange={(v) => updatePreferences({ sidebarSubjectCount: Number(v) })}
+        options={[
+          { value: "4", label: "4" },
+          { value: "6", label: "6" },
+          { value: "8", label: "8" },
+          { value: "12", label: "12" },
+          { value: "0", label: "All" },
+        ]}
+      />
+    </SettingsSection>
+  );
+}
+
 export function SettingsPage() {
   const { user } = useAuth();
   const { theme, setTheme } = useTheme();
@@ -145,6 +169,8 @@ export function SettingsPage() {
       </SettingsSection>
 
       <FontSettings />
+
+      <SidebarSettings />
 
       <ScheduleIntegrationCard />
 
