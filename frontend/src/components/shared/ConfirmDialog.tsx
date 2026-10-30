@@ -14,6 +14,8 @@ interface ConfirmDialogProps {
   title: string;
   description?: string;
   confirmLabel?: string;
+  /** Label of the button that closes without doing anything. */
+  cancelLabel?: string;
   destructive?: boolean;
   onConfirm: () => void;
   isLoading?: boolean;
@@ -25,6 +27,7 @@ export function ConfirmDialog({
   title,
   description,
   confirmLabel = "Confirm",
+  cancelLabel = "Cancel",
   destructive = true,
   onConfirm,
   isLoading,
@@ -38,7 +41,7 @@ export function ConfirmDialog({
         </DialogHeader>
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={isLoading}>
-            Cancel
+            {cancelLabel}
           </Button>
           <Button variant={destructive ? "destructive" : "default"} onClick={onConfirm} disabled={isLoading}>
             {isLoading ? "Working..." : confirmLabel}

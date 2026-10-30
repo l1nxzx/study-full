@@ -7,6 +7,7 @@ import { getErrorMessage } from "@/api/client";
 import * as testsApi from "@/api/tests";
 import { Page, PageHeader, Section } from "@/components/layout/PageHeader";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { RemoveAttemptButton } from "@/components/tests/RemoveAttemptButton";
 import { InlineError } from "@/components/shared/EmptyState";
 import { SubjectLabel } from "@/components/shared/SubjectSwatch";
 import { Button } from "@/components/ui/button";
@@ -196,6 +197,7 @@ export function TestPage() {
                 New test, same settings
               </Button>
             </div>
+            {open?.status === "in_progress" && <RemoveAttemptButton attempt={open} className="mt-3" />}
             {!open && graded.length === 0 && (
               <p className="mt-3 text-meta text-fg-faint">Your answers are saved as you write, so you can stop and come back.</p>
             )}
@@ -210,8 +212,8 @@ export function TestPage() {
             ) : (
               <ul className="divide-y divide-rule">
                 {test.attempts.map((a) => (
-                  <li key={a.id}>
-                    <Link to={`/tests/attempts/${a.id}`} className="group flex items-baseline justify-between gap-4 py-3">
+                  <li key={a.id} className="flex items-center gap-2">
+                    <Link to={`/tests/attempts/${a.id}`} className="group flex min-w-0 flex-1 items-baseline justify-between gap-4 py-3">
                       <span className="min-w-0">
                         <span className="block text-sm text-fg group-hover:text-accent">{format(parseISO(a.startedAt), "EEE, MMM d, HH:mm")}</span>
                         <span className="block text-meta text-fg-faint">
@@ -235,6 +237,7 @@ export function TestPage() {
                         </span>
                       )}
                     </Link>
+                    <RemoveAttemptButton attempt={a} compact />
                   </li>
                 ))}
               </ul>

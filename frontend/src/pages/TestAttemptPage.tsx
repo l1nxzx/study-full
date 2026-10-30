@@ -8,49 +8,18 @@ import * as testsApi from "@/api/tests";
 import { BackLink, Page } from "@/components/layout/PageHeader";
 import { InlineMarkdown } from "@/components/notes/InlineMarkdown";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { RemoveAttemptButton } from "@/components/tests/RemoveAttemptButton";
 import { InlineError } from "@/components/shared/EmptyState";
 import { Button } from "@/components/ui/button";
 import { Segmented } from "@/components/ui/segmented";
 import { Skeleton, SkeletonLines } from "@/components/ui/skeleton";
 import { setActivityHint } from "@/lib/activity";
+import { clearBackup, readBackup, writeBackup } from "@/lib/testAttemptBackup";
 import { formatClock, formatDuration, formatPoints, scoreTone } from "@/lib/testLabels";
 import { cn } from "@/lib/utils";
 
 type Answers = Record<string, string>;
 type SaveState = "saved" | "saving" | "unsaved" | "offline";
-
-interface LocalBackup {
-  answers: Answers;
-  elapsed: number;
-  savedAt: number;
-}
-
-const backupKey = (id: string) => `study.test-attempt.${id}`;
-
-function readBackup(id: string): LocalBackup | null {
-  try {
-    const raw = localStorage.getItem(backupKey(id));
-    return raw ? (JSON.parse(raw) as LocalBackup) : null;
-  } catch {
-    return null;
-  }
-}
-
-function writeBackup(id: string, backup: LocalBackup) {
-  try {
-    localStorage.setItem(backupKey(id), JSON.stringify(backup));
-  } catch {
-    // storage full or blocked - the server copy is still there
-  }
-}
-
-function clearBackup(id: string) {
-  try {
-    localStorage.removeItem(backupKey(id));
-  } catch {
-    // ignore
-  }
-}
 
 const toneText = { ok: "text-ok", warn: "text-warn", bad: "text-bad" } as const;
 const toneBorder = { ok: "border-ok", warn: "border-warn", bad: "border-bad" } as const;
@@ -83,6 +52,7 @@ function AnswerField({ value, onChange, label, disabled }: { value: string; onCh
 
 function TakeTest({ attempt, onSubmitted }: { attempt: testsApi.TestAttempt; onSubmitted: (a: testsApi.TestAttempt) => void }) {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const questions = attempt.test.questions;
 
   // Start from whichever copy is newer: the server's, or a local backup written while offline.
@@ -334,9 +304,20 @@ function TakeTest({ attempt, onSubmitted }: { attempt: testsApi.TestAttempt; onS
         <p className="text-sm text-fg-muted">
           {answeredCount === questions.length ? "Every question has an answer." : `${questions.length - answeredCount} still unanswered.`}
         </p>
-        <Button size="lg" onClick={() => setConfirmOpen(true)}>
-          Hand in for grading
-        </Button>
+        <div className="flex flex-col-reverse items-center gap-3 sm:flex-row sm:gap-5">
+          <RemoveAttemptButton
+            attempt={attempt}
+            onRemoved={() => {
+              // Nothing more to save: stop the page from writing the deleted try back.
+              handedIn.current = true;
+              clearBackup(attempt.id);
+              navigate(`/tests/${attempt.testId}`);
+            }}
+          />
+          <Button size="lg" onClick={() => setConfirmOpen(true)} className="w-full sm:w-auto">
+            Hand in for grading
+          </Button>
+        </div>
       </div>
 
       <ConfirmDialog
@@ -533,6 +514,7 @@ function Results({ attempt, onRegrade, regradeError }: { attempt: testsApi.TestA
         <Button variant="ghost" onClick={() => setConfirmRegrade(true)}>
           Grade again
         </Button>
+        <RemoveAttemptButton attempt={attempt} onRemoved={() => navigate(`/tests/${attempt.testId}`)} className="ml-auto" />
       </div>
       <InlineError className="mt-3">
         {retake.error
