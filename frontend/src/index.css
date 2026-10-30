@@ -350,8 +350,8 @@
   }
 
   /*
-   * The sidebar drawer, timed like Android's navigation drawer: it decelerates in and
-   * accelerates out a little faster, with the backdrop fading alongside.
+   * The sidebar drawer: an even glide in that settles gently, and a slightly quicker,
+   * symmetric ease out, with the backdrop fading alongside.
    */
   @keyframes drawer-in {
     from {
