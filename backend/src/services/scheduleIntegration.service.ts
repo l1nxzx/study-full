@@ -51,8 +51,12 @@ export async function recordSyncResult(userId: string, status: "ok" | "error", e
 }
 
 // Used by the periodic sync loop - only equality filters, so this never needs a
-// Firestore composite index.
-export async function listConnectedUserIds(): Promise<string[]> {
+// Firestore composite index. Returns when each calendar was last synced (ms, or null).
+export async function listConnectedIntegrations(): Promise<{ userId: string; lastSyncAtMs: number | null }[]> {
   const snapshot = await collection.where("connected", "==", true).get();
-  return snapshot.docs.map((doc) => doc.id);
+  return snapshot.docs.map((doc) => {
+    const lastSyncAt = doc.data().lastSyncAt as { toMillis?: () => number; _seconds?: number } | null | undefined;
+    const ms = lastSyncAt?.toMillis ? lastSyncAt.toMillis() : lastSyncAt?._seconds ? lastSyncAt._seconds * 1000 : null;
+    return { userId: doc.id, lastSyncAtMs: ms };
+  });
 }

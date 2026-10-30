@@ -17,15 +17,30 @@ export interface ScheduleEventInput {
   changeNote: string | null;
 }
 
-// Fetches everything for the user (equality-only, so it never needs a Firestore
-// composite index) and filters the date range in memory - fine at personal-app scale
-// (at most a few hundred imported lessons).
-export async function listScheduleEvents(userId: string, from?: string, to?: string) {
+// The imported timetable only changes when the calendar sync writes it, so the server keeps a
+// copy per user in memory and reads Firestore again only after a sync (or a restart). Every page
+// that shows the timetable asks for it, so without this each open read every lesson.
+const eventsCache = new Map<string, Record<string, unknown>[]>();
+
+export function invalidateScheduleEvents(userId: string): void {
+  eventsCache.delete(userId);
+}
+
+async function allEvents(userId: string): Promise<Record<string, unknown>[]> {
+  const cached = eventsCache.get(userId);
+  if (cached) return cached;
   const snapshot = await collection.where("userId", "==", userId).get();
-  return snapshot.docs
-    .map((doc) => ({ id: doc.id, ...doc.data() }) as any)
-    .filter((event) => (!from || event.date >= from) && (!to || event.date <= to))
-    .sort((a, b) => (a.date + a.startTime).localeCompare(b.date + b.startTime));
+  const events = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+  eventsCache.set(userId, events);
+  return events;
+}
+
+// Filters the date range in memory (equality-only queries never need a Firestore composite index).
+export async function listScheduleEvents(userId: string, from?: string, to?: string) {
+  const events = await allEvents(userId);
+  return events
+    .filter((event) => (!from || (event.date as string) >= from) && (!to || (event.date as string) <= to))
+    .sort((a, b) => `${a.date}${a.startTime}`.localeCompare(`${b.date}${b.startTime}`));
 }
 
 // Raw snapshot docs for a user, fetched once per sync and reused for both the upsert
@@ -100,6 +115,24 @@ export async function batchUpsertScheduleEvents(
 // in the feed (the lesson was removed/replaced upstream). Never touches past dates, so
 // history isn't lost just because the feed's rolling window moved on. Reuses the same
 // existingDocs snapshot the upsert step already fetched instead of querying again.
+// Deletes imported lessons dated before the cutoff. Lessons older than that are never shown
+// (the Schedule page looks back two weeks), and keeping them makes every sync read more.
+export async function pruneOldEvents(
+  existingDocs: FirebaseFirestore.QueryDocumentSnapshot[],
+  cutoffISO: string
+): Promise<number> {
+  const oldDocs = existingDocs.filter((doc) => {
+    const data = doc.data();
+    return data.source === "edupage" && typeof data.date === "string" && data.date < cutoffISO;
+  });
+  for (let i = 0; i < oldDocs.length; i += CHUNK_SIZE) {
+    const batch = db.batch();
+    oldDocs.slice(i, i + CHUNK_SIZE).forEach((doc) => batch.delete(doc.ref));
+    await batch.commit();
+  }
+  return oldDocs.length;
+}
+
 export async function pruneStaleFutureEvents(
   userId: string,
   existingDocs: FirebaseFirestore.QueryDocumentSnapshot[],
