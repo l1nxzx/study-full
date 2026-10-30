@@ -2,6 +2,7 @@ import { db, FieldValue } from "../config/firebase";
 import { AppError } from "../utils/AppError";
 import { pickUnusedColor } from "../utils/colorPalette";
 import { CreateSubjectInput, UpdateSubjectInput } from "../models/subject.model";
+import { deleteAllAttachmentsForNote } from "./attachments.service";
 
 const collection = db.collection("subjects");
 
@@ -58,7 +59,41 @@ export async function updateSubject(userId: string, id: string, input: UpdateSub
   return getSubject(userId, id);
 }
 
-export async function deleteSubject(userId: string, id: string) {
+// Writes in batches below Firestore's 500-operation limit.
+async function inBatches(refs: FirebaseFirestore.DocumentReference[], write: (batch: FirebaseFirestore.WriteBatch, ref: FirebaseFirestore.DocumentReference) => void) {
+  for (let i = 0; i < refs.length; i += 400) {
+    const batch = db.batch();
+    refs.slice(i, i + 400).forEach((ref) => write(batch, ref));
+    await batch.commit();
+  }
+}
+
+const ownedBySubject = (name: string, userId: string, subjectId: string) =>
+  db.collection(name).where("userId", "==", userId).where("subjectId", "==", subjectId).get();
+
+/**
+ * Deletes a subject and settles everything that pointed at it. Its notes are deleted (with
+ * their attachments) or kept without a subject, as the student chose. Tasks and tests are kept
+ * without a subject; the subject's classes and class sessions only make sense with it and go.
+ * Recorded study time stays, but statistics no longer list a subject that doesn't exist.
+ */
+export async function deleteSubject(userId: string, id: string, options: { deleteNotes: boolean }) {
   await getSubject(userId, id);
+  const [notes, tasks, tests, classes, sessions] = await Promise.all(
+    ["notes", "tasks", "tests", "classes", "classSessions"].map((name) => ownedBySubject(name, userId, id))
+  );
+
+  if (options.deleteNotes) {
+    for (const note of notes.docs) {
+      await deleteAllAttachmentsForNote(note.id);
+    }
+    await inBatches(notes.docs.map((d) => d.ref), (batch, ref) => batch.delete(ref));
+  } else {
+    await inBatches(notes.docs.map((d) => d.ref), (batch, ref) => batch.update(ref, { subjectId: null, sessionId: null }));
+  }
+  await inBatches(tasks.docs.map((d) => d.ref), (batch, ref) => batch.update(ref, { subjectId: null, sessionId: null }));
+  await inBatches(tests.docs.map((d) => d.ref), (batch, ref) => batch.update(ref, { subjectId: null }));
+  await inBatches([...classes.docs, ...sessions.docs].map((d) => d.ref), (batch, ref) => batch.delete(ref));
   await collection.doc(id).delete();
+  return { notesDeleted: options.deleteNotes ? notes.size : 0, notesKept: options.deleteNotes ? 0 : notes.size };
 }

@@ -39,7 +39,8 @@ export const update = asyncHandler(async (req: Request, res: Response) => {
   res.json(subject);
 });
 
+// DELETE /subjects/:id?notes=delete also deletes the subject's notes; by default they are kept
+// without a subject.
 export const remove = asyncHandler(async (req: Request, res: Response) => {
-  await subjectsService.deleteSubject(req.user!.userId, String(req.params.id));
-  res.status(204).send();
+  res.json(await subjectsService.deleteSubject(req.user!.userId, String(req.params.id), { deleteNotes: req.query.notes === "delete" }));
 });

@@ -188,7 +188,7 @@ export function NewTestPage() {
               </button>
               <ul className="mt-2 max-h-80 divide-y divide-rule overflow-y-auto border-y border-rule">
                 {visibleNotes.map((n) => {
-                  const subject = subjectById.get(n.subjectId);
+                  const subject = (n.subjectId ? subjectById.get(n.subjectId) : undefined);
                   return (
                     <li key={n.id}>
                       <label className="flex cursor-pointer items-center gap-3 py-2.5 pr-2">

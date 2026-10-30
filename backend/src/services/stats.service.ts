@@ -170,7 +170,10 @@ function sessionView(s: SessionDoc, data: Data) {
     mainArea,
     byArea: s.byArea ?? {},
     notes: topEntries(s.byNote ?? {}, 3).map(([noteId, seconds]) => ({ noteId, title: data.notes.get(noteId)?.title ?? "Deleted note", seconds })),
-    subjects: topEntries(s.bySubject ?? {}, 3).map(([subjectId, seconds]) => ({ subjectId, name: data.subjects.get(subjectId)?.name ?? "Other", seconds })),
+    subjects: topEntries(s.bySubject ?? {}, 6)
+      .filter(([subjectId]) => data.subjects.has(subjectId))
+      .slice(0, 3)
+      .map(([subjectId, seconds]) => ({ subjectId, name: data.subjects.get(subjectId)!.name, seconds })),
   };
 }
 
@@ -212,9 +215,14 @@ export async function overview(userId: string, today: string, tzOffsetMinutes: n
       byArea,
       byHour,
       byWeekday,
-      bySubject: topEntries(bySubject, 12).map(([subjectId, seconds]) => ({
+      // Only subjects that still exist: time spent on a deleted one stays in the totals, but a
+      // subject you deleted isn't listed.
+      bySubject: topEntries(
+        Object.fromEntries(Object.entries(bySubject).filter(([subjectId]) => data.subjects.has(subjectId))),
+        12
+      ).map(([subjectId, seconds]) => ({
         subjectId,
-        name: data.subjects.get(subjectId)?.name ?? "Deleted subject",
+        name: data.subjects.get(subjectId)!.name,
         color: data.subjects.get(subjectId)?.color ?? null,
         seconds,
       })),

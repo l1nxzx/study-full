@@ -136,6 +136,12 @@ and pinning or reordering subjects. The sidebar shows pinned subjects first, in 
 the rest; only the first few (Settings > Sidebar, default 6) show before "Show more", and the open
 subject always shows. Both are account preferences.
 
+## Deleting a subject
+
+Deleting a subject asks first, and what to do with its notes: keep them (they stay in Notes without a
+subject; the default) or delete them too. Its classes and class sessions are removed; its tasks and
+tests stay without a subject. Statistics never list a deleted subject, though the time stays in totals.
+
 ## Back button
 
 Anything that covers the page closes with the system Back button (phones' back gesture included)

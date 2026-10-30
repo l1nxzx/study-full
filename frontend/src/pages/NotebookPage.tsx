@@ -122,7 +122,7 @@ export function NotebookPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { data: note, isLoading, isError } = useNote(id);
-  const { data: subject } = useSubject(note?.subjectId);
+  const { data: subject } = useSubject(note?.subjectId ?? undefined);
   const { preferences, updatePreferences, isTipDismissed, dismissTip } = usePreferences();
 
   const paper = preferences.notebookPaper ?? "light";

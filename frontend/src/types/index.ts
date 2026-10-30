@@ -72,7 +72,8 @@ export interface ClassSessionDetail extends ClassSession {
 export interface Note {
   id: string;
   userId: string;
-  subjectId: string;
+  /** null once the note's subject was deleted and the note kept. */
+  subjectId: string | null;
   sessionId: string | null;
   title: string;
   date: string;

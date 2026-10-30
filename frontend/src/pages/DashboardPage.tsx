@@ -335,7 +335,7 @@ export function DashboardPage() {
             ) : (
               <ul className="divide-y divide-rule">
                 {recentNotes.map((note) => {
-                  const subject = subjectById.get(note.subjectId);
+                  const subject = (note.subjectId ? subjectById.get(note.subjectId) : undefined);
                   return (
                     <li key={note.id}>
                       <Link to={`/notes/${note.id}`} className="group block py-2.5">
