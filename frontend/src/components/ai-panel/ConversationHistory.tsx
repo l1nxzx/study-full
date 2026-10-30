@@ -36,7 +36,7 @@ export function ConversationHistory({ onClose }: { onClose: () => void }) {
   });
 
   return (
-    <div className="flex-1 overflow-y-auto px-5 py-4">
+    <div className="flex-1 overflow-y-auto overscroll-y-contain px-5 py-4">
       <button
         type="button"
         onClick={onClose}

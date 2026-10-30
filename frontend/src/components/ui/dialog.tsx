@@ -42,7 +42,7 @@ function DialogContent({
       <DialogOverlay />
       <DialogPrimitive.Content
         className={cn(
-          "fixed inset-x-0 bottom-0 z-50 flex max-h-[92dvh] flex-col gap-5 overflow-y-auto rounded-t-lg border-t border-rule bg-raised px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-5 shadow-lg outline-none",
+          "fixed inset-x-0 bottom-0 z-50 flex max-h-[92dvh] flex-col gap-5 overflow-y-auto overscroll-y-contain rounded-t-lg border-t border-rule bg-raised px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-5 shadow-lg outline-none",
           "sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-[10vh] sm:max-h-[80vh] sm:w-[calc(100%-2rem)] sm:max-w-md sm:-translate-x-1/2 sm:rounded-lg sm:border sm:p-6",
           className
         )}

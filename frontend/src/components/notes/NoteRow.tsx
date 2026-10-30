@@ -18,7 +18,7 @@ export function NoteRow({ note, subject, showSubject = true, className }: NoteRo
   const preview = notePreview(note.contentMarkdown, note.title);
 
   return (
-    <Link to={`/notes/${note.id}`} className={cn("group flex gap-6 py-3.5", className)}>
+    <Link to={`/notes/${note.id}`} className={cn("group flex gap-6 py-3.5 transition-opacity active:opacity-60", className)}>
       <div className="min-w-0 flex-1">
         <p className="truncate font-serif text-[1.0625rem] font-medium leading-snug text-fg transition-colors [font-variation-settings:'opsz'_20] group-hover:text-accent">
           {note.title}

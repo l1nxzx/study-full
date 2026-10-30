@@ -36,7 +36,7 @@ export function TaskItem({ task, subject, onToggle, onDelete, overdue, hideDate 
       <TaskFormDialog
         editingTask={task}
         trigger={
-          <button type="button" className="min-w-0 flex-1 text-left">
+          <button type="button" className="min-w-0 flex-1 text-left transition-opacity active:opacity-60">
             <span className={cn("block text-[0.9375rem] leading-snug", task.completed ? "text-fg-faint line-through" : "text-fg group-hover:text-fg")}>
               {task.title}
             </span>

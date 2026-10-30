@@ -212,6 +212,36 @@
     }
   }
 
+  /*
+   * App feel on phones. The page itself never scrolls (each view scrolls its own pane), so
+   * overscroll is switched off: no rubber band dragging the whole app, no accidental
+   * pull-to-refresh. Double-tap zoom is off too, which also removes any tap delay; pinch zoom
+   * still works.
+   */
+  html,
+  body {
+    overscroll-behavior: none;
+  }
+
+  html {
+    touch-action: manipulation;
+  }
+
+  /*
+   * Controls behave like controls on touch screens: a long press doesn't select their label or
+   * pop up the browser's link preview (long press opens our own menus instead). Text inside
+   * notes stays selectable.
+   */
+  @media (pointer: coarse) {
+    :where(button, a, label, nav, [role="button"], [role="tab"], [role="menuitem"], [role="option"]):not(
+        :where(.study-prose, [contenteditable="true"]) *
+      ) {
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-touch-callout: none;
+    }
+  }
+
   * {
     scrollbar-width: thin;
     scrollbar-color: var(--color-rule-strong) transparent;
