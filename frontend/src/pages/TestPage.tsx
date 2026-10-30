@@ -256,12 +256,6 @@ export function TestPage() {
               ))}
             </ul>
           </section>
-          <section>
-            <h2 className="group-label border-b border-rule pb-2">Topics</h2>
-            <p className="pt-2 text-[0.8125rem] leading-relaxed text-fg-muted">
-              {[...new Set(test.questions.map((q) => q.topic).filter(Boolean))].join(", ") || "Not listed"}
-            </p>
-          </section>
           <button
             type="button"
             onClick={() => setConfirmDelete(true)}
