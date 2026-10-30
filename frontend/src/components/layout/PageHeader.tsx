@@ -30,16 +30,19 @@ interface PageHeaderProps {
   title: ReactNode;
   description?: ReactNode;
   actions?: ReactNode;
+  /** A "more" menu, pinned to the header's top-right corner at every width. */
+  menu?: ReactNode;
   back?: { to: string; label: string };
   className?: string;
 }
 
-export function PageHeader({ title, description, actions, back, className }: PageHeaderProps) {
+export function PageHeader({ title, description, actions, menu, back, className }: PageHeaderProps) {
   return (
-    <header className={cn("mb-8 lg:mb-10", className)}>
+    <header className={cn("relative mb-8 lg:mb-10", className)}>
+      {menu && <div className="absolute -right-2 top-0">{menu}</div>}
       {back && <BackLink to={back.to} label={back.label} />}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div className="min-w-0">
+        <div className={cn("min-w-0", menu && !back && "pr-10")}>
           {typeof title === "string" ? <h1 className="page-title">{title}</h1> : title}
           {description && <div className="mt-1 text-sm text-fg-muted">{description}</div>}
         </div>

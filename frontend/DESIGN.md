@@ -59,7 +59,9 @@ desaturated, never as tinted rows or cards.
 - `layout/`: `Page`, `PageHeader`, `BackLink`, `Section`, `SectionLink`, `Sidebar`, `MobileNav`,
   `SearchDialog` (Ctrl/Cmd+K).
 - `shared/`: `EmptyState` (plain text: what's missing and what to do), `InlineError`,
-  `ConfirmDialog`, `SubjectSwatch`/`SubjectLabel`.
+  `ConfirmDialog`, `SubjectSwatch`/`SubjectLabel`, `MoreMenu` (the three-dot menu for less frequent
+  actions; destructive ones last). Pages put it in `PageHeader`'s `menu` slot (top-right corner), rows at
+  the end of the row.
 
 ## The assistant
 
@@ -98,10 +100,16 @@ Results stay stored; a result can be graded again, a test retaken, or a new one 
 
 ## Notebook reader
 
-`/notes/:id/read` lays a note out as lined notebook pages: a two-page spread on wide screens, one page on
-phones. Text snaps to the ruled baseline grid. Paper is white or dark and text has three sizes (both
-preferences). Pages turn by swipe (follows the finger, flick or 60px), edge taps, arrows, Page Up/Down,
-Space, wheel or the slider; the position is kept per note across reloads, resizes and rotation.
+`/notes/:id/read` lays a note out as ruled notebook pages: a two-page spread on wide screens, one page on
+phones. A rule runs between every two rows (including above the first), and each line of text sits inside
+its row with air above and below; rows are about 1.9 times the text size and the ruling is shifted so the
+letters are centred. Headings are written within one row. Pages alternate like the two sides of an open
+notebook: the margin line is on the left of odd pages and the right of even ones. Highlights are
+see-through, so the ruling shows under them. Paper is white or neutral dark, text has three sizes (both
+preferences); the note body is rendered once and not re-rendered while turning pages or switching paper.
+Pages turn by swipe (moved directly, without re-rendering), edge taps, arrows, Page Up/Down, Space, wheel or
+the slider; the position is kept per note. Full screen shows only the paper (browser full screen where
+available); Esc or Back leave it.
 
 ## Statistics
 
