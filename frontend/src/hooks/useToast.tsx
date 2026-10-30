@@ -1,10 +1,12 @@
 import { createContext, use, useCallback, useState, type ReactNode } from "react";
-import { Toast, ToastClose, ToastDescription, ToastProvider as ToastPrimitiveProvider, ToastTitle, ToastViewport } from "@/components/ui/toast";
+import { Toast, ToastAction, ToastClose, ToastDescription, ToastProvider as ToastPrimitiveProvider, ToastTitle, ToastViewport } from "@/components/ui/toast";
 
 interface ToastInput {
   title: string;
   description?: string;
   variant?: "default" | "destructive";
+  action?: { label: string; onClick: () => void };
+  duration?: number;
 }
 
 interface ToastItem extends ToastInput {
@@ -33,10 +35,19 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       <ToastPrimitiveProvider swipeDirection="right">
         {children}
         {toasts.map((t) => (
-          <Toast key={t.id} variant={t.variant} duration={5000} onOpenChange={(open) => !open && dismiss(t.id)}>
+          <Toast key={t.id} variant={t.variant} duration={t.duration ?? 5000} onOpenChange={(open) => !open && dismiss(t.id)}>
             <div className="flex-1">
               <ToastTitle>{t.title}</ToastTitle>
               {t.description && <ToastDescription>{t.description}</ToastDescription>}
+              {t.action && (
+                <ToastAction
+                  altText={t.action.label}
+                  onClick={t.action.onClick}
+                  className="mt-2 text-[0.8125rem] font-medium text-accent underline-offset-4 hover:underline"
+                >
+                  {t.action.label}
+                </ToastAction>
+              )}
             </div>
             <ToastClose />
           </Toast>

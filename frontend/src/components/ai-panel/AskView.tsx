@@ -9,6 +9,8 @@ import { ConversationHistory } from "@/components/ai-panel/ConversationHistory";
 import { Composer } from "@/components/ai-panel/Composer";
 import { chatHintFor, useAiContextSummary } from "@/hooks/useAiContext";
 import { useAiPanel, type AiChatMessage } from "@/hooks/useAiPanel";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { useCloseOnBack } from "@/lib/closeOnBack";
 
 function historyFor(messages: AiChatMessage[], excludeId?: string) {
   return messages
@@ -27,6 +29,15 @@ export function AskView({ active }: { active: boolean }) {
   const { isOpen, activeNote, messages, appendMessage, updateMessage, clearMessages, saveState } = useAiPanel();
   const [input, setInput] = useState("");
   const [showHistory, setShowHistory] = useState(false);
+  // Back from the list of past chats returns to the chat (while the assistant covers the page).
+  const docked = useMediaQuery("(min-width: 1280px)");
+  useCloseOnBack(isOpen && showHistory && !docked, () => setShowHistory(false));
+  // Reopening the assistant shows the chat, not a list left open last time.
+  const [wasOpen, setWasOpen] = useState(isOpen);
+  if (wasOpen !== isOpen) {
+    setWasOpen(isOpen);
+    if (!isOpen) setShowHistory(false);
+  }
   const contextSummary = useAiContextSummary(isOpen && !activeNote);
   const location = useLocation();
   const scrollRef = useRef<HTMLDivElement>(null);

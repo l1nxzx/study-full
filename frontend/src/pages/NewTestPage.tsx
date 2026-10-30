@@ -1,7 +1,8 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { formatDistanceToNow, parseISO } from "date-fns";
 import { Search } from "lucide-react";
 import { useMemo, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { getErrorMessage } from "@/api/client";
 import * as testsApi from "@/api/tests";
 import { Page, PageHeader, Section } from "@/components/layout/PageHeader";
@@ -13,13 +14,14 @@ import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/label";
 import { Segmented } from "@/components/ui/segmented";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Skeleton, SkeletonLines } from "@/components/ui/skeleton";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { useAiStatus } from "@/hooks/useAiStatus";
 import { useNotes } from "@/hooks/useNotes";
 import { useSubjects } from "@/hooks/useSubjects";
+import { rememberWritingTest } from "@/hooks/useTestWritingWatcher";
 import { formatDateShort } from "@/lib/date";
-import { DIFFICULTY_LABELS, DURATIONS, LOGIC_LABELS, THINKING_LABELS } from "@/lib/testLabels";
+import { DIFFICULTY_LABELS, DURATIONS, LOGIC_LABELS, testTitle, THINKING_LABELS } from "@/lib/testLabels";
 import { describePlan } from "@/lib/testPlan";
 
 const MAX_NOTES = 15;
@@ -43,6 +45,14 @@ export function NewTestPage() {
   const aiEnabled = useAiStatus();
   const { data: notes, isLoading: notesLoading } = useNotes();
   const { data: subjects } = useSubjects();
+  // Tests still being written (maybe started before leaving this page), so nobody starts a
+  // second one thinking the first was lost.
+  const { data: tests } = useQuery({
+    queryKey: ["tests"],
+    queryFn: testsApi.listTests,
+    refetchInterval: (q) => (q.state.data?.some((t) => t.status === "generating") ? 4000 : false),
+  });
+  const writing = (tests || []).filter((t) => t.status === "generating");
 
   const initialIds = (params.get("noteIds") || "").split(",").filter(Boolean);
   const [selected, setSelected] = useState<Set<string>>(() => new Set(initialIds));
@@ -104,24 +114,11 @@ export function NewTestPage() {
         },
       }),
     onSuccess: (test) => {
+      rememberWritingTest(test.id);
       queryClient.invalidateQueries({ queryKey: ["tests"] });
       navigate(`/tests/${test.id}`);
     },
   });
-
-  if (create.isPending) {
-    return (
-      <Page width="reading">
-        <PageHeader
-          title="Writing your test"
-          description={`The AI plans ${plan.total} questions across your notes, then writes them with the answers it will grade against. This usually takes one to three minutes.`}
-        />
-        <SkeletonLines lines={4} />
-        <SkeletonLines lines={3} className="mt-8" />
-        <SkeletonLines lines={4} className="mt-8" />
-      </Page>
-    );
-  }
 
   return (
     <Page>
@@ -130,6 +127,23 @@ export function NewTestPage() {
         title="New test"
         description="A long written test from your notes: no answer options, every answer in your own words."
       />
+
+      {writing.length > 0 && (
+        <div className="mb-8 border-l-2 border-accent py-1 pl-4" role="status">
+          <p className="text-sm font-medium text-fg">{writing.length === 1 ? "A test is still being written" : `${writing.length} tests are still being written`}</p>
+          <ul className="mt-1.5 space-y-1">
+            {writing.map((t) => (
+              <li key={t.id} className="text-[0.8125rem] text-fg-muted">
+                <Link to={`/tests/${t.id}`} className="text-accent underline-offset-4 hover:underline">
+                  {testTitle(t)}
+                </Link>
+                {t.generationStartedAt && <> · started {formatDistanceToNow(parseISO(t.generationStartedAt), { addSuffix: true })}</>}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-1.5 text-meta text-fg-faint">It keeps going if you leave, and you'll be told when it's ready. Creating another test here writes a second one.</p>
+        </div>
+      )}
 
       {aiEnabled === false && (
         <InlineError className="mb-6">Tests need the AI, and the server has no OpenAI API key configured.</InlineError>
@@ -261,8 +275,8 @@ export function NewTestPage() {
             </p>
             <InlineError className="mt-2">{create.error ? getErrorMessage(create.error, "Couldn't create the test") : null}</InlineError>
           </div>
-          <Button size="lg" onClick={() => create.mutate()} disabled={selected.size === 0 || aiEnabled === false} className="sm:ml-auto">
-            Create test
+          <Button size="lg" onClick={() => create.mutate()} disabled={selected.size === 0 || aiEnabled === false || create.isPending} className="sm:ml-auto">
+            {create.isPending ? "Starting..." : "Create test"}
           </Button>
         </div>
       </div>

@@ -1,4 +1,4 @@
-import type { TestDifficulty, TestLogic, TestSettings, TestThinking } from "@/api/tests";
+import type { TestDifficulty, TestLogic, TestSettings, TestSummary, TestThinking } from "@/api/tests";
 
 export const DIFFICULTY_LABELS: Record<TestDifficulty, string> = {
   easy: "Easy",
@@ -20,6 +20,13 @@ export const LOGIC_LABELS: Record<TestLogic, { label: string; description: strin
 };
 
 export const DURATIONS = [15, 30, 45, 60, 90] as const;
+
+/** A test's title, or what it's from while the AI hasn't named it yet. */
+export function testTitle(t: Pick<TestSummary, "title" | "noteTitles">): string {
+  if (t.title) return t.title;
+  const [first, ...rest] = t.noteTitles;
+  return first ? `Test from ${first}${rest.length ? ` and ${rest.length} more` : ""}` : "New test";
+}
 
 export function describeSettings(s: TestSettings): string {
   return `${DIFFICULTY_LABELS[s.difficulty]} · ${THINKING_LABELS[s.thinking].label} · ${LOGIC_LABELS[s.logic].label.toLowerCase()} logic`;

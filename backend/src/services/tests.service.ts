@@ -4,6 +4,7 @@ import { stripReviewMarkup } from "../utils/noteMarkup";
 import type { CreateTestInput, SaveTestAnswersInput } from "../models/test.model";
 import * as aiService from "./openai.service";
 import { getNoteRaw } from "./notes.service";
+import { planTest } from "./testPlan";
 
 const testsCollection = db.collection("tests");
 const attemptsCollection = db.collection("testAttempts");
@@ -11,6 +12,11 @@ const attemptsCollection = db.collection("testAttempts");
 // A grading run that hasn't finished after this long is treated as abandoned (e.g. the
 // server restarted mid-request), so the attempt can be graded again.
 const GRADING_STALE_MS = 4 * 60 * 1000;
+// Writing a test runs in the background after the request returns. One that hasn't finished
+// after this long was cut off (e.g. the server restarted) and is reported as failed.
+const GENERATION_STALE_MS = 8 * 60 * 1000;
+
+type TestStatus = "generating" | "ready" | "failed";
 
 interface StoredQuestion {
   id: string;
@@ -70,9 +76,21 @@ function attemptSummary(id: string, data: FirebaseFirestore.DocumentData) {
   };
 }
 
+// Tests made before background writing existed have no status: they are ready.
+function testState(data: FirebaseFirestore.DocumentData): { status: TestStatus; generationError: string | null } {
+  const status = (data.status ?? "ready") as TestStatus;
+  if (status === "generating" && Date.now() - Date.parse(data.generationStartedAt ?? 0) > GENERATION_STALE_MS) {
+    return { status: "failed", generationError: "Writing the test was interrupted." };
+  }
+  return { status, generationError: status === "failed" ? (data.generationError ?? "Writing the test failed.") : null };
+}
+
 function testSummary(id: string, data: FirebaseFirestore.DocumentData) {
   return {
     id,
+    ...testState(data),
+    generationStartedAt: data.generationStartedAt ?? null,
+    plannedQuestionCount: data.plannedQuestionCount ?? (data.questions ?? []).length,
     title: data.title,
     subjectId: data.subjectId ?? null,
     noteIds: data.noteIds,
@@ -149,41 +167,92 @@ async function loadNotes(userId: string, noteIds: string[]) {
   return Promise.all(noteIds.map((id) => getNoteRaw(userId, id)));
 }
 
+// Stores the test at once as "generating" and writes its questions in the background, so
+// leaving the page (or closing the app) doesn't lose it; the test pages poll its status.
 export async function createTest(userId: string, input: CreateTestInput) {
   const notes = await loadNotes(userId, input.noteIds);
-  const generated = await aiService.generateTest(
-    notes.map((n) => ({ title: n.title, contentMarkdown: stripReviewMarkup(n.contentMarkdown) })),
-    input.settings
-  );
-
-  const questions: StoredQuestion[] = generated.questions.map((q, i) => ({
-    id: `q${i + 1}`,
-    prompt: q.prompt,
-    points: q.points,
-    estimatedMinutes: Math.round(q.estimatedMinutes * 2) / 2,
-    topic: q.topic,
-    modelAnswer: q.modelAnswer,
-    criteria: q.criteria,
-    kind: q.kind,
-    problem: q.problem,
-  }));
-
+  const slots = planTest(input.settings);
   const subjectIds = [...new Set(notes.map((n) => n.subjectId).filter(Boolean))];
   const docRef = testsCollection.doc();
+  const now = nowIso();
   const payload = {
     userId,
-    title: input.title || generated.title,
+    title: input.title || "",
     subjectId: subjectIds.length === 1 ? subjectIds[0] : null,
     noteIds: input.noteIds,
     noteTitles: notes.map((n) => n.title),
     settings: input.settings,
-    questions,
-    totalPoints: questions.reduce((sum, q) => sum + q.points, 0),
-    estimatedMinutes: Math.round(questions.reduce((sum, q) => sum + q.estimatedMinutes, 0)),
-    createdAt: nowIso(),
+    questions: [],
+    plannedQuestionCount: slots.length,
+    totalPoints: slots.reduce((sum, q) => sum + q.points, 0),
+    estimatedMinutes: input.settings.durationMinutes,
+    status: "generating",
+    generationStartedAt: now,
+    generationError: null,
+    createdAt: now,
   };
   await docRef.set(payload);
-  return { ...testSummary(docRef.id, payload), questions: questions.map((q) => publicQuestion(q, false)), attempts: [] };
+  void writeTest(userId, docRef.id, now);
+  return { ...testSummary(docRef.id, payload), questions: [], attempts: [] };
+}
+
+// Writes the questions of a "generating" test. Never throws: a failure is stored on the test.
+// `run` identifies this run, so a run that was superseded (retried) or whose test was deleted
+// doesn't write anything.
+async function writeTest(userId: string, testId: string, run: string) {
+  const ref = testsCollection.doc(testId);
+  const stillCurrent = async () => {
+    const doc = await ref.get();
+    return doc.exists && doc.data()!.generationStartedAt === run;
+  };
+  try {
+    const data = (await ref.get()).data();
+    if (!data) return;
+    const notes = await loadNotes(userId, data.noteIds);
+    const generated = await aiService.generateTest(
+      notes.map((n) => ({ title: n.title, contentMarkdown: stripReviewMarkup(n.contentMarkdown) })),
+      data.settings
+    );
+    const questions: StoredQuestion[] = generated.questions.map((q, i) => ({
+      id: `q${i + 1}`,
+      prompt: q.prompt,
+      points: q.points,
+      estimatedMinutes: Math.round(q.estimatedMinutes * 2) / 2,
+      topic: q.topic,
+      modelAnswer: q.modelAnswer,
+      criteria: q.criteria,
+      kind: q.kind,
+      problem: q.problem,
+    }));
+    if (!(await stillCurrent())) return;
+    await ref.update({
+      title: data.title || generated.title,
+      questions,
+      totalPoints: questions.reduce((sum, q) => sum + q.points, 0),
+      estimatedMinutes: Math.round(questions.reduce((sum, q) => sum + q.estimatedMinutes, 0)),
+      status: "ready",
+      generationError: null,
+      generatedAt: nowIso(),
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Writing the test failed.";
+    try {
+      if (await stillCurrent()) await ref.update({ status: "failed", generationError: message });
+    } catch {
+      // The test is gone or the database is unreachable; nothing left to record.
+    }
+  }
+}
+
+// Writes a failed (or cut-off) test again with the same notes and settings.
+export async function retryTest(userId: string, id: string) {
+  const doc = await getOwnedTest(userId, id);
+  const { status } = testState(doc.data()!);
+  if (status !== "failed") throw AppError.conflict("This test isn't waiting to be written again.", "TEST_NOT_FAILED");
+  const run = nowIso();
+  await doc.ref.update({ status: "generating", generationStartedAt: run, generationError: null });
+  void writeTest(userId, id, run);
+  return getTest(userId, id);
 }
 
 export async function deleteTest(userId: string, id: string) {
@@ -199,6 +268,9 @@ export async function deleteTest(userId: string, id: string) {
 // picks up where you left off), otherwise starts a new one.
 export async function startAttempt(userId: string, testId: string) {
   const test = await getOwnedTest(userId, testId);
+  if (testState(test.data()!).status !== "ready") {
+    throw AppError.conflict("This test is still being written.", "TEST_NOT_READY");
+  }
   const existing = await attemptsCollection.where("userId", "==", userId).where("testId", "==", testId).get();
   const open = existing.docs.find((d) => d.data().status !== "graded");
   if (open) return getAttempt(userId, open.id);

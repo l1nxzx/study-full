@@ -8,6 +8,8 @@ import { QuizTool } from "@/components/ai-panel/tools/QuizTool";
 import { ToolBody } from "@/components/ai-panel/tools/ToolParts";
 import { useAiPanel, type AiToolMode } from "@/hooks/useAiPanel";
 import { useAiStatus } from "@/hooks/useAiStatus";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { useCloseOnBack } from "@/lib/closeOnBack";
 import { cn } from "@/lib/utils";
 
 const TABS: { mode: AiToolMode; label: string }[] = [
@@ -27,6 +29,10 @@ const iconButton =
  */
 export function AiPanel() {
   const { isOpen, close, toolMode, setToolMode, activeNote } = useAiPanel();
+  // Below 1280px the assistant covers the page, so Back closes it rather than moving the page
+  // underneath. From 1280px it's a column beside the page and Back belongs to the page.
+  const docked = useMediaQuery("(min-width: 1280px)");
+  useCloseOnBack(isOpen && !docked, close);
   const aiEnabled = useAiStatus();
   // Tools are mounted the first time they're opened and kept until the note changes. Derived
   // during render (React's "adjusting state when a prop changes" pattern), not in an effect.

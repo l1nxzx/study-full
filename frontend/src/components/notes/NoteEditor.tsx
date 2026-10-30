@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import type { NoteInput } from "@/api/notes";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/label";
@@ -7,6 +8,7 @@ import { Segmented } from "@/components/ui/segmented";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useClassSessions } from "@/hooks/useClassSessions";
 import { useSubjects } from "@/hooks/useSubjects";
+import { useCloseOnBack } from "@/lib/closeOnBack";
 import { formatDateLong } from "@/lib/date";
 import { cn } from "@/lib/utils";
 import { CopyPromptButton } from "./CopyPromptButton";
@@ -22,6 +24,8 @@ interface NoteEditorProps {
   isSubmitting?: boolean;
   submitLabel?: string;
   error?: string | null;
+  /** The editor is a mode of a page: the system Back closes it (asking about unsaved changes). */
+  closeOnBack?: boolean;
 }
 
 type ViewMode = "write" | "split" | "preview";
@@ -30,8 +34,17 @@ type ViewMode = "write" | "split" | "preview";
 // PDFs of handwritten notes, then checking it. So: a large title, the few details that file
 // the note, and a big Markdown field with a live preview beside it on wide screens. The save
 // bar stays pinned to the top while scrolling a long note.
-export function NoteEditor({ heading, initialValues, onSubmit, onCancel, isSubmitting, submitLabel = "Save", error }: NoteEditorProps) {
+export function NoteEditor({ heading, initialValues, onSubmit, onCancel, isSubmitting, submitLabel = "Save", error, closeOnBack }: NoteEditorProps) {
   const [values, setValues] = useState<NoteEditorValues>(initialValues);
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const dirty = JSON.stringify(values) !== JSON.stringify(initialValues);
+  // Editing inside a page (closeOnBack): the system Back leaves the editor like Cancel, but asks
+  // first when there are unsaved changes.
+  useCloseOnBack(Boolean(closeOnBack && onCancel), () => {
+    if (!dirty) return void onCancel?.();
+    setConfirmDiscard(true);
+    return false;
+  });
   const [view, setView] = useState<ViewMode>(() => (window.matchMedia("(min-width: 1200px)").matches ? "split" : "write"));
   const titleRef = useRef<HTMLTextAreaElement>(null);
   const { data: subjects } = useSubjects();
@@ -179,6 +192,17 @@ export function NoteEditor({ heading, initialValues, onSubmit, onCancel, isSubmi
           )}
         </div>
       </div>
+      <ConfirmDialog
+        open={confirmDiscard}
+        onOpenChange={setConfirmDiscard}
+        title="Discard your changes?"
+        description="Your edits to this note haven't been saved."
+        confirmLabel="Discard"
+        onConfirm={() => {
+          setConfirmDiscard(false);
+          onCancel?.();
+        }}
+      />
     </form>
   );
 }

@@ -1,8 +1,19 @@
 import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu";
-import type { ComponentProps } from "react";
+import { useState, type ComponentProps } from "react";
+import { useCloseOnBack } from "@/lib/closeOnBack";
 import { cn } from "@/lib/utils";
 
-const DropdownMenu = DropdownMenuPrimitive.Root;
+// Radix's root, plus: the system Back button closes an open menu instead of leaving the page.
+function DropdownMenu({ open, defaultOpen, onOpenChange, ...props }: ComponentProps<typeof DropdownMenuPrimitive.Root>) {
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(defaultOpen ?? false);
+  const isOpen = open ?? uncontrolledOpen;
+  function setOpen(next: boolean) {
+    if (open === undefined) setUncontrolledOpen(next);
+    onOpenChange?.(next);
+  }
+  useCloseOnBack(isOpen, () => setOpen(false));
+  return <DropdownMenuPrimitive.Root open={isOpen} onOpenChange={setOpen} {...props} />;
+}
 const DropdownMenuTrigger = DropdownMenuPrimitive.Trigger;
 
 export const menuSurfaceClasses = "z-50 overflow-hidden rounded-md border border-rule bg-raised p-1 text-fg shadow-md";

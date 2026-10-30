@@ -86,6 +86,9 @@ estimate in `frontend/src/lib/testPlan.ts`): the number of questions, the mix of
 deep-thinking questions, which are problems to reason through, and each question's minutes and points
 (which add up to the chosen length). The AI outlines a distinct topic for every slot across all the notes,
 then writes the questions a few at a time; the New test page shows the plan before you create it.
+Writing runs in the background on the server: the test is stored at once as "being written", its page
+says so (and that you can leave), the Tests list and the New test page show it, and a toast says when it's
+ready or failed wherever you are. A failed test can be written again or deleted.
 Every answer is handwritten (a textarea, no options), saved to the server as you type with a local backup,
 so a refresh or a dropped connection loses nothing. Handing in sends the answers to be graded: each
 question has points, partial credit in half points, feedback, the expected answer and what to revisit.
@@ -109,6 +112,14 @@ subjects show their own figures. Charts are thin bars in the accent colour with 
 
 No gamification: no streaks, badges or celebratory animation (test points are grading, not rewards). Progress is stated as facts
 ("7 of 10 correct").
+
+## Back button
+
+Anything that covers the page closes with the system Back button (phones' back gesture included)
+instead of navigating the page underneath: the assistant when it overlays the page (below 1280px),
+its list of past chats, dialogs, menus, select lists, search, the phone menu, and the note editing
+modes (which ask before discarding unsaved changes). Use `useCloseOnBack` from `src/lib/closeOnBack.ts`
+for any new overlay; `Dialog`, `DropdownMenu` and `Select` from `components/ui` already do.
 
 ## Motion and states
 

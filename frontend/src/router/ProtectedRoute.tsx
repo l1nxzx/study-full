@@ -3,9 +3,11 @@ import { StartupScreen } from "@/components/shared/StartupScreen";
 import { useActivityTracker } from "@/hooks/useActivityTracker";
 import { AiPanelProvider } from "@/hooks/useAiPanel";
 import { useAuth } from "@/hooks/useAuth";
+import { useTestWritingWatcher } from "@/hooks/useTestWritingWatcher";
 
 function SignedIn() {
   useActivityTracker();
+  useTestWritingWatcher();
   return <Outlet />;
 }
 

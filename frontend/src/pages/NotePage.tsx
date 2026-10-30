@@ -126,6 +126,7 @@ export function NotePage() {
           }}
           onSubmit={handleUpdate}
           onCancel={() => setIsEditing(false)}
+          closeOnBack
           isSubmitting={updateNote.isPending}
           submitLabel="Save changes"
           error={error}

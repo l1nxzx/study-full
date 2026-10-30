@@ -45,8 +45,16 @@ export interface TestAttemptSummary {
   gradingError: string | null;
 }
 
+export type TestStatus = "generating" | "ready" | "failed";
+
 export interface TestSummary {
   id: string;
+  /** Tests are written in the background: "generating" until the questions are in. */
+  status: TestStatus;
+  generationError: string | null;
+  generationStartedAt: string | null;
+  plannedQuestionCount: number;
+  /** Empty while the AI hasn't named a test that was given no title. */
   title: string;
   subjectId: string | null;
   noteIds: string[];
@@ -95,9 +103,14 @@ export function getTest(id: string) {
   return apiClient.get<TestDetail>(`/tests/${id}`).then((r) => r.data);
 }
 
-// Generating or grading a long test takes a while (several AI calls); give it room.
+// Returns at once with status "generating"; the questions are written in the background.
 export function createTest(input: { noteIds: string[]; title?: string; settings: TestSettings }) {
-  return apiClient.post<TestDetail>("/tests", input, { timeout: 300_000 }).then((r) => r.data);
+  return apiClient.post<TestDetail>("/tests", input).then((r) => r.data);
+}
+
+// Writes a test that failed (or was cut off) again with the same notes and settings.
+export function retryTest(id: string) {
+  return apiClient.post<TestDetail>(`/tests/${id}/retry`).then((r) => r.data);
 }
 
 export function deleteTest(id: string) {
