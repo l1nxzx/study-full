@@ -1,67 +1,79 @@
-// The phone's status and navigation bars follow <meta name="theme-color">. A web app can't make
-// them transparent, so the colour follows whatever is actually at the top of the screen: the
-// page, the notebook's desk, the open sidebar, or the dimmed backdrop behind a sheet. It is
-// re-read whenever the page changes, so nothing has to set it by hand.
+import { useLayoutEffect, type RefObject } from "react";
 
+// The phone's status and navigation bars follow <meta name="theme-color">. A web app can't make
+// them transparent, so they take the colour of whatever is at the top of the screen. Anything
+// that covers the top while open (the sidebar, a sheet's dimmed backdrop, the assistant, the
+// notebook) adds a layer here as it mounts, in the same commit, so the bars change in the same
+// frame as the screen. Layers stack in the order they opened; translucent ones (a backdrop)
+// blend over what is beneath.
+
+/** The dimmed backdrop behind sheets and the sidebar. Keep in sync with their bg-[...] classes. */
+export const SCRIM = "oklch(0.14 0.01 265 / 0.55)";
+
+/** CSS colours, or custom property names ("--color-panel") read from `scope` or the page. */
+type Layers = string[] | (() => string[]);
+interface Entry {
+  layers: Layers;
+  scope?: RefObject<Element | null>;
+}
+
+const stack: Entry[] = [];
 let ctx: CanvasRenderingContext2D | null = null;
 
-/** The colour you see at a point: every background from the page down to the element there, blended. */
-function colorAt(x: number, y: number): string | null {
-  const hit = document.elementFromPoint(x, y);
-  if (!hit) return null;
+function resolve(value: string, scope: Element) {
+  return value.startsWith("--") ? getComputedStyle(scope).getPropertyValue(value).trim() : value;
+}
 
-  const layers: string[] = [];
-  for (let el: Element | null = hit; el; el = el.parentElement) {
-    const bg = getComputedStyle(el).backgroundColor;
-    if (bg && bg !== "transparent" && bg !== "rgba(0, 0, 0, 0)") layers.push(bg);
-  }
-  if (!layers.length) return null;
-
+/** Sets the bars from the open layers, or the page background when nothing covers the top. */
+export function syncThemeColor() {
+  const meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+  if (!meta) return;
   if (!ctx) {
     const canvas = document.createElement("canvas");
     canvas.width = canvas.height = 1;
     ctx = canvas.getContext("2d", { willReadFrequently: true });
-    if (!ctx) return null;
+    if (!ctx) return;
   }
+  const root = document.documentElement;
   ctx.clearRect(0, 0, 1, 1);
-  for (const color of layers.reverse()) {
-    ctx.fillStyle = color;
-    ctx.fillRect(0, 0, 1, 1);
+  const paint = (color: string) => {
+    if (!color) return;
+    ctx!.fillStyle = color;
+    ctx!.fillRect(0, 0, 1, 1);
+  };
+  paint(resolve("--color-canvas", root));
+  for (const { layers, scope } of stack) {
+    const el = scope?.current ?? root;
+    for (const layer of typeof layers === "function" ? layers() : layers) paint(resolve(layer, el));
   }
   const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
-  return `#${[r, g, b].map((v) => v.toString(16).padStart(2, "0")).join("")}`;
+  const hex = `#${[r, g, b].map((v) => v.toString(16).padStart(2, "0")).join("")}`;
+  if (meta.content !== hex) meta.content = hex;
 }
 
-// The colour is read once the page has settled. Reading on the very next frame catches
-// in-between states (an opening sidebar isn't hit-testable for a frame or two, so the backdrop
-// behind it was read first), and the bars flashed that colour.
-const SETTLE_MS = 90;
-let timer = 0;
-
-/** Re-reads the colour at the top of the screen once the page has settled. */
-export function syncThemeColor() {
-  window.clearTimeout(timer);
-  timer = window.setTimeout(() => {
-    requestAnimationFrame(() => {
-      const meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
-      const color = colorAt(window.innerWidth / 2, 0);
-      if (meta && color && meta.content !== color) meta.content = color;
-    });
-  }, SETTLE_MS);
+/**
+ * Adds a layer to the bars while `active`. `key` re-reads it when what it resolves to changes
+ * (the notebook's paper, say).
+ */
+export function useBarColor(active: boolean, layers: Layers, options: { scope?: RefObject<Element | null>; key?: unknown } = {}) {
+  const { scope, key } = options;
+  const id = typeof layers === "function" ? "fn" : layers.join("|");
+  useLayoutEffect(() => {
+    if (!active) return;
+    const entry: Entry = { layers, scope };
+    stack.push(entry);
+    syncThemeColor();
+    return () => {
+      stack.splice(stack.indexOf(entry), 1);
+      syncThemeColor();
+    };
+    // `layers` is compared by `id`; a new array each render shouldn't re-add the layer.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active, id, scope, key]);
 }
 
-/** Keeps the bars in step with the page from now on. */
-export function watchThemeColor() {
-  new MutationObserver(syncThemeColor).observe(document.documentElement, {
-    subtree: true,
-    childList: true,
-    attributes: true,
-    // "style" too: dialogs switch pointer-events inline, and the hit test depends on them.
-    attributeFilter: ["class", "style", "data-state", "open"],
-  });
-  window.addEventListener("resize", syncThemeColor);
-  // Sheets and the sidebar slide in; read again once they have arrived.
-  document.addEventListener("animationend", syncThemeColor);
-  document.addEventListener("transitionend", syncThemeColor);
-  syncThemeColor();
+/** A layer that lasts as long as it is mounted, for content that only mounts while open. */
+export function BarColor({ layers }: { layers: Layers }) {
+  useBarColor(true, layers);
+  return null;
 }
