@@ -242,29 +242,35 @@
     }
   }
 
-  * {
-    scrollbar-width: thin;
-    scrollbar-color: var(--color-rule-strong) transparent;
-  }
+  /*
+   * Slim scrollbars for mouse and trackpad only. Styling them on a phone turns its fading
+   * scroll indicator into a permanent bar, so touch screens keep their own.
+   */
+  @media (pointer: fine) {
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: var(--color-rule-strong) transparent;
+    }
 
-  *::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
-  }
+    *::-webkit-scrollbar {
+      width: 10px;
+      height: 10px;
+    }
 
-  *::-webkit-scrollbar-track {
-    background: transparent;
-  }
+    *::-webkit-scrollbar-track {
+      background: transparent;
+    }
 
-  *::-webkit-scrollbar-thumb {
-    background-color: var(--color-rule-strong);
-    border-radius: 9999px;
-    border: 3px solid transparent;
-    background-clip: content-box;
-  }
+    *::-webkit-scrollbar-thumb {
+      background-color: var(--color-rule-strong);
+      border-radius: 9999px;
+      border: 3px solid transparent;
+      background-clip: content-box;
+    }
 
-  *::-webkit-scrollbar-thumb:hover {
-    background-color: var(--color-fg-faint);
+    *::-webkit-scrollbar-thumb:hover {
+      background-color: var(--color-fg-faint);
+    }
   }
 
   @media (prefers-reduced-motion: reduce) {

@@ -14,6 +14,7 @@ import { InlineError } from "@/components/shared/EmptyState";
 import { Button } from "@/components/ui/button";
 import { Segmented } from "@/components/ui/segmented";
 import { Skeleton, SkeletonLines } from "@/components/ui/skeleton";
+import { usePauseRefresh } from "@/hooks/usePauseRefresh";
 import { setActivityHint } from "@/lib/activity";
 import { clearBackup, readBackup, writeBackup } from "@/lib/testAttemptBackup";
 import { formatClock, formatDuration, formatPoints, scoreTone } from "@/lib/testLabels";
@@ -577,6 +578,8 @@ function Results({ attempt, onRegrade, regradeError }: { attempt: testsApi.TestA
 export function TestAttemptPage() {
   const { attemptId } = useParams<{ attemptId: string }>();
   const queryClient = useQueryClient();
+  // Answers in progress live on this page; a refresh could reload the app under them.
+  usePauseRefresh();
   const { data: attempt, isLoading, isError } = useQuery({
     queryKey: ["test-attempts", attemptId],
     queryFn: () => testsApi.getAttempt(attemptId!),
