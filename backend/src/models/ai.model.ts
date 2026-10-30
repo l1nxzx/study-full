@@ -127,21 +127,33 @@ export const flashcardsResultSchema = z.object({
   cards: z.array(flashcardSchema).min(1),
 });
 
-export const testGenerationResultSchema = z.object({
-  title: z.string().min(1).max(200),
+// Test generation runs in two steps: an outline that gives every planned slot a distinct topic,
+// then the questions themselves, a few slots per call.
+export const testOutlineSchema = z.object({
+  title: z.string().min(1).max(200).catch("Test"),
+  outline: z
+    .array(
+      z.object({
+        slot: z.coerce.number().int(),
+        topic: z.string().default(""),
+        focus: z.string().default(""),
+      })
+    )
+    .default([]),
+});
+
+export const testQuestionsSchema = z.object({
   questions: z
     .array(
       z.object({
+        slot: z.coerce.number().int(),
         prompt: z.string().min(1),
-        points: z.coerce.number().int().min(1).max(20),
-        estimatedMinutes: z.coerce.number().min(0.5).max(60),
-        topic: z.string().max(80).default(""),
+        topic: z.string().max(80).catch(""),
         modelAnswer: z.string().min(1),
         criteria: z.array(z.string()).default([]),
       })
     )
-    .min(3)
-    .max(40),
+    .default([]),
 });
 
 // One grading call covers a handful of questions. Each result first lists, per criterion, the

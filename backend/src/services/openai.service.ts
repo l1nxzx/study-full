@@ -1,4 +1,5 @@
 import { AI_MODELS, openai } from "../config/openai";
+import { planTest, type QuestionKind, type QuestionSlot } from "./testPlan";
 import { AppError } from "../utils/AppError";
 import {
   askResultSchema,
@@ -6,9 +7,10 @@ import {
   explainResultSchema,
   flashcardsResultSchema,
   quizResultSchema,
-  testGenerationResultSchema,
   testGradingResultSchema,
   testGradingSummarySchema,
+  testOutlineSchema,
+  testQuestionsSchema,
   rewriteResultSchema,
   summaryResultSchema,
 } from "../models/ai.model";
@@ -62,19 +64,22 @@ export interface NoteContext {
 }
 
 // Keeps prompts (and therefore cost) bounded regardless of how much the user pastes/selects.
-export function buildNotesContext(notes: NoteContext[]): string {
-  let total = 0;
-  const parts: string[] = [];
+// Every note gets a fair share of the budget (short notes pass whole, and what they leave
+// over goes to the longer ones), so picking many notes never silently drops the last ones.
+export function buildNotesContext(notes: NoteContext[], limits = { perNote: MAX_CHARS_PER_NOTE, total: MAX_TOTAL_CHARS }): string {
+  const budgets = new Map<number, number>();
+  let remaining = limits.total;
+  const byLength = notes.map((n, i) => ({ i, length: n.contentMarkdown.length })).sort((a, b) => a.length - b.length);
+  byLength.forEach(({ i, length }, k) => {
+    const share = Math.floor(remaining / (byLength.length - k));
+    const budget = Math.min(length, limits.perNote, share);
+    budgets.set(i, budget);
+    remaining -= budget;
+  });
 
-  for (const note of notes) {
-    const truncated = note.contentMarkdown.slice(0, MAX_CHARS_PER_NOTE);
-    const block = `## ${note.title}\n\n${truncated}`;
-    if (total + block.length > MAX_TOTAL_CHARS) break;
-    parts.push(block);
-    total += block.length;
-  }
-
-  return parts.join("\n\n---\n\n");
+  return notes
+    .map((note, i) => `## ${note.title}\n\n${note.contentMarkdown.slice(0, budgets.get(i))}`)
+    .join("\n\n---\n\n");
 }
 
 function requireOpenAI() {
@@ -87,6 +92,26 @@ function requireOpenAI() {
   return openai;
 }
 
+// Runs fn over items with at most `limit` calls in flight, keeping the results in order.
+async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<PromiseSettledResult<R>[]> {
+  const results: PromiseSettledResult<R>[] = new Array(items.length);
+  let next = 0;
+  async function worker() {
+    while (next < items.length) {
+      const i = next++;
+      try {
+        results[i] = { status: "fulfilled", value: await fn(items[i]) };
+      } catch (reason) {
+        results[i] = { status: "rejected", reason };
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return results;
+}
+
+const AI_CONCURRENCY = 3;
+
 async function requestJson<T>(params: {
   model: string;
   system: string;
@@ -97,10 +122,13 @@ async function requestJson<T>(params: {
 }): Promise<T> {
   const client = requireOpenAI();
 
+  // Reasoning models (o-series, gpt-5) only take the default temperature, and their hidden
+  // reasoning counts towards the output limit, so they get extra room.
+  const reasoning = /^(o\d|gpt-5)/.test(params.model);
   const completion = await client.chat.completions.create({
     model: params.model,
-    temperature: params.temperature ?? 0.4,
-    ...(params.maxTokens ? { max_tokens: params.maxTokens } : {}),
+    ...(reasoning ? {} : { temperature: params.temperature ?? 0.4 }),
+    ...(params.maxTokens ? { max_completion_tokens: reasoning ? params.maxTokens + 16000 : params.maxTokens } : {}),
     response_format: { type: "json_object" },
     messages: [
       { role: "system", content: params.system },
@@ -388,56 +416,154 @@ export interface TestSettings {
   instructions?: string;
 }
 
+// What each setting means for a single question. The settings decide the plan (testPlan.ts);
+// these texts make every question live up to its slot.
 const DIFFICULTY_TEXT: Record<TestSettings["difficulty"], string> = {
-  easy: "easy - checks that the basics are understood",
-  medium: "medium - a normal school test",
-  hard: "hard - a demanding test that separates good from excellent answers",
-  very_hard: "very hard - the hardest fair test you can write from this material",
+  easy: "easy: straightforward, one step, the question makes clear what is needed",
+  medium: "medium: a normal school test question, about two steps",
+  hard:
+    "hard: demanding, several steps or ideas, nothing is hinted; it separates good students from excellent ones",
+  very_hard:
+    "very hard: the hardest fair question you can write from this material - an unfamiliar framing, several ideas " +
+    "combined, precise justification needed; an average student would not get full points. Still answerable from " +
+    "the notes plus reasoning",
 };
 
-const THINKING_TEXT: Record<TestSettings["thinking"], string> = {
-  recall: "mostly recall: definitions, facts, formulas, stating and describing",
-  understanding: "mostly understanding: explaining why, comparing, giving examples, applying a rule to a new case",
-  deep: "mostly deep thinking: analysing, combining several ideas, multi-step reasoning, justifying conclusions",
+const KIND_TEXT: Record<QuestionKind, string> = {
+  recall: "recall: state, define, name, list or describe something from the notes precisely",
+  understanding:
+    "understanding: explain why or how, compare two things, give and justify an example, or apply a concept to a " +
+    "given case",
+  deep:
+    "deep thinking: analyse a situation, combine ideas from different parts of the notes (or different notes), " +
+    "evaluate or argue for a conclusion, or predict consequences in a new scenario the notes don't describe, " +
+    "justifying each step. It must not be answerable by repeating one passage of the notes",
 };
 
-const LOGIC_TEXT: Record<TestSettings["logic"], string> = {
-  low: "few logic or problem-solving tasks",
-  medium: "a fair share of tasks that need logical reasoning or problem solving (calculations, derivations, cause and effect)",
-  high: "mostly tasks built on logical reasoning and problem solving (calculations, proofs, derivations, puzzles of cause and effect)",
-};
+const PROBLEM_TEXT =
+  "It is a problem to reason through: a calculation, a cause-and-effect chain of several steps, interpreting data " +
+  "given in the question (numbers, a table, a described map or graph) and drawing conclusions, or a what-if " +
+  "prediction. Put all the data needed in the question.";
 
-// Generates a long written test. Every question carries its own point value (scaled to the
-// effort it takes), an estimated time, a model answer and grading criteria - the latter two
-// are kept on the server until the attempt is graded.
-export async function generateTest(notes: NoteContext[], settings: TestSettings) {
-  const instructionsLine = settings.instructions
+function describeSlot(slot: QuestionSlot, index: number) {
+  return (
+    `Slot ${index + 1}: ${KIND_TEXT[slot.kind]}.${slot.problem ? ` ${PROBLEM_TEXT}` : ""} About ${slot.minutes} ` +
+    `minutes of work for a well-prepared student, ${slot.points} points.`
+  );
+}
+
+function instructionsLine(settings: TestSettings) {
+  return settings.instructions
     ? ` The student described the test they want like this - follow it as long as it fits the material: "${settings.instructions}".`
     : "";
+}
 
+// Tests read more of the notes than other tools: a test can cover up to 15 notes.
+const TEST_NOTES_LIMITS = { perNote: 16000, total: 40000 };
+const TEST_WRITE_BATCH_SIZE = 4;
+
+async function outlineTest(notesContext: string, settings: TestSettings, slots: QuestionSlot[]) {
   return requestJson({
     model: AI_MODELS.capable,
-    schema: testGenerationResultSchema,
-    temperature: 0.6,
-    maxTokens: 14000,
+    schema: testOutlineSchema,
+    temperature: 0.5,
+    maxTokens: 4000,
     system:
-      "You write real written school tests from a student's class notes. There are no answer options: every question " +
-      "must be answered in writing (a sentence, a paragraph, a calculation, a derivation). Questions must be answerable " +
-      "from the material in the notes (you may require combining and applying it). Write clear, unambiguous questions. " +
-      `Difficulty: ${DIFFICULTY_TEXT[settings.difficulty]}. Kind of thinking: ${THINKING_TEXT[settings.thinking]}. ` +
-      `Logic: ${LOGIC_TEXT[settings.logic]}. The whole test should take a well-prepared student about ` +
-      `${settings.durationMinutes} minutes - choose the number of questions to fit that (between 3 and 40), and give each ` +
-      'question an honest "estimatedMinutes". Give each question "points" (an integer from 1 to 20) proportional to ' +
-      "the work and understanding it requires. For every question also write a complete, correct \"modelAnswer\" " +
-      'and "criteria": a short list of what an answer must contain to earn full points (each criterion should be ' +
-      'checkable). Give each question a short "topic" (2-4 words) naming what it tests.' +
-      instructionsLine +
-      ' Respond as JSON: { "title": string (a short test title), "questions": [ { "prompt": string, "points": number, ' +
-      '"estimatedMinutes": number, "topic": string, "modelAnswer": string, "criteria": string[] } ] }.' +
+      "You plan a written school test from a student's class notes. The test has a fixed list of question slots, each " +
+      "with the kind of thinking it asks for. For every slot choose a distinct topic and say in one sentence what the " +
+      "question will ask (its focus), fitting the slot. Cover the material broadly: spread the slots over all the " +
+      "notes and their main ideas, and never test the same thing twice. Deep-thinking slots should combine ideas, " +
+      `ideally from different notes. Overall difficulty: ${DIFFICULTY_TEXT[settings.difficulty]}.` +
+      instructionsLine(settings) +
+      ' Respond as JSON: { "title": string (a short test title), "outline": [ { "slot": number, "topic": string ' +
+      '(2-4 words), "focus": string } ] } with exactly one entry per slot.' +
+      SLOVAK_INSTRUCTION,
+    user: `Slots:\n${slots.map(describeSlot).join("\n")}\n\nNotes:\n\n${notesContext}`,
+  });
+}
+
+async function writeQuestions(
+  notesContext: string,
+  settings: TestSettings,
+  slots: QuestionSlot[],
+  outline: { slot: number; topic: string; focus: string }[],
+  slotNumbers: number[]
+) {
+  const plan = outline.map((o) => `Slot ${o.slot}: ${o.topic} - ${o.focus}`).join("\n");
+  const mine = slotNumbers
+    .map((n) => {
+      const o = outline.find((x) => x.slot === n);
+      return `${describeSlot(slots[n - 1], n - 1)}${o ? ` Topic: ${o.topic}. Focus: ${o.focus}` : " Pick a topic no other slot covers."}`;
+    })
+    .join("\n");
+  const result = await requestJson({
+    model: AI_MODELS.capable,
+    schema: testQuestionsSchema,
+    temperature: 0.6,
+    maxTokens: 6000,
+    system:
+      "You write questions for a real written school test from a student's class notes. There are no answer options: " +
+      "every question is answered in writing (a sentence, a paragraph, a calculation, a derivation). Write exactly one " +
+      "question for each slot you are given, matching its kind of thinking, its problem flag, its topic and focus, " +
+      "and its minutes: the expected answer should take about that long to write, so a long slot needs a substantial " +
+      `task, not a one-line answer. Difficulty of every question: ${DIFFICULTY_TEXT[settings.difficulty]}. Questions ` +
+      "must be answerable from the notes (combining and applying them is fine), clear and unambiguous. For each " +
+      'question also write a complete, correct "modelAnswer" and "criteria": a short list of what an answer must ' +
+      'contain to earn full points, each one checkable. "topic" is 2-4 words naming what it tests.' +
+      instructionsLine(settings) +
+      ' Respond as JSON: { "questions": [ { "slot": number, "prompt": string, "topic": string, "modelAnswer": string, ' +
+      '"criteria": string[] } ] } with one entry per slot you were given.' +
       MATH_FORMATTING_INSTRUCTION +
       SLOVAK_INSTRUCTION,
-    user: `Write the test from these notes:\n\n${buildNotesContext(notes)}`,
+    user:
+      `The whole test (for context, so your questions don't repeat the others):\n${plan}\n\n` +
+      `Write the questions for these slots:\n${mine}\n\nNotes:\n\n${notesContext}`,
   });
+  return result.questions.filter((q) => slotNumbers.includes(q.slot));
+}
+
+// Generates a written test. The number of questions, their kinds, minutes and points come from
+// the plan (testPlan.ts); the AI outlines topics for the slots, then writes the questions a few
+// slots per call, in parallel. Slots that come back empty are asked for again (twice at most).
+export async function generateTest(notes: NoteContext[], settings: TestSettings) {
+  const slots = planTest(settings);
+  const notesContext = buildNotesContext(notes, TEST_NOTES_LIMITS);
+  const { title, outline } = await outlineTest(notesContext, settings, slots);
+
+  const written = new Map<number, Awaited<ReturnType<typeof writeQuestions>>[number]>();
+  for (let round = 0; round < 3; round++) {
+    const missing = slots.map((_, i) => i + 1).filter((n) => !written.has(n));
+    if (missing.length === 0) break;
+    const batches: number[][] = [];
+    for (let i = 0; i < missing.length; i += TEST_WRITE_BATCH_SIZE) batches.push(missing.slice(i, i + TEST_WRITE_BATCH_SIZE));
+    const results = await mapLimit(batches, AI_CONCURRENCY, (b) => writeQuestions(notesContext, settings, slots, outline, b));
+    for (const r of results) {
+      if (r.status === "fulfilled") for (const q of r.value) if (!written.has(q.slot)) written.set(q.slot, q);
+    }
+  }
+
+  if (written.size < Math.min(slots.length, 3)) {
+    throw AppError.serviceUnavailable("The AI couldn't write the test. Please try again.", "AI_BAD_RESPONSE");
+  }
+
+  const questions = slots.flatMap((slot, i) => {
+    const q = written.get(i + 1);
+    if (!q) return [];
+    const planned = outline.find((o) => o.slot === i + 1);
+    return [
+      {
+        prompt: q.prompt,
+        points: slot.points,
+        estimatedMinutes: slot.minutes,
+        topic: (q.topic || planned?.topic || "").slice(0, 80),
+        modelAnswer: q.modelAnswer,
+        criteria: q.criteria,
+        kind: slot.kind,
+        problem: slot.problem,
+      },
+    ];
+  });
+  return { title, questions };
 }
 
 export interface GradingQuestion {
@@ -493,7 +619,7 @@ async function gradeBatch(notesContext: string, questions: GradingQuestion[]) {
     model: AI_MODELS.capable,
     schema: testGradingResultSchema,
     temperature: 0,
-    maxTokens: 8000,
+    maxTokens: 6000,
     system: GRADING_SYSTEM_PROMPT,
     user:
       `The notes the test was written from (for checking facts):\n\n${notesContext}\n\n---\n\n` +
@@ -526,15 +652,18 @@ async function summarizeGrading(questions: GradingQuestion[], results: Awaited<R
   });
 }
 
-// Grades written answers against the model answer and criteria, a few questions per call (in
-// parallel), then writes the overview. The prompt asks for evidence-based, objective marking:
+// Grades written answers against the model answer and criteria, a few questions per call (a
+// few in parallel), then writes the overview. The prompt asks for evidence-based, objective marking:
 // partial credit for partially correct work, nothing for wrong or irrelevant content, and no
 // invented gaps in a correct answer.
 export async function gradeTest(notes: NoteContext[], questions: GradingQuestion[]) {
   const notesContext = buildNotesContext(notes);
   const batches: GradingQuestion[][] = [];
   for (let i = 0; i < questions.length; i += GRADING_BATCH_SIZE) batches.push(questions.slice(i, i + GRADING_BATCH_SIZE));
-  const results = (await Promise.all(batches.map((batch) => gradeBatch(notesContext, batch)))).flat();
+  const settled = await mapLimit(batches, AI_CONCURRENCY, (batch) => gradeBatch(notesContext, batch));
+  const failed = settled.find((r) => r.status === "rejected");
+  if (failed) throw (failed as PromiseRejectedResult).reason;
+  const results = settled.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
 
   // The overview is a nicety; a failure here must not throw away the grades.
   const overview = await summarizeGrading(questions, results).catch(() => ({

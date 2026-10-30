@@ -20,6 +20,9 @@ interface StoredQuestion {
   topic: string;
   modelAnswer: string;
   criteria: string[];
+  // From the test plan; missing on tests made before it existed.
+  kind?: "recall" | "understanding" | "deep";
+  problem?: boolean;
 }
 
 export interface QuestionGrade {
@@ -37,7 +40,15 @@ function nowIso() {
 
 // Model answers and criteria stay on the server until the attempt has been graded.
 function publicQuestion(q: StoredQuestion, reveal: boolean) {
-  const base = { id: q.id, prompt: q.prompt, points: q.points, estimatedMinutes: q.estimatedMinutes, topic: q.topic };
+  const base = {
+    id: q.id,
+    prompt: q.prompt,
+    points: q.points,
+    estimatedMinutes: q.estimatedMinutes,
+    topic: q.topic,
+    kind: q.kind ?? null,
+    problem: q.problem ?? false,
+  };
   return reveal ? { ...base, modelAnswer: q.modelAnswer, criteria: q.criteria } : base;
 }
 
@@ -153,6 +164,8 @@ export async function createTest(userId: string, input: CreateTestInput) {
     topic: q.topic,
     modelAnswer: q.modelAnswer,
     criteria: q.criteria,
+    kind: q.kind,
+    problem: q.problem,
   }));
 
   const subjectIds = [...new Set(notes.map((n) => n.subjectId).filter(Boolean))];

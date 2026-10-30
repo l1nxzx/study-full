@@ -18,6 +18,10 @@ export interface TestQuestion {
   points: number;
   estimatedMinutes: number;
   topic: string;
+  /** The kind of thinking the question was planned for; null on older tests. */
+  kind?: "recall" | "understanding" | "deep" | null;
+  /** A problem to reason through rather than a plain written answer. */
+  problem?: boolean;
   /** Only present once the attempt has been graded. */
   modelAnswer?: string;
   criteria?: string[];

@@ -20,6 +20,7 @@ import { useNotes } from "@/hooks/useNotes";
 import { useSubjects } from "@/hooks/useSubjects";
 import { formatDateShort } from "@/lib/date";
 import { DIFFICULTY_LABELS, DURATIONS, LOGIC_LABELS, THINKING_LABELS } from "@/lib/testLabels";
+import { describePlan } from "@/lib/testPlan";
 
 const MAX_NOTES = 15;
 
@@ -56,6 +57,7 @@ export function NewTestPage() {
   const [title, setTitle] = useState("");
 
   const subjectById = new Map((subjects || []).map((s) => [s.id, s]));
+  const plan = describePlan({ difficulty, thinking, logic, durationMinutes: Number(duration) });
   // Until the student picks a subject, show the subject of the preselected note (if any).
   const effectiveSubject =
     subjectFilter === "auto" ? (notes?.find((n) => selected.has(n.id))?.subjectId ?? "all") : subjectFilter;
@@ -110,7 +112,10 @@ export function NewTestPage() {
   if (create.isPending) {
     return (
       <Page width="reading">
-        <PageHeader title="Writing your test" description="The AI is writing the questions, their points and the answers it will grade against. This usually takes up to a minute." />
+        <PageHeader
+          title="Writing your test"
+          description={`The AI plans ${plan.total} questions across your notes, then writes them with the answers it will grade against. This usually takes a minute or two.`}
+        />
         <SkeletonLines lines={4} />
         <SkeletonLines lines={3} className="mt-8" />
         <SkeletonLines lines={4} className="mt-8" />
@@ -216,7 +221,7 @@ export function NewTestPage() {
                 className="w-full sm:w-auto"
               />
             </SettingRow>
-            <SettingRow label="Length" hint="How long a well-prepared student would need. The number of questions follows from it.">
+            <SettingRow label="Length" hint="How long a well-prepared student would need.">
               <Segmented
                 label="Length"
                 value={duration}
@@ -243,7 +248,19 @@ export function NewTestPage() {
         </Section>
 
         <div className="flex flex-col gap-3 border-t border-rule pt-6 sm:flex-row sm:items-center sm:justify-between">
-          <InlineError>{create.error ? getErrorMessage(create.error, "Couldn't create the test") : null}</InlineError>
+          <div className="min-w-0" aria-live="polite">
+            <p className="text-sm text-fg">
+              <span className="font-medium tabular">{plan.total} questions</span>
+              <span className="text-fg-muted"> · {duration} min · {plan.parts.join(", ")}</span>
+            </p>
+            <p className="mt-0.5 text-meta text-fg-faint">
+              {plan.problems > 0
+                ? `${plan.problems} of them ${plan.problems === 1 ? "is a problem" : "are problems"} to reason through. `
+                : ""}
+              Points follow the work each question takes.
+            </p>
+            <InlineError className="mt-2">{create.error ? getErrorMessage(create.error, "Couldn't create the test") : null}</InlineError>
+          </div>
           <Button size="lg" onClick={() => create.mutate()} disabled={selected.size === 0 || aiEnabled === false} className="sm:ml-auto">
             Create test
           </Button>
