@@ -10,7 +10,9 @@ export function App() {
     <QueryClientProvider client={queryClient}>
       <ToastProvider>
         <AuthProvider>
-          <RouterProvider router={router} />
+          {/* Navigations render right away instead of as a low-priority transition, which left the
+              old page on screen for a few frames after the address had already changed. */}
+          <RouterProvider router={router} useTransitions={false} />
         </AuthProvider>
       </ToastProvider>
     </QueryClientProvider>

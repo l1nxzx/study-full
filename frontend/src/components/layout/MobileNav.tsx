@@ -39,7 +39,7 @@ export function MobileHeader() {
             aria-describedby={undefined}
             className="fixed inset-y-0 left-0 z-50 flex w-[17.5rem] max-w-[85vw] flex-col border-r border-rule bg-panel pt-[env(safe-area-inset-top)] outline-none"
           >
-            <div className="flex h-14 items-center justify-between pl-5 pr-2">
+            <div className="flex h-16 items-center justify-between pl-5 pr-2">
               <DialogPrimitive.Title asChild>
                 <span>
                   <Brand />

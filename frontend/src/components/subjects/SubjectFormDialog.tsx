@@ -8,7 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/label";
 import { InlineError } from "@/components/shared/EmptyState";
 import { SWATCH_FILTER } from "@/components/shared/SubjectSwatch";
-import { useCreateSubject, useDeleteSubject, useSubjects, useUpdateSubject } from "@/hooks/useSubjects";
+import { useCreateSubject, useSubjects, useUpdateSubject } from "@/hooks/useSubjects";
+import { DeleteSubjectDialog } from "./DeleteSubjectDialog";
 import { firstUnusedColor, SUBJECT_PALETTE } from "@/lib/scheduleColors";
 import { cn } from "@/lib/utils";
 import type { Subject } from "@/types";
@@ -32,7 +33,7 @@ export function SubjectFormDialog({ editingSubject, open: openProp, onOpenChange
 
   const createSubject = useCreateSubject();
   const updateSubject = useUpdateSubject();
-  const deleteSubject = useDeleteSubject();
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const { data: subjects } = useSubjects();
   const navigate = useNavigate();
 
@@ -66,12 +67,6 @@ export function SubjectFormDialog({ editingSubject, open: openProp, onOpenChange
     }
   }
 
-  async function handleDelete() {
-    if (!editingSubject) return;
-    await deleteSubject.mutateAsync(editingSubject.id);
-    onOpenChange(false);
-    navigate("/dashboard");
-  }
 
   const isSubmitting = createSubject.isPending;
 
@@ -135,7 +130,7 @@ export function SubjectFormDialog({ editingSubject, open: openProp, onOpenChange
 
           <DialogFooter className="sm:justify-between">
             {editingSubject ? (
-              <Button type="button" variant="ghost" className="text-bad hover:bg-bad/10 hover:text-bad" onClick={handleDelete} disabled={deleteSubject.isPending}>
+              <Button type="button" variant="ghost" className="text-bad hover:bg-bad/10 hover:text-bad" onClick={() => setConfirmDelete(true)}>
                 Delete subject
               </Button>
             ) : (
@@ -147,6 +142,17 @@ export function SubjectFormDialog({ editingSubject, open: openProp, onOpenChange
           </DialogFooter>
         </form>
       </DialogContent>
+      {editingSubject && (
+        <DeleteSubjectDialog
+          subject={editingSubject}
+          open={confirmDelete}
+          onOpenChange={setConfirmDelete}
+          onDeleted={() => {
+            onOpenChange(false);
+            navigate("/dashboard");
+          }}
+        />
+      )}
     </Dialog>
   );
 }

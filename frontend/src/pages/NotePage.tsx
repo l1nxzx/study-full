@@ -52,7 +52,7 @@ export function NotePage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { data: note, isLoading } = useNote(id);
-  const { data: subject } = useSubject(note?.subjectId);
+  const { data: subject } = useSubject(note?.subjectId ?? undefined);
   const updateNote = useUpdateNote();
   const deleteNote = useDeleteNote();
   const { setActiveNote, toolMode, setToolMode, isOpen: panelOpen, notesRevealed, toggleNotesRevealed, open: openAiPanel } = useAiPanel();
@@ -138,7 +138,7 @@ export function NotePage() {
           initialValues={
             unsaved?.values ?? {
               title: note.title,
-              subjectId: note.subjectId,
+              subjectId: note.subjectId ?? "",
               sessionId: note.sessionId,
               date: note.date,
               contentMarkdown: note.contentMarkdown,

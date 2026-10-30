@@ -48,10 +48,16 @@ export function useUpdateSubject() {
   });
 }
 
+// Deleting a subject changes notes, tasks, tests and the timetable on the server, so everything
+// that can show them is refreshed afterwards.
 export function useDeleteSubject() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => subjectsApi.deleteSubject(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["subjects"] }),
+    mutationFn: ({ id, deleteNotes }: { id: string; deleteNotes: boolean }) => subjectsApi.deleteSubject(id, deleteNotes),
+    onSuccess: () => {
+      for (const key of ["subjects", "notes", "tasks", "classes", "classSessions", "tests", "stats", "scheduleEvents"]) {
+        queryClient.invalidateQueries({ queryKey: [key] });
+      }
+    },
   });
 }

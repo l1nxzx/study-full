@@ -17,12 +17,12 @@ import type { Subject } from "@/types";
 
 const navRowClasses = (active: boolean) =>
   cn(
-    "group flex h-10 items-center gap-2.5 rounded-md px-2.5 text-sm transition-colors lg:h-8",
+    "group flex h-11 items-center gap-3 rounded-md px-2.5 text-[0.9375rem] transition-colors lg:h-9",
     active ? "bg-tint font-medium text-fg" : "text-fg-muted hover:bg-tint/60 hover:text-fg"
   );
 
 const navIconClasses = (active: boolean) =>
-  cn("size-4 shrink-0", active ? "text-accent" : "text-fg-faint group-hover:text-fg-muted");
+  cn("size-[1.125rem] shrink-0", active ? "text-accent" : "text-fg-faint group-hover:text-fg-muted");
 
 /** Sections, then subjects, then the assistant. Shared by the desktop sidebar and phone drawer. */
 export function NavigationList({ onNavigate }: { onNavigate?: () => void }) {
@@ -45,7 +45,7 @@ export function NavigationList({ onNavigate }: { onNavigate?: () => void }) {
 
       <div className="mt-7">
         <div className="mb-1 flex h-6 items-center justify-between pl-2.5">
-          <p className="group-label">Subjects</p>
+          <p className="group-label text-[0.8125rem]">Subjects</p>
           <SubjectFormDialog
             trigger={
               <button
@@ -105,7 +105,7 @@ function SubjectRow({
         className={({ isActive }) => cn(navRowClasses(isActive), "select-none [-webkit-touch-callout:none]")}
         {...handlers}
       >
-        <span className="flex size-4 items-center justify-center">
+        <span className="flex size-[1.125rem] items-center justify-center">
           <SubjectSwatch color={subject.color} />
         </span>
         <span className="flex-1 truncate">{subject.name}</span>
@@ -167,9 +167,9 @@ function SubjectList({ subjects, onNavigate }: { subjects: Subject[] | undefined
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}
-          className="flex h-9 w-full items-center gap-2.5 rounded-md px-2.5 text-[0.8125rem] text-fg-faint transition-colors hover:bg-tint/60 hover:text-fg lg:h-7"
+          className="flex h-10 w-full items-center gap-3 rounded-md px-2.5 text-sm text-fg-faint transition-colors hover:bg-tint/60 hover:text-fg lg:h-8"
         >
-          <ChevronDown className={cn("size-4 transition-transform", expanded && "rotate-180")} strokeWidth={1.75} />
+          <ChevronDown className={cn("size-[1.125rem] transition-transform", expanded && "rotate-180")} strokeWidth={1.75} />
           {expanded ? "Show less" : `Show ${hidden} more`}
         </button>
       )}
@@ -198,7 +198,7 @@ export function AccountRows({ onNavigate }: { onNavigate?: () => void }) {
         )}
       </NavLink>
       <div className="flex items-center gap-2 pl-2.5">
-        <span className="min-w-0 flex-1 truncate text-meta text-fg-faint" title={user?.email}>
+        <span className="min-w-0 flex-1 truncate text-[0.8125rem] text-fg-faint" title={user?.email}>
           {user?.name || user?.email}
         </span>
         <button
@@ -208,7 +208,7 @@ export function AccountRows({ onNavigate }: { onNavigate?: () => void }) {
           aria-label="Log out"
           className="flex size-8 shrink-0 items-center justify-center rounded-md text-fg-faint transition-colors hover:bg-tint hover:text-fg"
         >
-          <LogOut className="size-4" strokeWidth={1.75} />
+          <LogOut className="size-[1.125rem]" strokeWidth={1.75} />
         </button>
       </div>
     </div>
@@ -219,9 +219,9 @@ export function AccountRows({ onNavigate }: { onNavigate?: () => void }) {
 /** The app's mark and name. */
 export function Brand() {
   return (
-    <span className="flex items-center gap-2.5">
-      <img src="/favicon.svg" alt="" className="size-7 rounded-md" />
-      <span className="text-lg font-semibold tracking-[-0.015em] text-fg">Study</span>
+    <span className="flex items-center gap-3">
+      <img src="/logo.svg" alt="" className="h-10 w-auto" />
+      <span className="text-[1.375rem] font-semibold tracking-[-0.02em] text-fg">Study</span>
     </span>
   );
 }
@@ -231,8 +231,8 @@ export function Sidebar() {
   const { isOpen: assistantOpen, toggle: toggleAssistant } = useAiPanel();
 
   return (
-    <aside className="hidden h-full w-60 shrink-0 flex-col border-r border-rule bg-panel lg:flex">
-      <div className="flex h-16 items-center px-5">
+    <aside className="hidden h-full w-64 shrink-0 flex-col border-r border-rule bg-panel lg:flex">
+      <div className="flex h-20 items-center px-5">
         <Brand />
       </div>
 
@@ -240,9 +240,9 @@ export function Sidebar() {
         <button
           type="button"
           onClick={openSearch}
-          className="flex h-8 w-full items-center gap-2.5 rounded-md border border-rule px-2.5 text-sm text-fg-faint transition-colors hover:border-rule-strong hover:text-fg-muted"
+          className="flex h-9 w-full items-center gap-3 rounded-md border border-rule px-2.5 text-[0.9375rem] text-fg-faint transition-colors hover:border-rule-strong hover:text-fg-muted"
         >
-          <Search className="size-4" strokeWidth={1.75} />
+          <Search className="size-[1.125rem]" strokeWidth={1.75} />
           <span className="flex-1 text-left">Search</span>
           <Kbd>{modKey} K</Kbd>
         </button>

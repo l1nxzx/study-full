@@ -107,7 +107,7 @@ export function NotesListPage() {
             <h2 className="group-label border-b border-rule pb-2">{group.label}</h2>
             <div className="divide-y divide-rule">
               {group.notes.map((note) => (
-                <NoteRow key={note.id} note={note} subject={subjectById.get(note.subjectId)} showSubject={subjectId === "all"} />
+                <NoteRow key={note.id} note={note} subject={note.subjectId ? subjectById.get(note.subjectId) : undefined} showSubject={subjectId === "all"} />
               ))}
             </div>
           </section>

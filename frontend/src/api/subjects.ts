@@ -23,6 +23,9 @@ export function updateSubject(id: string, input: Partial<SubjectInput>) {
   return apiClient.patch<Subject>(`/subjects/${id}`, input).then((r) => r.data);
 }
 
-export function deleteSubject(id: string) {
-  return apiClient.delete(`/subjects/${id}`);
+// Deletes the subject; its notes are deleted too, or kept without a subject.
+export function deleteSubject(id: string, deleteNotes: boolean) {
+  return apiClient
+    .delete<{ notesDeleted: number; notesKept: number }>(`/subjects/${id}`, { params: deleteNotes ? { notes: "delete" } : {} })
+    .then((r) => r.data);
 }
