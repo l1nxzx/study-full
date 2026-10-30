@@ -349,6 +349,34 @@
       skeleton-pulse 2.4s ease-in-out 350ms infinite;
   }
 
+  /*
+   * The sidebar drawer, timed like Android's navigation drawer: it decelerates in and
+   * accelerates out a little faster, with the backdrop fading alongside.
+   */
+  @keyframes drawer-in {
+    from {
+      transform: translateX(-100%);
+    }
+  }
+
+  @keyframes drawer-out {
+    to {
+      transform: translateX(-100%);
+    }
+  }
+
+  @keyframes scrim-in {
+    from {
+      opacity: 0;
+    }
+  }
+
+  @keyframes scrim-out {
+    to {
+      opacity: 0;
+    }
+  }
+
   @keyframes startup-slide {
     0% {
       transform: translateX(-100%);
