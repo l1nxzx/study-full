@@ -28,7 +28,7 @@ export function MobileHeader() {
   const { pathname } = useLocation();
 
   return (
-    <header className="flex h-14 shrink-0 items-center gap-1 border-b border-rule bg-canvas px-2 pt-[env(safe-area-inset-top)] lg:hidden">
+    <header className="flex h-[calc(3.5rem+env(safe-area-inset-top))] shrink-0 items-center gap-1 border-b border-rule bg-canvas px-2 pt-[env(safe-area-inset-top)] lg:hidden">
       <DialogPrimitive.Root open={open} onOpenChange={setOpen}>
         <DialogPrimitive.Trigger className={headerButton} aria-label="Open menu">
           <Menu className="size-5" strokeWidth={1.75} />

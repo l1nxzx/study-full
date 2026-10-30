@@ -33,7 +33,7 @@ function Shell() {
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <MobileHeader />
-        <main ref={mainRef} id="main" className="flex-1 overflow-y-auto">
+        <main ref={mainRef} id="main" className="flex-1 overflow-y-auto overscroll-y-contain">
           <div className="@container px-5 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-6 sm:px-8 lg:px-12 lg:pb-20 lg:pt-11">
             <Outlet />
           </div>
