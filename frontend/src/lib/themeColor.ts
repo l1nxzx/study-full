@@ -1,14 +1,9 @@
 import { useLayoutEffect, type RefObject } from "react";
 
-// The phone's status and navigation bars follow <meta name="theme-color">. A web app can't make
-// them transparent, so they take the colour of whatever is at the top of the screen. Anything
-// that covers the top while open (the sidebar, a sheet's dimmed backdrop, the assistant, the
-// notebook) adds a layer here as it mounts, in the same commit, so the bars change in the same
-// frame as the screen. Layers stack in the order they opened; translucent ones (a backdrop)
-// blend over what is beneath.
-
-/** The dimmed backdrop behind sheets and the sidebar. Keep in sync with their bg-[...] classes. */
-export const SCRIM = "oklch(0.14 0.01 265 / 0.55)";
+// The phone's status and navigation bars follow <meta name="theme-color">, one colour for both.
+// They stay the page background, which is also the bottom nav's, so the system bar at the
+// bottom always continues it; sheets and the sidebar don't change them. Only a full-screen view
+// with no bottom nav (the notebook's desk) adds a layer, set in the same commit as it mounts.
 
 /** CSS colours, or custom property names ("--color-panel") read from `scope` or the page. */
 type Layers = string[] | (() => string[]);
@@ -70,10 +65,4 @@ export function useBarColor(active: boolean, layers: Layers, options: { scope?: 
     // `layers` is compared by `id`; a new array each render shouldn't re-add the layer.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active, id, scope, key]);
-}
-
-/** A layer that lasts as long as it is mounted, for content that only mounts while open. */
-export function BarColor({ layers }: { layers: Layers }) {
-  useBarColor(true, layers);
-  return null;
 }
