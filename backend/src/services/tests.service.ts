@@ -239,31 +239,50 @@ export async function saveAnswers(userId: string, id: string, input: SaveTestAns
   return attemptSummary(doc.id, { ...data, ...patch });
 }
 
+type GradedResult = Awaited<ReturnType<typeof aiService.gradeTest>>["results"][number];
+
+// Points for one answer. The grader lists, per criterion, the part of the answer that meets it;
+// when every criterion is met and nothing in the answer is wrong, the answer gets full points
+// whatever number the model put down, so a correct answer can't lose points to a slip.
+export function finalAward(q: { points: number }, r: GradedResult) {
+  const allMet = r.checks.length > 0 && r.checks.every((c) => c.status === "met") && r.errors.length === 0;
+  if (allMet) return { awarded: q.points, toLearn: "" };
+  return { awarded: Math.min(q.points, Math.max(0, roundToHalf(r.awarded))), toLearn: r.toLearn };
+}
+
 function roundToHalf(n: number) {
   return Math.round(n * 2) / 2;
 }
 
 // Submitting locks the answers and grades them. If grading fails (AI unavailable, bad
 // response), the attempt stays locked with an error and can simply be submitted again.
-export async function submitAttempt(userId: string, id: string, input?: SaveTestAnswersInput) {
+// Hands in an attempt and grades it. With `regrade`, an already graded attempt is graded again
+// from the same answers. It stays "graded" (with its earlier result) until the new grade is
+// written, so a failed or interrupted regrade changes nothing.
+export async function submitAttempt(userId: string, id: string, input?: SaveTestAnswersInput, options: { regrade?: boolean } = {}) {
   const doc = await getOwnedAttempt(userId, id);
   const data = doc.data()!;
 
-  if (data.status === "graded") return getAttempt(userId, id);
+  if (options.regrade && data.status !== "graded") {
+    throw AppError.conflict("Only a graded test can be graded again.", "ATTEMPT_NOT_GRADED");
+  }
+  if (data.status === "graded" && !options.regrade) return getAttempt(userId, id);
   if (data.status === "grading" && Date.now() - Date.parse(data.gradingStartedAt ?? 0) < GRADING_STALE_MS) {
     throw AppError.conflict("This test is already being graded.", "ATTEMPT_GRADING");
   }
 
   const answers: Record<string, string> = data.status === "in_progress" && input ? input.answers : data.answers ?? {};
   const now = nowIso();
-  await doc.ref.update({
-    answers,
-    status: "grading",
-    gradingStartedAt: now,
-    submittedAt: data.submittedAt ?? now,
-    updatedAt: now,
-    ...(input?.elapsedSeconds !== undefined ? { elapsedSeconds: Math.max(data.elapsedSeconds ?? 0, input.elapsedSeconds) } : {}),
-  });
+  if (!options.regrade) {
+    await doc.ref.update({
+      answers,
+      status: "grading",
+      gradingStartedAt: now,
+      submittedAt: data.submittedAt ?? now,
+      updatedAt: now,
+      ...(input?.elapsedSeconds !== undefined ? { elapsedSeconds: Math.max(data.elapsedSeconds ?? 0, input.elapsedSeconds) } : {}),
+    });
+  }
 
   try {
     const testDoc = await getOwnedTest(userId, data.testId);
@@ -292,11 +311,10 @@ export async function submitAttempt(userId: string, id: string, input?: SaveTest
       }
       return {
         id: q.id,
-        awarded: Math.min(q.points, Math.max(0, roundToHalf(r.awarded))),
+        ...finalAward(q, r),
         max: q.points,
         feedback: r.feedback,
         correctAnswer: r.correctAnswer || q.modelAnswer,
-        toLearn: r.toLearn,
       };
     });
 
@@ -321,7 +339,7 @@ export async function submitAttempt(userId: string, id: string, input?: SaveTest
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Grading failed";
-    await doc.ref.update({ status: "submitted", gradingError: message, updatedAt: nowIso() });
+    if (!options.regrade) await doc.ref.update({ status: "submitted", gradingError: message, updatedAt: nowIso() });
     throw err;
   }
 

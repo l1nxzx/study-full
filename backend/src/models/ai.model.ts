@@ -144,16 +144,32 @@ export const testGenerationResultSchema = z.object({
     .max(40),
 });
 
+// One grading call covers a handful of questions. Each result first lists, per criterion, the
+// part of the student's answer that meets it, so the points follow from evidence rather than
+// a first impression.
 export const testGradingResultSchema = z.object({
   results: z.array(
     z.object({
       id: z.string(),
+      checks: z
+        .array(
+          z.object({
+            criterion: z.string().default(""),
+            evidence: z.string().default(""),
+            status: z.enum(["met", "partial", "missing"]).catch("partial"),
+          })
+        )
+        .default([]),
+      errors: z.array(z.string()).default([]),
       awarded: z.coerce.number(),
       feedback: z.string().default(""),
       correctAnswer: z.string().default(""),
       toLearn: z.string().default(""),
     })
   ),
+});
+
+export const testGradingSummarySchema = z.object({
   summary: z.string().default(""),
   strengths: z.array(z.string()).default([]),
   toReview: z.array(z.string()).default([]),

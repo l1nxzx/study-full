@@ -8,6 +8,7 @@ import {
   quizResultSchema,
   testGenerationResultSchema,
   testGradingResultSchema,
+  testGradingSummarySchema,
   rewriteResultSchema,
   summaryResultSchema,
 } from "../models/ai.model";
@@ -443,48 +444,106 @@ export interface GradingQuestion {
   id: string;
   prompt: string;
   points: number;
+  topic?: string;
   modelAnswer: string;
   criteria: string[];
   answer: string;
 }
 
-// Grades written answers against the model answer and criteria. The prompt asks for fair,
-// objective marking: real partial credit for partially correct work, no points for wrong or
-// irrelevant content, and no invented faults in a correct answer.
-export async function gradeTest(notes: NoteContext[], questions: GradingQuestion[]) {
+// Questions per grading call. Small batches keep the model's attention on each answer and
+// leave room in the output for the per-criterion evidence.
+const GRADING_BATCH_SIZE = 6;
+
+const GRADING_SYSTEM_PROMPT =
+  "You are an experienced, fair teacher grading a student's written test answers. Grade every question on its own, " +
+  "working through these steps in this order:\n" +
+  '1. "checks": take the criteria one by one (if there are none, use the key points of the model answer). For each, ' +
+  "read the WHOLE student answer and look for any part that expresses it, in any wording, order or level of detail: " +
+  "a paraphrase, a synonym, an example that shows it, or a different but valid method all count. Copy that part of " +
+  'the student\'s answer word for word into "evidence" (a short fragment). Status "met" when it fully expresses the ' +
+  'criterion, "partial" when it does so only partly or imprecisely, "missing" only when no part of the answer ' +
+  'expresses it (evidence is then "").\n' +
+  '2. "errors": statements in the answer that are factually wrong, quoted word for word. Omissions do not belong here.\n' +
+  '3. "awarded": points from 0 to maxPoints in steps of 0.5, following from the checks and errors. When every check ' +
+  "is met and there are no errors, award maxPoints. Give partial points in proportion to what is right. Give nothing " +
+  "for content that is wrong, irrelevant or only restates the question. Do not deduct for brevity, wording, spelling, " +
+  "order or for things the criteria do not ask for, and do not reward length or confident wording.\n" +
+  '4. "feedback": short and specific, addressed to the student, and consistent with your checks: never say something ' +
+  "is missing or wrong unless a check or an error above says so. For a full-mark answer, say briefly what was good.\n" +
+  '5. "correctAnswer": a concise full-mark answer. "toLearn": one sentence on what to study to do better, or "" when ' +
+  "the answer earned full points.\n" +
+  "The notes are for checking facts only: a correct statement that is not in the notes is still correct. " +
+  'Respond as JSON: { "results": [ { "id": string, "checks": [ { "criterion": string, "evidence": string, ' +
+  '"status": "met" | "partial" | "missing" } ], "errors": string[], "awarded": number, "feedback": string, ' +
+  '"correctAnswer": string, "toLearn": string } ] }. Include every question id you were given.' +
+  MATH_FORMATTING_INSTRUCTION +
+  " Write all text values in Slovak (slovenčina); keep JSON keys and status values exactly as given, and copy " +
+  "evidence exactly as the student wrote it.";
+
+async function gradeBatch(notesContext: string, questions: GradingQuestion[]) {
   const payload = questions.map((q) => ({
     id: q.id,
     question: q.prompt,
     maxPoints: q.points,
-    modelAnswer: q.modelAnswer,
     criteria: q.criteria,
+    modelAnswer: q.modelAnswer,
     studentAnswer: q.answer,
   }));
-
-  return requestJson({
+  const result = await requestJson({
     model: AI_MODELS.capable,
     schema: testGradingResultSchema,
-    temperature: 0.2,
-    maxTokens: 12000,
-    system:
-      "You are an experienced, fair teacher grading a student's written test. For each question compare the student's " +
-      "answer with the model answer and the criteria, and award points from 0 to maxPoints in steps of 0.5. Be " +
-      "objective: give full points to an answer that is correct and complete, even if worded differently, ordered " +
-      "differently, or using different but valid notation or method. Give partial points for answers that are partly " +
-      "correct, in proportion to what they get right. Give no points for content that is wrong, irrelevant, or only " +
-      "restates the question, and do not reward length or confident wording. Do not invent mistakes in a correct answer " +
-      "and do not be harsh for the sake of it; small slips (spelling, a typo, a missing unit when the method and result " +
-      "are clearly right) cost at most a little. Judge only what is actually written. For each question write short, " +
-      'specific "feedback" for the student (what was right, what was wrong or missing), a concise "correctAnswer" ' +
-      '(what a full-mark answer contains), and "toLearn": one sentence on what to study to do better, or an empty ' +
-      'string when the answer earned full points. Then write a two or three sentence "summary" of the whole test, ' +
-      'a list of "strengths" and a list of "toReview" topics (short noun phrases). Respond as JSON: { "results": ' +
-      '[ { "id": string, "awarded": number, "feedback": string, "correctAnswer": string, "toLearn": string } ], ' +
-      '"summary": string, "strengths": string[], "toReview": string[] }. Include every question id you were given.' +
-      MATH_FORMATTING_INSTRUCTION +
-      SLOVAK_INSTRUCTION,
+    temperature: 0,
+    maxTokens: 8000,
+    system: GRADING_SYSTEM_PROMPT,
     user:
-      `The notes the test was written from (for reference):\n\n${buildNotesContext(notes)}\n\n---\n\n` +
+      `The notes the test was written from (for checking facts):\n\n${notesContext}\n\n---\n\n` +
       `Questions with the student's answers (JSON):\n${JSON.stringify(payload)}`,
   });
+  return result.results;
+}
+
+// A short overview of the whole graded test, written from the per-question results.
+async function summarizeGrading(questions: GradingQuestion[], results: Awaited<ReturnType<typeof gradeBatch>>) {
+  const byId = new Map(results.map((r) => [r.id, r]));
+  const payload = questions.map((q) => ({
+    topic: q.topic ?? "",
+    question: q.prompt,
+    maxPoints: q.points,
+    awarded: byId.get(q.id)?.awarded ?? 0,
+    feedback: byId.get(q.id)?.feedback ?? "",
+  }));
+  return requestJson({
+    model: AI_MODELS.fast,
+    schema: testGradingSummarySchema,
+    temperature: 0.3,
+    system:
+      "You are a teacher writing a short overview of a student's graded written test. From the per-question results, " +
+      'write a two or three sentence "summary" of how the test went, a list of "strengths" and a list of "toReview" ' +
+      "topics (short noun phrases) the student should study, based only on questions that lost points. Respond as " +
+      'JSON: { "summary": string, "strengths": string[], "toReview": string[] }.' +
+      SLOVAK_INSTRUCTION,
+    user: `Graded questions (JSON):\n${JSON.stringify(payload)}`,
+  });
+}
+
+// Grades written answers against the model answer and criteria, a few questions per call (in
+// parallel), then writes the overview. The prompt asks for evidence-based, objective marking:
+// partial credit for partially correct work, nothing for wrong or irrelevant content, and no
+// invented gaps in a correct answer.
+export async function gradeTest(notes: NoteContext[], questions: GradingQuestion[]) {
+  const notesContext = buildNotesContext(notes);
+  const batches: GradingQuestion[][] = [];
+  for (let i = 0; i < questions.length; i += GRADING_BATCH_SIZE) batches.push(questions.slice(i, i + GRADING_BATCH_SIZE));
+  const results = (await Promise.all(batches.map((batch) => gradeBatch(notesContext, batch)))).flat();
+
+  // The overview is a nicety; a failure here must not throw away the grades.
+  const overview = await summarizeGrading(questions, results).catch(() => ({
+    summary: "",
+    strengths: [] as string[],
+    toReview: questions
+      .filter((q) => (results.find((r) => r.id === q.id)?.awarded ?? 0) < q.points)
+      .map((q) => q.topic ?? "")
+      .filter(Boolean),
+  }));
+  return { results, ...overview };
 }

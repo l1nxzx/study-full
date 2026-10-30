@@ -84,7 +84,9 @@ notes, difficulty, how much thinking, how much logic, an estimated length and op
 Every answer is handwritten (a textarea, no options), saved to the server as you type with a local backup,
 so a refresh or a dropped connection loses nothing. Handing in sends the answers to be graded: each
 question has points, partial credit in half points, feedback, the expected answer and what to revisit.
-Results stay stored; a test can be retaken or a new one generated from the same notes.
+Grading is evidence-based: for every criterion the grader quotes the part of the answer that meets it
+before giving points, and an answer that meets every criterion with nothing wrong gets full points.
+Results stay stored; a result can be graded again, a test retaken, or a new one generated from the same notes.
 
 ## Notebook reader
 

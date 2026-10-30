@@ -430,10 +430,11 @@ function QuestionResult({ index, question, grade, answer }: { index: number; que
   );
 }
 
-function Results({ attempt }: { attempt: testsApi.TestAttempt }) {
+function Results({ attempt, onRegrade, regradeError }: { attempt: testsApi.TestAttempt; onRegrade: () => void; regradeError: unknown }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState<"all" | "lost">("all");
+  const [confirmRegrade, setConfirmRegrade] = useState(false);
   const grading = attempt.grading!;
   const byId = new Map(grading.results.map((r) => [r.id, r]));
   const questions = attempt.test.questions;
@@ -503,8 +504,29 @@ function Results({ attempt }: { attempt: testsApi.TestAttempt }) {
         <Button variant="ghost" asChild>
           <Link to={`/tests/${attempt.testId}`}>All tries</Link>
         </Button>
+        <Button variant="ghost" onClick={() => setConfirmRegrade(true)}>
+          Grade again
+        </Button>
       </div>
-      <InlineError className="mt-3">{retake.error ? getErrorMessage(retake.error, "Couldn't start a new try") : null}</InlineError>
+      <InlineError className="mt-3">
+        {retake.error
+          ? getErrorMessage(retake.error, "Couldn't start a new try")
+          : regradeError
+            ? `${getErrorMessage(regradeError, "Grading again failed")} The earlier grade is kept.`
+            : null}
+      </InlineError>
+      <ConfirmDialog
+        open={confirmRegrade}
+        onOpenChange={setConfirmRegrade}
+        title="Grade these answers again?"
+        description="Use this if a grade looks wrong. Your answers are graded from scratch and the new grade replaces this one."
+        confirmLabel="Grade again"
+        destructive={false}
+        onConfirm={() => {
+          setConfirmRegrade(false);
+          onRegrade();
+        }}
+      />
 
       <div className="mt-12 flex items-center justify-between border-b border-rule pb-3">
         <h2 className="section-title">Answers</h2>
@@ -560,6 +582,15 @@ export function TestAttemptPage() {
     },
   });
 
+  const regradeAgain = useMutation({
+    mutationFn: () => testsApi.regradeAttempt(attemptId!),
+    onSuccess: (graded) => queryClient.setQueryData(["test-attempts", attemptId], graded),
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["tests"] });
+      queryClient.invalidateQueries({ queryKey: ["stats"] });
+    },
+  });
+
   if (isLoading) {
     return (
       <Page width="reading">
@@ -570,7 +601,10 @@ export function TestAttemptPage() {
   }
   if (isError || !attempt) return <Navigate to="/tests" replace />;
 
-  if (attempt.status === "graded" && attempt.grading) return <Results attempt={attempt} />;
+  if (regradeAgain.isPending) return <GradingScreen />;
+  if (attempt.status === "graded" && attempt.grading) {
+    return <Results attempt={attempt} onRegrade={() => regradeAgain.mutate()} regradeError={regradeAgain.error} />;
+  }
   if (attempt.status === "grading" || regrade.isPending) return <GradingScreen />;
   if (attempt.status === "submitted") {
     return (

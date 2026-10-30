@@ -35,6 +35,10 @@ export const submitAttempt = asyncHandler(async (req: Request, res: Response) =>
   res.json(await service.submitAttempt(req.user!.userId, String(req.params.id), req.body?.answers ? req.body : undefined));
 });
 
+export const regradeAttempt = asyncHandler(async (req: Request, res: Response) => {
+  res.json(await service.submitAttempt(req.user!.userId, String(req.params.id), undefined, { regrade: true }));
+});
+
 export const removeAttempt = asyncHandler(async (req: Request, res: Response) => {
   await service.deleteAttempt(req.user!.userId, String(req.params.id));
   res.status(204).send();
