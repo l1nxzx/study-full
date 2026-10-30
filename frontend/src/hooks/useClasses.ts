@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as classesApi from "@/api/classes";
 import type { ClassInput } from "@/api/classes";
+import { FRESHNESS } from "@/lib/freshness";
 
 export function useClasses(options: { enabled?: boolean } = {}) {
-  return useQuery({ queryKey: ["classes"], queryFn: classesApi.listClasses, enabled: options.enabled });
+  return useQuery({ queryKey: ["classes"], queryFn: classesApi.listClasses, enabled: options.enabled, staleTime: FRESHNESS.classes });
 }
 
 export function useCreateClass() {

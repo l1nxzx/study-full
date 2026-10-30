@@ -3,6 +3,7 @@ import * as notesApi from "@/api/notes";
 import type { NoteInput } from "@/api/notes";
 import { getErrorMessage } from "@/api/client";
 import { useToast } from "@/hooks/useToast";
+import { FRESHNESS } from "@/lib/freshness";
 
 // Every cached copy of notes: the single-note entries and the lists. Saving and deleting
 // change these at once (the page shows the result straight away) and put them back if the
@@ -26,7 +27,12 @@ function patchNotes(queryClient: QueryClient, id: string, patch: ((note: { id: s
 }
 
 export function useNotes(filters: { subjectId?: string; sessionId?: string } = {}, options: { enabled?: boolean } = {}) {
-  return useQuery({ queryKey: ["notes", filters], queryFn: () => notesApi.listNotes(filters), enabled: options.enabled });
+  return useQuery({
+    queryKey: ["notes", filters],
+    queryFn: () => notesApi.listNotes(filters),
+    enabled: options.enabled,
+    staleTime: FRESHNESS.notes,
+  });
 }
 
 export function useNote(id: string | undefined) {
@@ -34,6 +40,7 @@ export function useNote(id: string | undefined) {
     queryKey: ["notes", id],
     queryFn: () => notesApi.getNote(id!),
     enabled: Boolean(id),
+    staleTime: FRESHNESS.notes,
   });
 }
 

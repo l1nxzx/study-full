@@ -23,6 +23,7 @@ import { computeDefaultAnchorDate, getUpcomingOccurrences, occurrencesForDate } 
 import { testTitle } from "@/lib/testLabels";
 import { cn } from "@/lib/utils";
 import type { Subject, Task } from "@/types";
+import { FRESHNESS } from "@/lib/freshness";
 
 const FETCH_FROM = addDaysISO(todayISO(), -3);
 const FETCH_TO = addDaysISO(todayISO(), 30);
@@ -115,8 +116,8 @@ export function DashboardPage() {
   const { data: importedEvents, isPending: eventsPending } = useScheduleEvents(FETCH_FROM, FETCH_TO);
   const { data: notes, isPending: notesPending } = useNotes();
   const { data: tasks, isPending: tasksPending } = useTasks();
-  const { data: stats, isPending: statsPending } = useQuery({ queryKey: ["stats", "overview"], queryFn: statsApi.getOverview, staleTime: 30_000 });
-  const { data: tests } = useQuery({ queryKey: ["tests"], queryFn: testsApi.listTests });
+  const { data: stats, isPending: statsPending } = useQuery({ queryKey: ["stats", "overview"], queryFn: statsApi.getOverview, staleTime: FRESHNESS.stats });
+  const { data: tests } = useQuery({ queryKey: ["tests"], queryFn: testsApi.listTests, staleTime: FRESHNESS.tests });
   const updateTask = useUpdateTask();
   const deleteTask = useDeleteTask();
 

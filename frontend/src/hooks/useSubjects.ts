@@ -3,9 +3,10 @@ import { getErrorMessage } from "@/api/client";
 import { useToast } from "@/hooks/useToast";
 import * as subjectsApi from "@/api/subjects";
 import type { SubjectInput } from "@/api/subjects";
+import { FRESHNESS } from "@/lib/freshness";
 
 export function useSubjects(options: { enabled?: boolean } = {}) {
-  return useQuery({ queryKey: ["subjects"], queryFn: subjectsApi.listSubjects, enabled: options.enabled });
+  return useQuery({ queryKey: ["subjects"], queryFn: subjectsApi.listSubjects, enabled: options.enabled, staleTime: FRESHNESS.subjects });
 }
 
 export function useSubject(id: string | undefined) {

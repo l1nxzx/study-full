@@ -24,6 +24,7 @@ import { TestTemplatePicker } from "@/components/tests/TestTemplatePicker";
 import { formatDateShort } from "@/lib/date";
 import { DIFFICULTY_LABELS, DURATIONS, LOGIC_LABELS, testTitle, THINKING_LABELS } from "@/lib/testLabels";
 import { describePlan } from "@/lib/testPlan";
+import { FRESHNESS } from "@/lib/freshness";
 
 const MAX_NOTES = 15;
 
@@ -51,6 +52,7 @@ export function NewTestPage() {
   const { data: tests } = useQuery({
     queryKey: ["tests"],
     queryFn: testsApi.listTests,
+    staleTime: FRESHNESS.tests,
     refetchInterval: (q) => (q.state.data?.some((t) => t.status === "generating") ? 4000 : false),
   });
   const writing = (tests || []).filter((t) => t.status === "generating");

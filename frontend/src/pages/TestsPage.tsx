@@ -11,6 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useSubjects } from "@/hooks/useSubjects";
 import { describeSettings, testTitle } from "@/lib/testLabels";
 import { cn } from "@/lib/utils";
+import { FRESHNESS } from "@/lib/freshness";
 
 function ScoreText({ percent }: { percent: number }) {
   return <span className={cn("tabular", percent >= 85 ? "text-ok" : percent >= 50 ? "text-fg" : "text-bad")}>{Math.round(percent)}%</span>;
@@ -20,6 +21,7 @@ export function TestsPage() {
   const { data: tests, isLoading, isError } = useQuery({
     queryKey: ["tests"],
     queryFn: testsApi.listTests,
+    staleTime: FRESHNESS.tests,
     // Tests being written fill in on their own.
     refetchInterval: (q) => (q.state.data?.some((t) => t.status === "generating") ? 4000 : false),
   });

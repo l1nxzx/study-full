@@ -4,9 +4,15 @@ import type { TaskInput } from "@/api/tasks";
 import { useToast } from "@/hooks/useToast";
 import { getErrorMessage } from "@/api/client";
 import type { Task } from "@/types";
+import { FRESHNESS } from "@/lib/freshness";
 
 export function useTasks(filters: { subjectId?: string; sessionId?: string } = {}, options: { enabled?: boolean } = {}) {
-  return useQuery({ queryKey: ["tasks", filters], queryFn: () => tasksApi.listTasks(filters), enabled: options.enabled });
+  return useQuery({
+    queryKey: ["tasks", filters],
+    queryFn: () => tasksApi.listTasks(filters),
+    enabled: options.enabled,
+    staleTime: FRESHNESS.tasks,
+  });
 }
 
 // Tasks are rendered from three different query caches depending on which page is
