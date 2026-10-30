@@ -87,13 +87,15 @@ function TakeTest({ attempt, onSubmitted }: { attempt: testsApi.TestAttempt; onS
   const questions = attempt.test.questions;
 
   // Start from whichever copy is newer: the server's, or a local backup written while offline.
+  // Time spent never goes backwards: the larger of the server's and this device's count wins.
   const [initial] = useState(() => {
     const backup = readBackup(attempt.id);
     const serverTime = Date.parse(attempt.updatedAt);
+    const elapsed = Math.max(backup?.elapsed ?? 0, attempt.elapsedSeconds);
     if (backup && backup.savedAt > serverTime && JSON.stringify(backup.answers) !== JSON.stringify(attempt.answers)) {
-      return { answers: backup.answers, elapsed: Math.max(backup.elapsed, attempt.elapsedSeconds), fromBackup: true };
+      return { answers: backup.answers, elapsed, fromBackup: true };
     }
-    return { answers: attempt.answers, elapsed: attempt.elapsedSeconds, fromBackup: false };
+    return { answers: attempt.answers, elapsed, fromBackup: false };
   });
 
   const [answers, setAnswers] = useState<Answers>(initial.answers);
@@ -103,25 +105,34 @@ function TakeTest({ attempt, onSubmitted }: { attempt: testsApi.TestAttempt; onS
   const [retryTick, setRetryTick] = useState(0);
 
   const lastSavedJson = useRef(initial.fromBackup ? "" : JSON.stringify(attempt.answers));
+  const lastSentElapsed = useRef(attempt.elapsedSeconds);
+  const handedIn = useRef(false);
   const answersRef = useRef(answers);
   const elapsedRef = useRef(elapsed);
   answersRef.current = answers;
   elapsedRef.current = elapsed;
 
-  // The clock only runs while the page is in front of you.
+  // The clock runs while this try is open in front of you. Every few seconds the count goes to
+  // this device's backup, so leaving the page (or the app being killed) loses at most that much.
   useEffect(() => {
     const id = setInterval(() => {
-      if (document.visibilityState === "visible") setElapsed((e) => e + 1);
+      if (document.visibilityState !== "visible") return;
+      setElapsed((e) => e + 1);
+      if ((elapsedRef.current + 1) % 5 === 0) {
+        writeBackup(attempt.id, { answers: answersRef.current, elapsed: elapsedRef.current + 1, savedAt: Date.now() });
+      }
     }, 1000);
     return () => clearInterval(id);
-  }, []);
+  }, [attempt.id]);
 
   const save = useCallback(async () => {
     const json = JSON.stringify(answersRef.current);
     setSaveState("saving");
     try {
-      await testsApi.saveAnswers(attempt.id, answersRef.current, elapsedRef.current);
+      const sentElapsed = elapsedRef.current;
+      await testsApi.saveAnswers(attempt.id, answersRef.current, sentElapsed);
       lastSavedJson.current = json;
+      lastSentElapsed.current = Math.max(lastSentElapsed.current, sentElapsed);
       setSaveState(JSON.stringify(answersRef.current) === json ? "saved" : "unsaved");
     } catch (err) {
       if (axios.isAxiosError(err) && err.response?.status === 409) {
@@ -149,19 +160,33 @@ function TakeTest({ attempt, onSubmitted }: { attempt: testsApi.TestAttempt; onS
     return () => clearTimeout(timer);
   }, [saveState, retryTick]);
 
-  // Keep the elapsed time on the server roughly current even while just thinking.
+  // Keep the time on the server current even while just thinking, so another device (or a
+  // cleared browser) sees it too.
   useEffect(() => {
     const id = setInterval(() => {
-      if (document.visibilityState === "visible") void testsApi.saveAnswers(attempt.id, answersRef.current, elapsedRef.current).catch(() => undefined);
-    }, 60_000);
+      if (document.visibilityState !== "visible" || elapsedRef.current - lastSentElapsed.current < 10) return;
+      const sentElapsed = elapsedRef.current;
+      void testsApi
+        .saveAnswers(attempt.id, answersRef.current, sentElapsed)
+        .then(() => (lastSentElapsed.current = Math.max(lastSentElapsed.current, sentElapsed)))
+        .catch(() => undefined);
+    }, 15_000);
     return () => clearInterval(id);
   }, [attempt.id]);
 
-  // Leaving the page (closing the tab, switching apps on a phone): flush unsaved answers with
-  // a request that outlives the page.
+  // Leaving the page (another page of the app, closing the tab, switching apps on a phone): send
+  // unsaved answers and the time spent with a request that outlives the page, and update the
+  // cached copy so coming back starts from here, not from when the page was opened.
   useEffect(() => {
     function flush() {
-      if (JSON.stringify(answersRef.current) === lastSavedJson.current) return;
+      if (handedIn.current) return;
+      writeBackup(attempt.id, { answers: answersRef.current, elapsed: elapsedRef.current, savedAt: Date.now() });
+      queryClient.setQueryData<testsApi.TestAttempt>(["test-attempts", attempt.id], (old) =>
+        old && old.status === "in_progress" ? { ...old, answers: answersRef.current, elapsedSeconds: elapsedRef.current } : old
+      );
+      const answersChanged = JSON.stringify(answersRef.current) !== lastSavedJson.current;
+      if (!answersChanged && elapsedRef.current === lastSentElapsed.current) return;
+      lastSentElapsed.current = elapsedRef.current;
       const token = localStorage.getItem(TOKEN_STORAGE_KEY);
       void fetch(`${apiClient.defaults.baseURL}/test-attempts/${attempt.id}`, {
         method: "PATCH",
@@ -184,11 +209,12 @@ function TakeTest({ attempt, onSubmitted }: { attempt: testsApi.TestAttempt; onS
       window.removeEventListener("beforeunload", onBeforeUnload);
       flush();
     };
-  }, [attempt.id]);
+  }, [attempt.id, queryClient]);
 
   const submit = useMutation({
     mutationFn: () => testsApi.submitAttempt(attempt.id, answersRef.current, elapsedRef.current),
     onSuccess: (graded) => {
+      handedIn.current = true;
       lastSavedJson.current = JSON.stringify(answersRef.current);
       clearBackup(attempt.id);
       queryClient.invalidateQueries({ queryKey: ["tests"] });
