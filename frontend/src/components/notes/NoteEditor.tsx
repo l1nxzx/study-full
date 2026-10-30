@@ -7,6 +7,7 @@ import { Field } from "@/components/ui/label";
 import { Segmented } from "@/components/ui/segmented";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useClassSessions } from "@/hooks/useClassSessions";
+import { usePauseRefresh } from "@/hooks/usePauseRefresh";
 import { useSubjects } from "@/hooks/useSubjects";
 import { useCloseOnBack } from "@/lib/closeOnBack";
 import { formatDateLong } from "@/lib/date";
@@ -36,6 +37,7 @@ type ViewMode = "write" | "split" | "preview";
 // bar stays pinned to the top while scrolling a long note.
 export function NoteEditor({ heading, initialValues, onSubmit, onCancel, isSubmitting, submitLabel = "Save", error, closeOnBack }: NoteEditorProps) {
   const [values, setValues] = useState<NoteEditorValues>(initialValues);
+  usePauseRefresh();
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const dirty = JSON.stringify(values) !== JSON.stringify(initialValues);
   // Editing inside a page (closeOnBack): the system Back leaves the editor like Cancel, but asks

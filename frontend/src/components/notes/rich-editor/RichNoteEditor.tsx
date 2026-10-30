@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { EditorToolbar } from "@/components/notes/rich-editor/EditorToolbar";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { Button } from "@/components/ui/button";
+import { usePauseRefresh } from "@/hooks/usePauseRefresh";
 import { useCloseOnBack } from "@/lib/closeOnBack";
 import { buildRichEditorExtensions } from "@/lib/richEditor/extensions";
 import { markdownToTiptap } from "@/lib/richEditor/markdownToTiptap";
@@ -28,6 +29,7 @@ function RichNoteEditor({ content, onSave, onCancel, isSaving }: RichNoteEditorP
   const extensions = useMemo(() => buildRichEditorExtensions(), []);
   const initialDoc = useMemo(() => markdownToTiptap(content), [content]);
   const [dirty, setDirty] = useState(false);
+  usePauseRefresh();
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   // Formatting is a mode of the note page: the system Back leaves it like Cancel, but asks
   // first when there are unsaved changes.
