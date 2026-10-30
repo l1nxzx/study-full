@@ -1,31 +1,48 @@
+import type { ComponentType } from "react";
 import { createBrowserRouter, Navigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { ClassSessionPage } from "@/pages/ClassSessionPage";
 import { DashboardPage } from "@/pages/DashboardPage";
 import { LoginPage } from "@/pages/LoginPage";
-import { NoteNewPage } from "@/pages/NoteNewPage";
-import { NotePage } from "@/pages/NotePage";
 import { NotesListPage } from "@/pages/NotesListPage";
 import { RegisterPage } from "@/pages/RegisterPage";
 import { SchedulePage } from "@/pages/SchedulePage";
-import { SettingsPage } from "@/pages/SettingsPage";
-import { SubjectPage } from "@/pages/SubjectPage";
 import { TasksPage } from "@/pages/TasksPage";
-import { NewTestPage } from "@/pages/NewTestPage";
-import { TestAttemptPage } from "@/pages/TestAttemptPage";
-import { TestPage } from "@/pages/TestPage";
 import { TestsPage } from "@/pages/TestsPage";
-import { ProfilePage } from "@/pages/ProfilePage";
-import { NotebookPage } from "@/pages/NotebookPage";
 import { ProtectedRoute } from "./ProtectedRoute";
+
+// The bottom-bar sections load with the app; every other page is its own chunk, so launching
+// doesn't parse the whole app. The service worker keeps the chunks on the device, and they are
+// all loaded once the app is idle, so opening a page never waits on them.
+const pages = {
+  notebook: () => import("@/pages/NotebookPage").then((m) => m.NotebookPage),
+  noteNew: () => import("@/pages/NoteNewPage").then((m) => m.NoteNewPage),
+  note: () => import("@/pages/NotePage").then((m) => m.NotePage),
+  subject: () => import("@/pages/SubjectPage").then((m) => m.SubjectPage),
+  classSession: () => import("@/pages/ClassSessionPage").then((m) => m.ClassSessionPage),
+  settings: () => import("@/pages/SettingsPage").then((m) => m.SettingsPage),
+  profile: () => import("@/pages/ProfilePage").then((m) => m.ProfilePage),
+  newTest: () => import("@/pages/NewTestPage").then((m) => m.NewTestPage),
+  test: () => import("@/pages/TestPage").then((m) => m.TestPage),
+  testAttempt: () => import("@/pages/TestAttemptPage").then((m) => m.TestAttemptPage),
+};
+
+function page(load: () => Promise<ComponentType>) {
+  return async () => ({ Component: await load() });
+}
+
+export function preloadPages() {
+  for (const load of Object.values(pages)) void load().catch(() => {});
+}
 
 export const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
   { path: "/register", element: <RegisterPage /> },
   {
     element: <ProtectedRoute />,
+    // Only shown for the moment a page chunk is read from the device on a cold launch.
+    hydrateFallbackElement: null,
     children: [
-      { path: "notes/:id/read", element: <NotebookPage /> },
+      { path: "notes/:id/read", lazy: page(pages.notebook) },
       {
         element: <AppLayout />,
         children: [
@@ -33,17 +50,17 @@ export const router = createBrowserRouter([
           { path: "dashboard", element: <DashboardPage /> },
           { path: "schedule", element: <SchedulePage /> },
           { path: "notes", element: <NotesListPage /> },
-          { path: "notes/new", element: <NoteNewPage /> },
-          { path: "notes/:id", element: <NotePage /> },
+          { path: "notes/new", lazy: page(pages.noteNew) },
+          { path: "notes/:id", lazy: page(pages.note) },
           { path: "tasks", element: <TasksPage /> },
-          { path: "subjects/:id", element: <SubjectPage /> },
-          { path: "class-sessions/:id", element: <ClassSessionPage /> },
-          { path: "settings", element: <SettingsPage /> },
-          { path: "profile", element: <ProfilePage /> },
+          { path: "subjects/:id", lazy: page(pages.subject) },
+          { path: "class-sessions/:id", lazy: page(pages.classSession) },
+          { path: "settings", lazy: page(pages.settings) },
+          { path: "profile", lazy: page(pages.profile) },
           { path: "tests", element: <TestsPage /> },
-          { path: "tests/new", element: <NewTestPage /> },
-          { path: "tests/:id", element: <TestPage /> },
-          { path: "tests/attempts/:attemptId", element: <TestAttemptPage /> },
+          { path: "tests/new", lazy: page(pages.newTest) },
+          { path: "tests/:id", lazy: page(pages.test) },
+          { path: "tests/attempts/:attemptId", lazy: page(pages.testAttempt) },
         ],
       },
     ],

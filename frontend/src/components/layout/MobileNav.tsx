@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 import { AccountRows, Brand, NavigationList } from "./Sidebar";
 
 const headerButton =
-  "flex size-10 shrink-0 items-center justify-center rounded-md text-fg-muted transition-colors hover:bg-tint hover:text-fg";
+  "flex size-10 shrink-0 items-center justify-center rounded-md text-fg-muted transition-colors hover:bg-tint hover:text-fg active:bg-tint";
 
 function currentSectionLabel(pathname: string): string {
   const item = mainNavItems.find((i) => pathname.startsWith(i.to));
@@ -89,7 +89,7 @@ export function BottomNav() {
           to={item.to}
           className={({ isActive }) =>
             cn(
-              "flex h-14 flex-1 flex-col items-center justify-center gap-1 text-[0.6875rem] font-medium transition-colors",
+              "flex h-14 flex-1 flex-col items-center justify-center gap-1 text-[0.6875rem] font-medium transition-[color,opacity] active:opacity-60",
               isActive ? "text-fg" : "text-fg-faint"
             )
           }

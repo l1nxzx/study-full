@@ -17,7 +17,7 @@ import type { Subject } from "@/types";
 
 const navRowClasses = (active: boolean) =>
   cn(
-    "group flex h-11 items-center gap-3 rounded-md px-2.5 text-[0.9375rem] transition-colors lg:h-9",
+    "group flex h-11 items-center gap-3 rounded-md px-2.5 text-[0.9375rem] transition-colors active:bg-tint lg:h-9",
     active ? "bg-tint font-medium text-fg" : "text-fg-muted hover:bg-tint/60 hover:text-fg"
   );
 
