@@ -13,10 +13,11 @@ const MAX_SECONDS_PER_HEARTBEAT = 900;
 
 // Notes and tests know their subject; resolve it here (cached) so time spent on a note
 // also counts towards its subject without the client having to know.
+// Keyed by user too: the same note id must never give one user another user's subject.
 const subjectCache = new Map<string, string | null>();
 
 async function subjectForDoc(collection: string, id: string, userId: string): Promise<string | null> {
-  const key = `${collection}/${id}`;
+  const key = `${userId}|${collection}/${id}`;
   if (subjectCache.has(key)) return subjectCache.get(key)!;
   const doc = await db.collection(collection).doc(id).get();
   const data = doc.data();
