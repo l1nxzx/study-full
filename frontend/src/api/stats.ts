@@ -38,6 +38,8 @@ export interface SessionView {
 }
 
 export interface OverviewStats {
+  /** When the server computed this answer (see lib/studyLedger). */
+  asOf: number;
   time: {
     totalSeconds: number;
     todaySeconds: number;
@@ -60,6 +62,8 @@ export interface OverviewStats {
 }
 
 export interface NoteStats {
+  /** When the server computed this answer (see lib/studyLedger). */
+  asOf: number;
   time: { totalSeconds: number; last7Seconds: number; days: DaySeconds[]; firstStudied: string | null; lastStudied: string | null };
   sessions: number;
   quizzes: QuizStats;
@@ -68,6 +72,8 @@ export interface NoteStats {
 }
 
 export interface SubjectStats {
+  /** When the server computed this answer (see lib/studyLedger). */
+  asOf: number;
   time: { totalSeconds: number; last7Seconds: number; days: DaySeconds[]; topNotes: { noteId: string; title: string; seconds: number }[] };
   sessions: number;
   quizzes: QuizStats;

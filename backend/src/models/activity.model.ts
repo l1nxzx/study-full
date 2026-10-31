@@ -6,6 +6,8 @@ export type ActivityArea = (typeof ACTIVITY_AREAS)[number];
 const id = z.string().min(1).max(64).regex(/^[A-Za-z0-9_-]+$/);
 
 export const activityHeartbeatSchema = z.object({
+  // Unique per update: an update sent again is counted once.
+  id: z.string().min(8).max(64).regex(/^[A-Za-z0-9_-]+$/).optional(),
   // The client's local calendar date, so "today" means the student's today.
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   entries: z

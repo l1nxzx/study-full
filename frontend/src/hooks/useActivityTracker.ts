@@ -1,12 +1,13 @@
 import { useEffect, useRef } from "react";
 import { useLocation } from "react-router-dom";
-import { apiClient, TOKEN_STORAGE_KEY } from "@/api/client";
 import { useAiPanel, type AiToolMode } from "@/hooks/useAiPanel";
 import { getActivityHint, type ActivityContext } from "@/lib/activity";
-import { todayISO } from "@/lib/date";
+import { closeBucket, recordTime, sendQueue, startLedger } from "@/lib/studyLedger";
 
 const TICK_MS = 5000;
-const FLUSH_MS = 60_000;
+// Sent to the server every 15 seconds: it's counted on this device at once, so the server only
+// needs to hear about it soon enough for other devices (and the periodic check) to see it.
+const SEND_MS = 15_000;
 // Without any input for this long the time stops counting (you walked away).
 const IDLE_MS = 4 * 60_000;
 
@@ -27,28 +28,10 @@ function contextFor(pathname: string, panelOpen: boolean, toolMode: AiToolMode, 
   return { area: "other" };
 }
 
-type Bucket = Map<string, ActivityContext & { seconds: number }>;
-
-function send(bucket: Bucket, keepalive: boolean): Promise<void> {
-  const entries = [...bucket.values()].filter((e) => e.seconds > 0).slice(0, 40);
-  if (entries.length === 0) return Promise.resolve();
-  const body = JSON.stringify({ date: todayISO(), entries: entries.map((e) => ({ ...e, seconds: Math.min(900, Math.round(e.seconds)) })) });
-  if (keepalive) {
-    const token = localStorage.getItem(TOKEN_STORAGE_KEY);
-    return fetch(`${apiClient.defaults.baseURL}/activity`, {
-      method: "POST",
-      keepalive: true,
-      headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-      body,
-    }).then(() => undefined);
-  }
-  return apiClient.post("/activity", body, { headers: { "Content-Type": "application/json" } }).then(() => undefined);
-}
-
 /**
  * Counts active study time (page visible, and you've interacted with it in the last few
- * minutes) per area, note, subject and test, and sends it to the server once a minute.
- * The server turns it into daily totals and study sessions for the statistics pages.
+ * minutes) per area, note, subject and test. It's shown on this device at once and sent to the
+ * server every 15 seconds (see lib/studyLedger).
  */
 export function useActivityTracker() {
   const { pathname } = useLocation();
@@ -58,8 +41,7 @@ export function useActivityTracker() {
 
   useEffect(() => {
     let lastInput = Date.now();
-    let bucket: Bucket = new Map();
-    let sending = false;
+    void startLedger();
 
     const markActive = () => {
       lastInput = Date.now();
@@ -69,44 +51,33 @@ export function useActivityTracker() {
 
     const tick = setInterval(() => {
       if (document.visibilityState !== "visible" || Date.now() - lastInput > IDLE_MS) return;
-      const ctx = { ...contextRef.current, ...(getActivityHint() ?? {}) };
-      const key = `${ctx.area}|${ctx.noteId ?? ""}|${ctx.subjectId ?? ""}|${ctx.testId ?? ""}`;
-      const entry = bucket.get(key) ?? { ...ctx, seconds: 0 };
-      entry.seconds += TICK_MS / 1000;
-      bucket.set(key, entry);
+      recordTime({ ...contextRef.current, ...(getActivityHint() ?? {}) }, TICK_MS / 1000);
     }, TICK_MS);
 
-    const flush = (keepalive = false) => {
-      if (sending || bucket.size === 0) return;
-      const outgoing = bucket;
-      bucket = new Map();
-      sending = true;
-      send(outgoing, keepalive)
-        .catch(() => {
-          // Put it back to try again with the next flush (bounded: the server caps each send).
-          for (const [k, v] of outgoing) {
-            const cur = bucket.get(k);
-            bucket.set(k, cur ? { ...cur, seconds: Math.min(900, cur.seconds + v.seconds) } : v);
-          }
-        })
-        .finally(() => {
-          sending = false;
-        });
-    };
+    const sendTimer = setInterval(() => {
+      closeBucket();
+      void sendQueue();
+    }, SEND_MS);
 
-    const flushTimer = setInterval(() => flush(), FLUSH_MS);
-    const onVisibility = () => {
-      if (document.visibilityState === "hidden") flush(true);
-      else markActive();
+    const sendNow = (keepalive: boolean) => {
+      closeBucket();
+      void sendQueue(keepalive);
     };
-    const onPageHide = () => flush(true);
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") sendNow(true);
+      else {
+        lastInput = Date.now();
+        void sendQueue();
+      }
+    };
+    const onPageHide = () => sendNow(true);
     document.addEventListener("visibilitychange", onVisibility);
     window.addEventListener("pagehide", onPageHide);
 
     return () => {
-      flush(true);
+      sendNow(true);
       clearInterval(tick);
-      clearInterval(flushTimer);
+      clearInterval(sendTimer);
       events.forEach((e) => window.removeEventListener(e, markActive, { capture: true }));
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("pagehide", onPageHide);

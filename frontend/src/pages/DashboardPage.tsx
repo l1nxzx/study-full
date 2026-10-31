@@ -24,6 +24,7 @@ import { testTitle } from "@/lib/testLabels";
 import { cn } from "@/lib/utils";
 import type { Subject, Task } from "@/types";
 import { FRESHNESS } from "@/lib/freshness";
+import { overviewWithStudy, useStudyOverlay } from "@/lib/statsOverlay";
 
 const FETCH_FROM = addDaysISO(todayISO(), -3);
 const FETCH_TO = addDaysISO(todayISO(), 30);
@@ -116,7 +117,10 @@ export function DashboardPage() {
   const { data: importedEvents, isPending: eventsPending } = useScheduleEvents(FETCH_FROM, FETCH_TO);
   const { data: notes, isPending: notesPending } = useNotes();
   const { data: tasks, isPending: tasksPending } = useTasks();
-  const { data: stats, isPending: statsPending } = useQuery({ queryKey: ["stats", "overview"], queryFn: statsApi.getOverview, staleTime: FRESHNESS.stats });
+  const { data: fetchedStats, isPending: statsPending } = useQuery({ queryKey: ["stats", "overview"], queryFn: statsApi.getOverview, staleTime: FRESHNESS.stats, refetchInterval: FRESHNESS.stats });
+  // This device's study time that the server's answer doesn't include yet is added on top.
+  const overlay = useStudyOverlay(fetchedStats?.asOf);
+  const stats = fetchedStats && overlay ? overviewWithStudy(fetchedStats, overlay) : fetchedStats;
   const { data: tests } = useQuery({ queryKey: ["tests"], queryFn: testsApi.listTests, staleTime: FRESHNESS.tests });
   const updateTask = useUpdateTask();
   const deleteTask = useDeleteTask();

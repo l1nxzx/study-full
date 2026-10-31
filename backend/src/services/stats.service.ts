@@ -1,3 +1,4 @@
+import { inUserQueue, nextStamp } from "../utils/userQueue";
 import { db } from "../config/firebase";
 import type { QuizQuestion } from "../models/ai.model";
 import type { QuizAnswer } from "../models/quizAttempt.model";
@@ -177,7 +178,15 @@ function sessionView(s: SessionDoc, data: Data) {
   };
 }
 
-export async function overview(userId: string, today: string, tzOffsetMinutes: number) {
+export function overview(userId: string, today: string, tzOffsetMinutes: number) {
+  // Read in the user's queue, so the answer says exactly which study updates it includes (asOf).
+  return inUserQueue(userId, async () => {
+    const asOf = nextStamp();
+    return { ...(await overviewData(userId, today, tzOffsetMinutes)), asOf };
+  });
+}
+
+async function overviewData(userId: string, today: string, tzOffsetMinutes: number) {
   const data = await loadAll(userId);
   const total = (d: DayDoc) => d.seconds;
 
@@ -243,7 +252,15 @@ export async function overview(userId: string, today: string, tzOffsetMinutes: n
   };
 }
 
-export async function noteStats(userId: string, noteId: string, today: string) {
+export function noteStats(userId: string, noteId: string, today: string) {
+  // Read in the user's queue, so the answer says exactly which study updates it includes (asOf).
+  return inUserQueue(userId, async () => {
+    const asOf = nextStamp();
+    return { ...(await noteStatsData(userId, noteId, today)), asOf };
+  });
+}
+
+async function noteStatsData(userId: string, noteId: string, today: string) {
   const data = await loadAll(userId);
   const pick = (d: DayDoc) => d.byNote?.[noteId] ?? 0;
   const studiedDates = data.days.filter((d) => pick(d) > 0).map((d) => d.date).sort();
@@ -265,7 +282,15 @@ export async function noteStats(userId: string, noteId: string, today: string) {
   };
 }
 
-export async function subjectStats(userId: string, subjectId: string, today: string) {
+export function subjectStats(userId: string, subjectId: string, today: string) {
+  // Read in the user's queue, so the answer says exactly which study updates it includes (asOf).
+  return inUserQueue(userId, async () => {
+    const asOf = nextStamp();
+    return { ...(await subjectStatsData(userId, subjectId, today)), asOf };
+  });
+}
+
+async function subjectStatsData(userId: string, subjectId: string, today: string) {
   const data = await loadAll(userId);
   const pick = (d: DayDoc) => d.bySubject?.[subjectId] ?? 0;
   const byNote: Counts = {};
