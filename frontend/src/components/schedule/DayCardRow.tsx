@@ -60,8 +60,10 @@ export function DayCardRow({
     }
   }
 
+  // Only a lesson whose subject exists can be opened. A lesson without one (a school event, or a
+  // subject that was deleted) is shown as text and is not clickable at all.
   const clickHandler = (occ: ScheduleOccurrence) =>
-    occ.subjectId || (onSelectClass && occ.sourceClassId) ? () => handleSelect(occ) : undefined;
+    occ.subjectId && subjectById.has(occ.subjectId) ? () => handleSelect(occ) : undefined;
 
   const lessons =
     occurrences.length === 0 ? (
