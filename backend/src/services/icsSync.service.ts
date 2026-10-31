@@ -1,6 +1,7 @@
 import { addDays } from "date-fns";
 import ical, { type ParameterValue, type VEvent } from "node-ical";
 import * as subjectsService from "./subjects.service";
+import * as classesService from "./classes.service";
 import * as scheduleEventsService from "./scheduleEvents.service";
 import * as scheduleIntegrationService from "./scheduleIntegration.service";
 import type { ScheduleEventStatus } from "./scheduleEvents.service";
@@ -9,7 +10,9 @@ import type { ScheduleEventStatus } from "./scheduleEvents.service";
 // rolling window of the school year anyway; this keeps the imported set focused on
 // what's actually relevant to "what's my schedule right now."
 const SYNC_WINDOW_PAST_DAYS = 3;
-const SYNC_WINDOW_FUTURE_DAYS = 60;
+// The school publishes events about two weeks ahead. Beyond that the timetable shows the regular
+// weekly classes (the Schedule page does this for any day without imported lessons).
+const SYNC_WINDOW_FUTURE_DAYS = 14;
 // Imported lessons older than this are deleted on each sync. The Schedule page never looks further back.
 const RETENTION_PAST_DAYS = 28;
 
@@ -52,11 +55,6 @@ function toFetchableUrl(icsUrl: string): string {
 // one-off administrative announcements ("Rozbor Školského poriadku", "Organizačné
 // práce..."). Only titles that look like an actual subject code get auto-turned into a
 // Subject - otherwise every unique announcement sentence would pollute the Subjects list.
-function looksLikeSubjectCode(title: string): boolean {
-  const trimmed = title.trim();
-  return trimmed.length >= 2 && trimmed.length <= 10 && !trimmed.includes(" ");
-}
-
 // EduPage doesn't publish a documented custom encoding for substitutions/cancellations,
 // so this only trusts the standard ICS STATUS property first, falling back to a
 // best-effort keyword scan (English and Slovak/Czech school-system terms) over the
@@ -136,20 +134,16 @@ export async function syncUserSchedule(userId: string): Promise<SyncResult> {
   }
 
   try {
-    // Memoizes subject lookups/creations for this sync run so the same code (e.g. "MAT"
-    // appearing on every school day) only triggers one Firestore read/write, not one per
-    // occurrence.
-    const subjectIdByTitle = new Map<string, string | null>();
-    async function resolveSubjectId(title: string): Promise<string | null> {
-      const key = title.toLowerCase();
-      if (subjectIdByTitle.has(key)) return subjectIdByTitle.get(key)!;
-      if (!looksLikeSubjectCode(title)) {
-        subjectIdByTitle.set(key, null);
-        return null;
-      }
-      const subject = await subjectsService.findOrCreateSubjectByName(userId, title);
-      subjectIdByTitle.set(key, subject.id);
-      return subject.id;
+    // Only the fixed subjects (the ones your regular weekly classes use) can be linked to a
+    // lesson, and the import never creates a subject. Any other lesson or school event is shown
+    // by its name, with no subject.
+    const fixedSubjectIds = new Set((await classesService.listClasses(userId)).map((c) => (c as { subjectId?: string | null }).subjectId).filter((id): id is string => !!id));
+    const fixedSubjectByName = new Map<string, string>();
+    for (const subject of await subjectsService.listSubjects(userId)) {
+      if (fixedSubjectIds.has(subject.id)) fixedSubjectByName.set(subject.name.trim().toLowerCase(), subject.id);
+    }
+    function resolveSubjectId(title: string): string | null {
+      return fixedSubjectByName.get(title.trim().toLowerCase()) ?? null;
     }
 
     const now = new Date();
@@ -177,7 +171,7 @@ export async function syncUserSchedule(userId: string): Promise<SyncResult> {
         seenUids.add(externalUid);
 
         const status = classifyStatus(occurrence.status, summary, occurrence.description);
-        const subjectId = await resolveSubjectId(summary);
+        const subjectId = resolveSubjectId(summary);
 
         items.push({
           externalUid,
@@ -200,6 +194,7 @@ export async function syncUserSchedule(userId: string): Promise<SyncResult> {
     await scheduleEventsService.batchUpsertScheduleEvents(userId, existingDocs, items);
     await scheduleEventsService.pruneStaleFutureEvents(userId, existingDocs, seenUids, formatDateInSchoolTz(now));
     await scheduleEventsService.pruneOldEvents(existingDocs, formatDateInSchoolTz(addDays(now, -RETENTION_PAST_DAYS)));
+    await scheduleEventsService.pruneBeyondWindow(existingDocs, formatDateInSchoolTz(rangeEnd));
     await scheduleIntegrationService.recordSyncResult(userId, "ok");
     return { ok: true, count: seenUids.size };
   } catch (err) {
