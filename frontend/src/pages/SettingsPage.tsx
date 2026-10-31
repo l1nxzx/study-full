@@ -167,6 +167,7 @@ export function SettingsPage() {
       )}
 
       <SettingsSection title="Appearance" description="How Study looks on this device.">
+        <div className="space-y-5">
         <Segmented
           label="Theme"
           value={theme}
@@ -177,13 +178,14 @@ export function SettingsPage() {
             { value: "system", label: "Match system" },
           ]}
         />
-        {fullscreen.supported && (
-          <div>
-            <Button variant="outline" onClick={fullscreen.toggle}>
-              {fullscreen.isFull ? "Leave full screen" : "Full screen"}
-            </Button>
-          </div>
-        )}
+          {fullscreen.supported && (
+            <div>
+              <Button variant="outline" onClick={fullscreen.toggle}>
+                {fullscreen.isFull ? "Leave full screen" : "Full screen"}
+              </Button>
+            </div>
+          )}
+        </div>
       </SettingsSection>
 
       <FontSettings />
