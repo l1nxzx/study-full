@@ -689,7 +689,7 @@ export function NotebookPage() {
             <button
               type="button"
               onClick={() => updatePreferences({ notebookPaper: paper === "light" ? "dark" : "light" })}
-              className="absolute right-[3.25rem] top-[max(0.5rem,env(safe-area-inset-top))] z-20 flex size-9 items-center justify-center rounded-full bg-[color-mix(in_oklch,var(--nb-desk)_70%,transparent)] text-[var(--nb-desk-fg-faint)] backdrop-blur-sm transition-colors hover:text-[var(--nb-desk-fg)]"
+              className="absolute right-2 top-[calc(max(0.5rem,env(safe-area-inset-top))+2.75rem)] z-20 flex size-9 items-center justify-center rounded-full bg-[color-mix(in_oklch,var(--nb-desk)_70%,transparent)] text-[var(--nb-desk-fg-faint)] backdrop-blur-sm transition-colors hover:text-[var(--nb-desk-fg)]"
               aria-label={paper === "light" ? "Use dark paper" : "Use white paper"}
               title={paper === "light" ? "Dark paper" : "White paper"}
             >
