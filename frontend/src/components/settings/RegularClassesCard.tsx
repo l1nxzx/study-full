@@ -19,14 +19,26 @@ const dayOrder = (weekday: number) => (weekday + 6) % 7;
 export function RegularClassesCard() {
   const { data: classes } = useClasses();
   const { data: subjects } = useSubjects();
-  const [dialog, setDialog] = useState<{ open: boolean; editing: ClassEntity | null }>({ open: false, editing: null });
+  const [dialog, setDialog] = useState<{
+    open: boolean;
+    editing: ClassEntity | null;
+  }>({ open: false, editing: null });
   const [fromTimetable, setFromTimetable] = useState(false);
+  // Folded by default: the list is long, and the buttons below are what is needed most of the time.
+  const [expanded, setExpanded] = useState(false);
 
-  const subjectById = useMemo(() => new Map((subjects ?? []).map((s) => [s.id, s])), [subjects]);
+  const subjectById = useMemo(
+    () => new Map((subjects ?? []).map((s) => [s.id, s])),
+    [subjects],
+  );
   const sorted = useMemo(
     () =>
-      [...(classes ?? [])].sort((a, b) => dayOrder(a.weekday) - dayOrder(b.weekday) || a.startTime.localeCompare(b.startTime)),
-    [classes]
+      [...(classes ?? [])].sort(
+        (a, b) =>
+          dayOrder(a.weekday) - dayOrder(b.weekday) ||
+          a.startTime.localeCompare(b.startTime),
+      ),
+    [classes],
   );
   const fixedSubjects = useMemo(() => {
     const names = new Set<string>();
@@ -45,42 +57,75 @@ export function RegularClassesCard() {
       <div className="space-y-4">
         {sorted.length === 0 ? (
           <p className="text-sm text-fg-faint">No regular classes yet.</p>
+        ) : !expanded ? (
+          <button
+            type="button"
+            onClick={() => setExpanded(true)}
+            className="text-sm text-fg-muted transition-colors hover:text-fg"
+          >
+            Show {sorted.length} {sorted.length === 1 ? "class" : "classes"}
+          </button>
         ) : (
-          <ul className="divide-y divide-rule rounded-md border border-rule">
-            {sorted.map((c) => (
-              <li key={c.id}>
-                <button
-                  type="button"
-                  onClick={() => setDialog({ open: true, editing: c })}
-                  className="flex w-full items-baseline gap-3 px-3 py-2.5 text-left text-sm transition-colors hover:bg-tint"
-                >
-                  <span className="w-10 shrink-0 text-fg-muted">{WEEKDAY_LABELS[c.weekday]}</span>
-                  <span className="tabular shrink-0 text-fg-muted">
-                    {c.startTime}–{c.endTime}
-                  </span>
-                  <span className="min-w-0 flex-1 truncate">{subjectById.get(c.subjectId)?.name ?? "Subject"}</span>
-                  {c.room && <span className="shrink-0 text-meta text-fg-faint">{c.room}</span>}
-                </button>
-              </li>
-            ))}
-          </ul>
+          <>
+            <ul className="divide-y divide-rule rounded-md border border-rule">
+              {sorted.map((c) => (
+                <li key={c.id}>
+                  <button
+                    type="button"
+                    onClick={() => setDialog({ open: true, editing: c })}
+                    className="flex w-full items-baseline gap-3 px-3 py-2.5 text-left text-sm transition-colors hover:bg-tint"
+                  >
+                    <span className="w-10 shrink-0 text-fg-muted">
+                      {WEEKDAY_LABELS[c.weekday]}
+                    </span>
+                    <span className="tabular shrink-0 text-fg-muted">
+                      {c.startTime}–{c.endTime}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate">
+                      {subjectById.get(c.subjectId)?.name ?? "Subject"}
+                    </span>
+                    {c.room && (
+                      <span className="shrink-0 text-meta text-fg-faint">
+                        {c.room}
+                      </span>
+                    )}
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <button
+              type="button"
+              onClick={() => setExpanded(false)}
+              className="text-sm text-fg-muted transition-colors hover:text-fg"
+            >
+              Hide classes
+            </button>
+          </>
         )}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" onClick={() => setFromTimetable(true)}>
               Create from school timetable
             </Button>
-            <Button variant="outline" onClick={() => setDialog({ open: true, editing: null })}>
+            <Button
+              variant="outline"
+              onClick={() => setDialog({ open: true, editing: null })}
+            >
               <Plus />
               Add class
             </Button>
           </div>
           {fixedSubjects.length > 0 && (
-            <p className="text-meta text-fg-faint">Subjects: {fixedSubjects.join(", ")}</p>
+            <p className="text-meta text-fg-faint">
+              Subjects: {fixedSubjects.join(", ")}
+            </p>
           )}
         </div>
       </div>
-      <CreateFromTimetableDialog open={fromTimetable} onOpenChange={setFromTimetable} />
+      <CreateFromTimetableDialog
+        open={fromTimetable}
+        onOpenChange={setFromTimetable}
+      />
       <ClassFormDialog
         open={dialog.open}
         onOpenChange={(open) => setDialog((d) => ({ ...d, open }))}
