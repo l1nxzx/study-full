@@ -1,4 +1,4 @@
-import { ChartNoAxesColumn, ChevronDown, LogOut, MessagesSquare, Pin, Plus, Search, Settings } from "lucide-react";
+import { ChartNoAxesColumn, ChevronDown, MessagesSquare, Pin, Plus, Search, Settings } from "lucide-react";
 import { useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { usePressMenu } from "@/components/shared/PressMenu";
@@ -6,7 +6,6 @@ import { SubjectFormDialog } from "@/components/subjects/SubjectFormDialog";
 import { SubjectSwatch } from "@/components/shared/SubjectSwatch";
 import { Kbd } from "@/components/ui/kbd";
 import { useAiPanel } from "@/hooks/useAiPanel";
-import { useAuth } from "@/hooks/useAuth";
 import { usePreferences } from "@/hooks/usePreferences";
 import { useShell } from "@/hooks/useShell";
 import { useSubjects } from "@/hooks/useSubjects";
@@ -179,7 +178,6 @@ function SubjectList({ subjects, onNavigate }: { subjects: Subject[] | undefined
 }
 
 export function AccountRows({ onNavigate }: { onNavigate?: (to: string) => void }) {
-  const { user, logout } = useAuth();
   return (
     <div className="space-y-px">
       <NavLink to="/profile" onClick={() => onNavigate?.("/profile")} className={({ isActive }) => navRowClasses(isActive)}>
@@ -198,20 +196,6 @@ export function AccountRows({ onNavigate }: { onNavigate?: (to: string) => void 
           </>
         )}
       </NavLink>
-      <div className="flex items-center gap-2 pl-2.5">
-        <span className="min-w-0 flex-1 truncate text-[0.8125rem] text-fg-faint" title={user?.email}>
-          {user?.name || user?.email}
-        </span>
-        <button
-          type="button"
-          onClick={logout}
-          title="Log out"
-          aria-label="Log out"
-          className="flex size-8 shrink-0 items-center justify-center rounded-md text-fg-faint transition-colors hover:bg-tint hover:text-fg"
-        >
-          <LogOut className="size-[1.125rem]" strokeWidth={1.75} />
-        </button>
-      </div>
     </div>
   );
 }
