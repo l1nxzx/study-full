@@ -28,6 +28,11 @@ apiClient.interceptors.response.use(
         window.location.href = "/login";
       }
     }
+    // A disabled account is signed out everywhere, with the reason shown on the sign-in page.
+    if (error.response?.data?.error?.code === "ACCOUNT_DISABLED") {
+      localStorage.removeItem(TOKEN_STORAGE_KEY);
+      window.location.href = "/login?reason=disabled";
+    }
     return Promise.reject(error);
   }
 );

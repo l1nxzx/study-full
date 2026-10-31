@@ -17,6 +17,8 @@ export interface User {
   id: string;
   email: string;
   name: string | null;
+  /** Only "superadmin" can open the admin panel (the server checks it on every request too). */
+  role?: "user" | "superadmin";
   preferences?: Preferences;
 }
 

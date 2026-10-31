@@ -10,8 +10,8 @@ export function login(email: string, password: string) {
   return apiClient.post<AuthResponse>("/auth/login", { email, password }).then((r) => r.data);
 }
 
-export function register(email: string, password: string) {
-  return apiClient.post<AuthResponse>("/auth/register", { email, password }).then((r) => r.data);
+export function register(email: string, password: string, referralCode: string) {
+  return apiClient.post<AuthResponse>("/auth/register", { email, password, referralCode }).then((r) => r.data);
 }
 
 export function getMe() {

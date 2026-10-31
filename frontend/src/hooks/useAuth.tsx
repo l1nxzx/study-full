@@ -5,7 +5,7 @@ import * as authApi from "@/api/auth";
 import { TOKEN_STORAGE_KEY } from "@/api/client";
 import { applyPreferences, cachePreferences } from "@/lib/preferences";
 import { clearPersistedCache } from "@/lib/queryClient";
-import type { User } from "@/types";
+import type { ApiError, User } from "@/types";
 
 interface AuthContextValue {
   user: User | null;
@@ -15,11 +15,15 @@ interface AuthContextValue {
   connectionError: boolean;
   retry: () => void;
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string) => Promise<void>;
+  register: (email: string, password: string, referralCode: string) => Promise<void>;
   logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+
+function isDisabledAccount(err: unknown): boolean {
+  return axios.isAxiosError<ApiError>(err) && err.response?.data?.error?.code === "ACCOUNT_DISABLED";
+}
 
 function isUnauthorized(err: unknown) {
   return axios.isAxiosError(err) && err.response?.status === 401;
@@ -35,10 +39,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     queryKey: ["auth", "me"],
     queryFn: authApi.getMe,
     enabled: hasToken,
-    retry: (count, err) => !isUnauthorized(err) && count < 5,
+    // A disabled account is refused at once, not retried.
+    retry: (count, err) => !isUnauthorized(err) && !isDisabledAccount(err) && count < 5,
     retryDelay: (attempt) => Math.min(1500 * 2 ** attempt, 10_000),
     networkMode: "always",
-    staleTime: 5 * 60_000,
+    // Checked on every open, even when the saved copy is fresh: a disabled account must not keep
+    // showing its saved pages.
+    staleTime: 0,
   });
 
   useEffect(() => {
@@ -55,8 +62,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     queryClient.setQueryData(["auth", "me"], result.user);
   }, [queryClient]);
 
-  const register = useCallback(async (email: string, password: string) => {
-    const result = await authApi.register(email, password);
+  const register = useCallback(async (email: string, password: string, referralCode: string) => {
+    const result = await authApi.register(email, password, referralCode);
     localStorage.setItem(TOKEN_STORAGE_KEY, result.token);
     setHasToken(true);
     queryClient.setQueryData(["auth", "me"], result.user);

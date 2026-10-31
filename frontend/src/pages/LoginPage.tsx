@@ -1,5 +1,5 @@
 import { type FormEvent, useState } from "react";
-import { Link, Navigate, useNavigate } from "react-router-dom";
+import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/label";
@@ -16,6 +16,7 @@ export function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [params] = useSearchParams();
 
   if (isAuthenticated) {
     return <Navigate to="/dashboard" replace />;
@@ -52,6 +53,9 @@ export function LoginPage() {
       }
     >
       <form onSubmit={handleSubmit} className="space-y-5">
+        {params.get("reason") === "disabled" && !error && (
+          <InlineError>This account has been disabled. Ask whoever set up your Study for help.</InlineError>
+        )}
         <Field label="Email" htmlFor="email">
           <Input
             id="email"
