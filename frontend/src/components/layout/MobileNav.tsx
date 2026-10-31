@@ -1,7 +1,7 @@
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { useCloseOnBack } from "@/lib/closeOnBack";
 import { Menu, MessagesSquare, Search, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useAiPanel } from "@/hooks/useAiPanel";
 import { useShell } from "@/hooks/useShell";
@@ -27,6 +27,20 @@ export function MobileHeader() {
   const { isOpen: assistantOpen, toggle: toggleAssistant } = useAiPanel();
   const { pathname } = useLocation();
 
+  // Going to another page closes the drawer only once that page has opened. Closing on the tap
+  // let the drawer's Back run while the router was still loading the page (a lazy chunk), which
+  // undid the navigation: the first tap then seemed to do nothing.
+  const closeWhenArrived = useRef(false);
+  useEffect(() => {
+    if (!closeWhenArrived.current) return;
+    closeWhenArrived.current = false;
+    setOpen(false);
+  }, [pathname]);
+  function onNavigate(to: string) {
+    if (to === pathname) setOpen(false);
+    else closeWhenArrived.current = true;
+  }
+
   return (
     <header className="flex h-[calc(3.5rem+env(safe-area-inset-top))] shrink-0 items-center gap-1 border-b border-rule bg-canvas px-2 pt-[env(safe-area-inset-top)] lg:hidden">
       <DialogPrimitive.Root open={open} onOpenChange={setOpen}>
@@ -50,10 +64,10 @@ export function MobileHeader() {
               </DialogPrimitive.Close>
             </div>
             <div className="flex-1 overflow-y-auto px-3 pb-4 pt-2">
-              <NavigationList onNavigate={() => setOpen(false)} />
+              <NavigationList onNavigate={onNavigate} />
             </div>
             <div className="border-t border-rule px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
-              <AccountRows onNavigate={() => setOpen(false)} />
+              <AccountRows onNavigate={onNavigate} />
             </div>
           </DialogPrimitive.Content>
         </DialogPrimitive.Portal>
