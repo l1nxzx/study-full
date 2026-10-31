@@ -1,4 +1,5 @@
 import * as DialogPrimitive from "@radix-ui/react-dialog";
+import { BackButton } from "./BackButton";
 import { useCloseOnBack } from "@/lib/closeOnBack";
 import { Menu, MessagesSquare, Search, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -43,6 +44,7 @@ export function MobileHeader() {
 
   return (
     <header className="flex h-[calc(3.5rem+env(safe-area-inset-top))] shrink-0 items-center gap-1 border-b border-rule bg-canvas px-2 pt-[env(safe-area-inset-top)] lg:hidden">
+      <BackButton variant="header" />
       <DialogPrimitive.Root open={open} onOpenChange={setOpen}>
         <DialogPrimitive.Trigger className={headerButton} aria-label="Open menu">
           <Menu className="size-5" strokeWidth={1.75} />
