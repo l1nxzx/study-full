@@ -134,7 +134,9 @@ Statistics show the server's last answer plus this device's time that the answer
 overlay, `lib/statsOverlay.ts`). The server answers each statistics request inside the same per-user queue
 as the updates, and stamps it, so the device knows exactly which updates the answer includes. Statistics are
 checked with the server every 5 minutes while the page is open, and on opening it when older than that.
-Unsent time is cleared on sign-out.
+Unsent time is cleared on sign-out. The server keeps each statistics answer for two minutes, shared by
+all pages and devices; study time doesn't clear it (the overlay covers it), while changes to notes, subjects,
+tests, tries, quizzes and chats do.
 
 ## Phone bars
 

@@ -3,7 +3,7 @@
 // to the same data clears it: `afterWrite` runs a write and clears the copy when it finishes
 // (also when it fails). Only the single server process holds these copies, and every write goes
 // through it, so a copy is never stale for a change made in the app.
-export function userCache<T>() {
+export function userCache<T>(onWrite?: (userId: string) => void) {
   // The promise itself is stored, so readers that start during a write share one load, and a
   // load that was in flight when a write cleared the copy never fills it again.
   const loads = new Map<string, Promise<T>>();
@@ -28,6 +28,7 @@ export function userCache<T>() {
       return await write();
     } finally {
       invalidate(userId);
+      onWrite?.(userId);
     }
   }
 

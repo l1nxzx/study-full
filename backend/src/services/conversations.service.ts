@@ -1,3 +1,4 @@
+import { invalidateStatsAnswers } from "../utils/statsCache";
 import { db } from "../config/firebase";
 import { AppError } from "../utils/AppError";
 import type { ChatMessage, CreateConversationInput, UpdateConversationInput } from "../models/conversation.model";
@@ -74,43 +75,55 @@ export async function getConversation(userId: string, id: string) {
 }
 
 export async function createConversation(userId: string, input: CreateConversationInput) {
-  let subjectId: string | null = null;
-  if (input.noteId) {
-    const note = await getNoteRaw(userId, input.noteId);
-    subjectId = note.subjectId ?? null;
+  try {
+    let subjectId: string | null = null;
+    if (input.noteId) {
+      const note = await getNoteRaw(userId, input.noteId);
+      subjectId = note.subjectId ?? null;
+    }
+    const messages = fitMessages(input.messages);
+    const now = new Date().toISOString();
+    const docRef = collection.doc();
+    const payload = {
+      userId,
+      noteId: input.noteId ?? null,
+      subjectId,
+      title: input.title || deriveTitle(messages),
+      messages,
+      ...summaryFields(messages),
+      createdAt: now,
+      updatedAt: now,
+    };
+    await docRef.set(payload);
+    return { ...toSummary(docRef.id, payload), messages };
+  } finally {
+    invalidateStatsAnswers(userId);
   }
-  const messages = fitMessages(input.messages);
-  const now = new Date().toISOString();
-  const docRef = collection.doc();
-  const payload = {
-    userId,
-    noteId: input.noteId ?? null,
-    subjectId,
-    title: input.title || deriveTitle(messages),
-    messages,
-    ...summaryFields(messages),
-    createdAt: now,
-    updatedAt: now,
-  };
-  await docRef.set(payload);
-  return { ...toSummary(docRef.id, payload), messages };
 }
 
 export async function updateConversation(userId: string, id: string, input: UpdateConversationInput) {
-  const doc = await getOwned(userId, id);
-  const messages = fitMessages(input.messages);
-  const existing = doc.data()!;
-  const patch = {
-    messages,
-    ...summaryFields(messages),
-    title: input.title || (existing.title === "New conversation" ? deriveTitle(messages) : existing.title),
-    updatedAt: new Date().toISOString(),
-  };
-  await doc.ref.update(patch);
-  return { ...toSummary(doc.id, { ...existing, ...patch }), messages };
+  try {
+    const doc = await getOwned(userId, id);
+    const messages = fitMessages(input.messages);
+    const existing = doc.data()!;
+    const patch = {
+      messages,
+      ...summaryFields(messages),
+      title: input.title || (existing.title === "New conversation" ? deriveTitle(messages) : existing.title),
+      updatedAt: new Date().toISOString(),
+    };
+    await doc.ref.update(patch);
+    return { ...toSummary(doc.id, { ...existing, ...patch }), messages };
+  } finally {
+    invalidateStatsAnswers(userId);
+  }
 }
 
 export async function deleteConversation(userId: string, id: string) {
-  const doc = await getOwned(userId, id);
-  await doc.ref.delete();
+  try {
+    const doc = await getOwned(userId, id);
+    await doc.ref.delete();
+  } finally {
+    invalidateStatsAnswers(userId);
+  }
 }
