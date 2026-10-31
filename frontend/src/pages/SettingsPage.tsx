@@ -126,7 +126,7 @@ function SidebarSettings() {
 }
 
 export function SettingsPage() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const { theme, setTheme } = useTheme();
   const fullscreen = useFullscreen();
   const [currentPassword, setCurrentPassword] = useState("");
@@ -221,6 +221,14 @@ export function SettingsPage() {
             {isSubmitting ? "Updating..." : "Update password"}
           </Button>
         </form>
+      </SettingsSection>
+
+      <SettingsSection title="Log out" description="Signs you out on this device.">
+        <div>
+          <Button variant="outline" onClick={logout}>
+            Log out
+          </Button>
+        </div>
       </SettingsSection>
     </Page>
   );
