@@ -242,6 +242,27 @@
     }
   }
 
+  /*
+   * Like a native app, text can't be selected or copied - except where copying is useful: notes,
+   * and a test or quiz while you take it. App.tsx sets `copyable` on the body for those pages, and
+   * the quiz panel sets it on its own block. Fields always keep their text.
+   */
+  html,
+  body {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  .copyable {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+  input,
+  textarea,
+  [contenteditable="true"] {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+
   /* Touch screens show no scrollbars at all, as in a native app. */
   @media (pointer: coarse) {
     * {

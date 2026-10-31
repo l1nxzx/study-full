@@ -43,6 +43,9 @@ function sumInto(target: Counts, source: Counts | undefined) {
 // Longest lists the statistics send to the app (recent sessions, most studied notes). Lists grow
 // with use; a fixed cap keeps the response and the page small.
 export const STATS_LIST_LIMIT = 6;
+// Recently missed quiz questions, and topics to review, on the profile page.
+const MISSED_QUIZ_LIMIT = 4;
+const TOPICS_TO_REVIEW_LIMIT = 6;
 
 function topEntries(counts: Counts, limit: number) {
   return Object.entries(counts)
@@ -124,7 +127,7 @@ function quizStats(data: Data, filter: (q: any) => boolean) {
       .sort((a, b) => String(b.completedAt ?? b.updatedAt).localeCompare(String(a.completedAt ?? a.updatedAt)))
       .slice(0, 8)
       .map((q) => ({ id: q.id, noteId: q.noteId, title: q.title, score: q.score, total: q.total, completedAt: q.completedAt ?? q.updatedAt })),
-    missed: missed.sort((a, b) => String(b.at).localeCompare(String(a.at))).slice(0, 10),
+    missed: missed.sort((a, b) => String(b.at).localeCompare(String(a.at))).slice(0, MISSED_QUIZ_LIMIT),
   };
 }
 
@@ -154,7 +157,7 @@ function testStats(data: Data, filter: (a: any) => boolean) {
         totalPoints: a.totalPoints,
         gradedAt: a.gradedAt,
       })),
-    toReview: topEntries(topics, 8).map(([topic, count]) => ({ topic, count })),
+    toReview: topEntries(topics, TOPICS_TO_REVIEW_LIMIT).map(([topic, count]) => ({ topic, count })),
   };
 }
 
