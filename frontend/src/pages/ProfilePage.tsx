@@ -11,6 +11,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { todayISO } from "@/lib/date";
 import { cn } from "@/lib/utils";
 import { FRESHNESS } from "@/lib/freshness";
+import { overviewWithStudy, useStudyOverlay } from "@/lib/statsOverlay";
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -53,7 +54,10 @@ function SessionRow({ session }: { session: statsApi.SessionView }) {
 
 export function ProfilePage() {
   const { user } = useAuth();
-  const { data, isLoading, isError } = useQuery({ queryKey: ["stats", "overview"], queryFn: statsApi.getOverview, staleTime: FRESHNESS.stats });
+  const { data: fetched, isLoading, isError } = useQuery({ queryKey: ["stats", "overview"], queryFn: statsApi.getOverview, staleTime: FRESHNESS.stats, refetchInterval: FRESHNESS.stats });
+  // This device's study time that the server's answer doesn't include yet is added on top.
+  const overlay = useStudyOverlay(fetched?.asOf);
+  const data = fetched && overlay ? overviewWithStudy(fetched, overlay) : fetched;
   const today = todayISO();
 
   const name = user?.name || user?.email?.split("@")[0] || "You";

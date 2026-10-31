@@ -1,5 +1,6 @@
 import { db, FieldValue } from "../config/firebase";
 import type { ActivityHeartbeatInput } from "../models/activity.model";
+import { inUserQueue, nextStamp } from "../utils/userQueue";
 
 const daysCollection = db.collection("activityDays");
 const sessionsCollection = db.collection("studySessions");
@@ -25,64 +26,93 @@ async function subjectForDoc(collection: string, id: string, userId: string): Pr
   return subjectId;
 }
 
-export async function recordHeartbeat(userId: string, input: ActivityHeartbeatInput) {
-  // Resolve subjects first, outside the transaction.
-  const entries = await Promise.all(
-    input.entries.map(async (e) => ({
-      ...e,
-      subjectId:
-        e.subjectId ??
-        (e.noteId ? await subjectForDoc("notes", e.noteId, userId) : e.testId ? await subjectForDoc("tests", e.testId, userId) : null),
-    }))
-  );
+// Recent updates per user, kept in memory and in the user's activity record: an update the app
+// sends again (after a lost reply, or from a page closing) is recognised and not counted twice.
+const RECENT_UPDATES = 100;
+interface UserActivity {
+  sessionId?: string;
+  lastActiveAt: number;
+  recent: { id: string; at: number }[];
+}
+const activityByUser = new Map<string, UserActivity>();
 
-  let budget = MAX_SECONDS_PER_HEARTBEAT;
-  const increments: Record<string, number> = {};
-  let total = 0;
-  for (const e of entries) {
-    const seconds = Math.min(e.seconds, budget);
-    if (seconds <= 0) break;
-    budget -= seconds;
-    total += seconds;
-    const add = (key: string) => (increments[key] = (increments[key] ?? 0) + seconds);
-    add(`byArea.${e.area}`);
-    if (e.subjectId) add(`bySubject.${e.subjectId}`);
-    if (e.noteId) add(`byNote.${e.noteId}`);
-    if (e.testId) add(`byTest.${e.testId}`);
-  }
-  if (total === 0) return { recorded: 0 };
-
-  const nested = (prefix: string) => {
-    const obj: Record<string, FirebaseFirestore.FieldValue> = {};
-    for (const [key, value] of Object.entries(increments)) {
-      if (key.startsWith(`${prefix}.`)) obj[key.slice(prefix.length + 1)] = FieldValue.increment(value);
-    }
-    return obj;
+async function activityOf(userId: string): Promise<UserActivity> {
+  const cached = activityByUser.get(userId);
+  if (cached) return cached;
+  const meta = (await metaCollection.doc(userId).get()).data() ?? {};
+  const loaded: UserActivity = {
+    sessionId: meta.currentSessionId,
+    lastActiveAt: meta.lastActiveAt ?? 0,
+    recent: Array.isArray(meta.recent) ? meta.recent : [],
   };
-  // Only maps with something in them: with merge, Firestore writes an empty map as a value,
-  // which would wipe that day's (and session's) totals for every note, subject or test.
-  const counters: Record<string, unknown> = { seconds: FieldValue.increment(total) };
-  for (const prefix of ["byArea", "bySubject", "byNote", "byTest"]) {
-    const map = nested(prefix);
-    if (Object.keys(map).length > 0) counters[prefix] = map;
-  }
+  activityByUser.set(userId, loaded);
+  return loaded;
+}
 
-  const now = Date.now();
-  const metaRef = metaCollection.doc(userId);
-  const dayRef = daysCollection.doc(`${userId}_${input.date}`);
+/**
+ * Records study time sent by the app. Each update is written once (its id is remembered), and
+ * the reply says when it was saved (`processedAt`, on the same clock as statistics' `asOf`).
+ */
+export function recordHeartbeat(userId: string, input: ActivityHeartbeatInput) {
+  return inUserQueue(userId, async () => {
+    const state = await activityOf(userId);
+    if (input.id) {
+      const earlier = state.recent.find((r) => r.id === input.id);
+      if (earlier) return { recorded: 0, duplicate: true, processedAt: earlier.at };
+    }
 
-  await db.runTransaction(async (tx) => {
-    const meta = await tx.get(metaRef);
-    const lastActiveAt: number = meta.data()?.lastActiveAt ?? 0;
-    const currentSessionId: string | undefined = meta.data()?.currentSessionId;
+    // Resolve subjects first (cached per note or test).
+    const entries = await Promise.all(
+      input.entries.map(async (e) => ({
+        ...e,
+        subjectId:
+          e.subjectId ??
+          (e.noteId ? await subjectForDoc("notes", e.noteId, userId) : e.testId ? await subjectForDoc("tests", e.testId, userId) : null),
+      }))
+    );
 
-    let sessionRef: FirebaseFirestore.DocumentReference;
-    if (currentSessionId && now - lastActiveAt <= SESSION_GAP_MS + total * 1000) {
-      sessionRef = sessionsCollection.doc(currentSessionId);
-      tx.set(sessionRef, { ...counters, lastActiveAt: new Date(now).toISOString() }, { merge: true });
+    let budget = MAX_SECONDS_PER_HEARTBEAT;
+    const increments: Record<string, number> = {};
+    let total = 0;
+    for (const e of entries) {
+      const seconds = Math.min(e.seconds, budget);
+      if (seconds <= 0) break;
+      budget -= seconds;
+      total += seconds;
+      const add = (key: string) => (increments[key] = (increments[key] ?? 0) + seconds);
+      add(`byArea.${e.area}`);
+      if (e.subjectId) add(`bySubject.${e.subjectId}`);
+      if (e.noteId) add(`byNote.${e.noteId}`);
+      if (e.testId) add(`byTest.${e.testId}`);
+    }
+    if (total === 0) return { recorded: 0, processedAt: nextStamp() };
+
+    const nested = (prefix: string) => {
+      const obj: Record<string, FirebaseFirestore.FieldValue> = {};
+      for (const [key, value] of Object.entries(increments)) {
+        if (key.startsWith(`${prefix}.`)) obj[key.slice(prefix.length + 1)] = FieldValue.increment(value);
+      }
+      return obj;
+    };
+    // Only maps with something in them: with merge, Firestore writes an empty map as a value,
+    // which would wipe that day's (and session's) totals for every note, subject or test.
+    const counters: Record<string, unknown> = { seconds: FieldValue.increment(total) };
+    for (const prefix of ["byArea", "bySubject", "byNote", "byTest"]) {
+      const map = nested(prefix);
+      if (Object.keys(map).length > 0) counters[prefix] = map;
+    }
+
+    const now = Date.now();
+    const batch = db.batch();
+    const dayRef = daysCollection.doc(`${userId}_${input.date}`);
+    let sessionId: string;
+    if (state.sessionId && now - state.lastActiveAt <= SESSION_GAP_MS + total * 1000) {
+      sessionId = state.sessionId;
+      batch.set(sessionsCollection.doc(sessionId), { ...counters, lastActiveAt: new Date(now).toISOString() }, { merge: true });
     } else {
-      sessionRef = sessionsCollection.doc();
-      tx.set(sessionRef, {
+      const ref = sessionsCollection.doc();
+      sessionId = ref.id;
+      batch.set(ref, {
         userId,
         date: input.date,
         startedAt: new Date(now - total * 1000).toISOString(),
@@ -90,10 +120,16 @@ export async function recordHeartbeat(userId: string, input: ActivityHeartbeatIn
         ...counters,
       });
     }
+    batch.set(dayRef, { userId, date: input.date, ...counters }, { merge: true });
 
-    tx.set(metaRef, { currentSessionId: sessionRef.id, lastActiveAt: now }, { merge: true });
-    tx.set(dayRef, { userId, date: input.date, ...counters }, { merge: true });
+    const processedAt = nextStamp();
+    const recent = input.id ? [...state.recent, { id: input.id, at: processedAt }].slice(-RECENT_UPDATES) : state.recent;
+    batch.set(metaCollection.doc(userId), { currentSessionId: sessionId, lastActiveAt: now, recent }, { merge: true });
+    await batch.commit();
+
+    state.sessionId = sessionId;
+    state.lastActiveAt = now;
+    state.recent = recent;
+    return { recorded: total, processedAt };
   });
-
-  return { recorded: total };
 }

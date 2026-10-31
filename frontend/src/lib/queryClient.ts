@@ -2,6 +2,7 @@ import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persi
 import { QueryClient, type Query } from "@tanstack/react-query";
 import type { PersistQueryClientOptions } from "@tanstack/react-query-persist-client";
 import { del, get, set } from "idb-keyval";
+import { clearLedger } from "@/lib/studyLedger";
 
 // Cached data is kept for a week so the app opens on what you saw last, then refreshes.
 const MAX_AGE = 7 * 24 * 60 * 60_000;
@@ -32,6 +33,7 @@ const persister = createAsyncStoragePersister({
 
 /** Removes the saved copy, so a signed-out device keeps no account data. */
 export function clearPersistedCache() {
+  clearLedger();
   return del(CACHE_KEY).catch(() => {});
 }
 

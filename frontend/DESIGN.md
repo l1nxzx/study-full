@@ -126,6 +126,16 @@ subjects show their own figures. Charts are thin bars in the accent colour with 
 No gamification: no streaks, badges or celebratory animation (test points are grading, not rewards). Progress is stated as facts
 ("7 of 10 correct").
 
+## Study time and statistics
+
+Study time is counted on the device every 5 seconds while you're active, and sent to the server every 15
+seconds (`lib/studyLedger.ts`). Each update has an id, so one the server already has is counted once.
+Statistics show the server's last answer plus this device's time that the answer doesn't include (the
+overlay, `lib/statsOverlay.ts`). The server answers each statistics request inside the same per-user queue
+as the updates, and stamps it, so the device knows exactly which updates the answer includes. Statistics are
+checked with the server every 5 minutes while the page is open, and on opening it when older than that.
+Unsent time is cleared on sign-out.
+
 ## Phone bars
 
 `<meta name="theme-color">` always matches what's behind the page (`lib/themeColor.ts`): the canvas of the

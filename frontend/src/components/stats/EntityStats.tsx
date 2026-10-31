@@ -8,6 +8,7 @@ import { todayISO } from "@/lib/date";
 import { BarChart, Figure } from "./Charts";
 import { formatShort, formatStudyTime } from "./format";
 import { FRESHNESS } from "@/lib/freshness";
+import { noteWithStudy, subjectWithStudy, useStudyOverlay } from "@/lib/statsOverlay";
 
 function last30(days: statsApi.DaySeconds[]) {
   const today = todayISO();
@@ -27,7 +28,9 @@ function pct(n: number | null) {
 
 /** "Your study of this note": time, sessions, quiz accuracy, tests and questions asked. */
 export function NoteStatsSection({ noteId }: { noteId: string }) {
-  const { data, isLoading } = useQuery({ queryKey: ["stats", "note", noteId], queryFn: () => statsApi.getNoteStats(noteId), staleTime: FRESHNESS.stats });
+  const { data: fetched, isLoading } = useQuery({ queryKey: ["stats", "note", noteId], queryFn: () => statsApi.getNoteStats(noteId), staleTime: FRESHNESS.stats, refetchInterval: FRESHNESS.stats });
+  const overlay = useStudyOverlay(fetched?.asOf);
+  const data = fetched && overlay ? noteWithStudy(fetched, noteId, overlay) : fetched;
 
   return (
     <Section title="Your study of this note">
@@ -97,11 +100,15 @@ export function NoteStatsSection({ noteId }: { noteId: string }) {
 
 /** Subject statistics for the subject page's side column. */
 export function SubjectStatsSection({ subjectId }: { subjectId: string }) {
-  const { data, isLoading } = useQuery({
+  const { data: fetched, isLoading } = useQuery({
     queryKey: ["stats", "subject", subjectId],
     queryFn: () => statsApi.getSubjectStats(subjectId),
     staleTime: FRESHNESS.stats,
+    // Checked with the server while the page is open (every few minutes), so the device\'s own count is corrected.
+    refetchInterval: FRESHNESS.stats,
   });
+  const overlay = useStudyOverlay(fetched?.asOf);
+  const data = fetched && overlay ? subjectWithStudy(fetched, subjectId, overlay) : fetched;
 
   return (
     <section>
