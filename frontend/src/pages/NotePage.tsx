@@ -2,7 +2,7 @@ import { BookOpenText, ChevronDown, ClipboardPen, Eye, MessagesSquare, Pencil, T
 import { lazy, Suspense, useEffect, useState } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import { getErrorMessage } from "@/api/client";
-import { BackLink, Page } from "@/components/layout/PageHeader";
+import { Page } from "@/components/layout/PageHeader";
 import { AiReviewBanner } from "@/components/notes/AiReviewBanner";
 import { AiRewriteDialog } from "@/components/notes/AiRewriteDialog";
 import { AttachmentList } from "@/components/notes/AttachmentList";
@@ -128,7 +128,6 @@ export function NotePage() {
   // Only unresolved corrections block visual formatting; AI-added passages are kept as marked text.
   const hasPendingCorrections = alterations.length > 0;
   const notesHiddenForQuiz = panelOpen && toolMode === "quiz" && !notesRevealed;
-  const backTo = subject ? { to: `/subjects/${subject.id}`, label: subject.name } : { to: "/notes", label: "Notes" };
 
   if (isEditing) {
     return (
@@ -182,8 +181,6 @@ export function NotePage() {
 
   return (
     <Page width="reading">
-      <BackLink to={backTo.to} label={backTo.label} />
-
       <header className="mb-10">
         <h1 className="material-title">{note.title}</h1>
         <div className="mt-3 flex flex-wrap items-center justify-between gap-x-6 gap-y-3">

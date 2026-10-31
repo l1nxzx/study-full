@@ -165,7 +165,6 @@ export function TestPage() {
     return (
       <Page width="reading">
         <PageHeader
-          back={{ to: "/tests", label: "Tests" }}
           title={writing ? "Writing your test" : "The test couldn't be written"}
           description={`${testTitle(test)} · ${test.plannedQuestionCount} questions · about ${test.estimatedMinutes} min`}
           menu={<MoreMenu items={[{ label: writing ? "Cancel and delete" : "Delete this test", onSelect: () => setConfirmDelete(true), destructive: true }]} />}
@@ -202,7 +201,6 @@ export function TestPage() {
   return (
     <Page>
       <PageHeader
-        back={{ to: "/tests", label: "Tests" }}
         title={<h1 className="material-title">{test.title}</h1>}
         description={
           <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
