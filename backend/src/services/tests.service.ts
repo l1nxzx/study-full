@@ -5,13 +5,14 @@ import type { CreateTestInput, SaveTestAnswersInput } from "../models/test.model
 import * as aiService from "./openai.service";
 import { getNoteRaw } from "./notes.service";
 import { userCache } from "../utils/userCache";
+import { invalidateStatsAnswers } from "../utils/statsCache";
 import { planTest } from "./testPlan";
 
 const testsCollection = db.collection("tests");
 const attemptsCollection = db.collection("testAttempts");
 
 // The list of tests (with their try counts), kept in memory until a test or a try is written.
-const testsCache = userCache<any[]>();
+const testsCache = userCache<any[]>(invalidateStatsAnswers);
 
 export function invalidateTests(userId: string): void {
   testsCache.invalidate(userId);

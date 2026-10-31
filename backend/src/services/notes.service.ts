@@ -2,6 +2,7 @@ import { db, FieldValue } from "../config/firebase";
 import { AppError } from "../utils/AppError";
 import { CreateNoteInput, UpdateNoteInput } from "../models/note.model";
 import { userCache } from "../utils/userCache";
+import { invalidateStatsAnswers } from "../utils/statsCache";
 import { deleteAllAttachmentsForNote, listAttachmentsForNote } from "./attachments.service";
 
 const collection = db.collection("notes");
@@ -13,7 +14,7 @@ interface ListFilters {
 }
 
 // All of the user's notes, kept in memory until a note is written (see utils/userCache).
-const notesCache = userCache<any[]>();
+const notesCache = userCache<any[]>(invalidateStatsAnswers);
 
 export function invalidateNotes(userId: string): void {
   notesCache.invalidate(userId);

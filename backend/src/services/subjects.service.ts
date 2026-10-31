@@ -8,11 +8,12 @@ import { invalidateNotes } from "./notes.service";
 import { invalidateTasks } from "./tasks.service";
 import { invalidateTests } from "./tests.service";
 import { userCache } from "../utils/userCache";
+import { invalidateStatsAnswers } from "../utils/statsCache";
 
 const collection = db.collection("subjects");
 
 // The user's subjects, kept in memory until one is written (see utils/userCache).
-const subjectsCache = userCache<any[]>();
+const subjectsCache = userCache<any[]>(invalidateStatsAnswers);
 
 export function invalidateSubjects(userId: string): void {
   subjectsCache.invalidate(userId);
@@ -117,6 +118,7 @@ export async function deleteSubject(userId: string, id: string, options: { delet
   invalidateNotes(userId);
   invalidateTasks(userId);
   invalidateTests(userId);
+  invalidateStatsAnswers(userId);
   await collection.doc(id).delete();
   invalidateSubjects(userId);
   return { notesDeleted: options.deleteNotes ? notes.size : 0, notesKept: options.deleteNotes ? 0 : notes.size };
