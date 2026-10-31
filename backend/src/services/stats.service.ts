@@ -40,6 +40,10 @@ function sumInto(target: Counts, source: Counts | undefined) {
   for (const [k, v] of Object.entries(source ?? {})) target[k] = (target[k] ?? 0) + v;
 }
 
+// Longest lists the statistics send to the app (recent sessions, most studied notes). Lists grow
+// with use; a fixed cap keeps the response and the page small.
+export const STATS_LIST_LIMIT = 6;
+
 function topEntries(counts: Counts, limit: number) {
   return Object.entries(counts)
     .filter(([, v]) => v > 0)
@@ -238,15 +242,17 @@ async function overviewData(userId: string, today: string, tzOffsetMinutes: numb
         color: data.subjects.get(subjectId)?.color ?? null,
         seconds,
       })),
-      topNotes: topEntries(byNote, 8)
-        .filter(([noteId]) => data.notes.has(noteId))
-        .map(([noteId, seconds]) => ({ noteId, title: data.notes.get(noteId)!.title, subjectId: data.notes.get(noteId)!.subjectId, seconds })),
+      // Only notes that still exist, capped to the list length on the profile page.
+      topNotes: topEntries(
+        Object.fromEntries(Object.entries(byNote).filter(([noteId]) => data.notes.has(noteId))),
+        STATS_LIST_LIMIT
+      ).map(([noteId, seconds]) => ({ noteId, title: data.notes.get(noteId)!.title, subjectId: data.notes.get(noteId)!.subjectId, seconds })),
     },
     sessions: {
       count: sessions.length,
       averageSeconds: sessionSeconds.length ? Math.round(sessionSeconds.reduce((s, v) => s + v, 0) / sessionSeconds.length) : 0,
       longestSeconds: sessionSeconds.length ? Math.max(...sessionSeconds) : 0,
-      recent: sessions.slice(0, 12).map((s) => sessionView(s, data)),
+      recent: sessions.slice(0, STATS_LIST_LIMIT).map((s) => sessionView(s, data)),
     },
     quizzes: quizStats(data, () => true),
     tests: testStats(data, () => true),
