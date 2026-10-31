@@ -25,14 +25,14 @@ const navIconClasses = (active: boolean) =>
   cn("size-[1.125rem] shrink-0", active ? "text-accent" : "text-fg-faint group-hover:text-fg-muted");
 
 /** Sections, then subjects, then the assistant. Shared by the desktop sidebar and phone drawer. */
-export function NavigationList({ onNavigate }: { onNavigate?: () => void }) {
+export function NavigationList({ onNavigate }: { onNavigate?: (to: string) => void }) {
   const { data: subjects } = useSubjects();
 
   return (
     <>
       <nav aria-label="Sections" className="space-y-px">
         {mainNavItems.map((item) => (
-          <NavLink key={item.to} to={item.to} onClick={onNavigate} className={({ isActive }) => navRowClasses(isActive)}>
+          <NavLink key={item.to} to={item.to} onClick={() => onNavigate?.(item.to)} className={({ isActive }) => navRowClasses(isActive)}>
             {({ isActive }) => (
               <>
                 <item.icon className={navIconClasses(isActive)} strokeWidth={1.75} />
@@ -80,17 +80,18 @@ function SubjectRow({
   pinned: boolean;
   canMoveUp: boolean;
   canMoveDown: boolean;
-  onNavigate?: () => void;
+  onNavigate?: (to: string) => void;
   onPin: (pin: boolean) => void;
   onMove: (delta: -1 | 1) => void;
 }) {
   const navigate = useNavigate();
+  const to = `/subjects/${subject.id}`;
   const { handlers, menu } = usePressMenu([
     {
       label: "Open",
       onSelect: () => {
-        navigate(`/subjects/${subject.id}`);
-        onNavigate?.();
+        navigate(to);
+        onNavigate?.(to);
       },
     },
     { label: pinned ? "Unpin" : "Pin to the top", onSelect: () => onPin(!pinned) },
@@ -100,8 +101,8 @@ function SubjectRow({
   return (
     <>
       <NavLink
-        to={`/subjects/${subject.id}`}
-        onClick={onNavigate}
+        to={to}
+        onClick={() => onNavigate?.(to)}
         className={({ isActive }) => cn(navRowClasses(isActive), "select-none [-webkit-touch-callout:none]")}
         {...handlers}
       >
@@ -121,7 +122,7 @@ function SubjectRow({
  * first few show (a preference) - the rest behind "Show more"; the open subject always shows.
  * Right-click or long-press a subject to pin it or move it.
  */
-function SubjectList({ subjects, onNavigate }: { subjects: Subject[] | undefined; onNavigate?: () => void }) {
+function SubjectList({ subjects, onNavigate }: { subjects: Subject[] | undefined; onNavigate?: (to: string) => void }) {
   const { preferences, updatePreferences } = usePreferences();
   const [expanded, setExpanded] = useState(false);
   const { pathname } = useLocation();
@@ -177,11 +178,11 @@ function SubjectList({ subjects, onNavigate }: { subjects: Subject[] | undefined
   );
 }
 
-export function AccountRows({ onNavigate }: { onNavigate?: () => void }) {
+export function AccountRows({ onNavigate }: { onNavigate?: (to: string) => void }) {
   const { user, logout } = useAuth();
   return (
     <div className="space-y-px">
-      <NavLink to="/profile" onClick={onNavigate} className={({ isActive }) => navRowClasses(isActive)}>
+      <NavLink to="/profile" onClick={() => onNavigate?.("/profile")} className={({ isActive }) => navRowClasses(isActive)}>
         {({ isActive }) => (
           <>
             <ChartNoAxesColumn className={navIconClasses(isActive)} strokeWidth={1.75} />
@@ -189,7 +190,7 @@ export function AccountRows({ onNavigate }: { onNavigate?: () => void }) {
           </>
         )}
       </NavLink>
-      <NavLink to="/settings" onClick={onNavigate} className={({ isActive }) => navRowClasses(isActive)}>
+      <NavLink to="/settings" onClick={() => onNavigate?.("/settings")} className={({ isActive }) => navRowClasses(isActive)}>
         {({ isActive }) => (
           <>
             <Settings className={navIconClasses(isActive)} strokeWidth={1.75} />
