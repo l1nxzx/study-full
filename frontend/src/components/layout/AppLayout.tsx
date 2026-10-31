@@ -6,6 +6,7 @@ import { ShellProvider } from "@/hooks/useShell";
 import { BottomNav, MobileHeader } from "./MobileNav";
 import { BackButton } from "./BackButton";
 import { PullToRefresh } from "./PullToRefresh";
+import { isRestoringScroll } from "@/lib/scrollMemory";
 import { SearchDialog } from "./SearchDialog";
 import { Sidebar } from "./Sidebar";
 
@@ -18,7 +19,7 @@ function Shell() {
 
   // The page scrolls inside <main>, not the window, so reset it on navigation ourselves.
   useEffect(() => {
-    mainRef.current?.scrollTo({ top: 0 });
+    if (!isRestoringScroll()) mainRef.current?.scrollTo({ top: 0 });
   }, [pathname]);
 
   // On touch screens a new page settles in briefly, as in a native app, instead of cutting.
