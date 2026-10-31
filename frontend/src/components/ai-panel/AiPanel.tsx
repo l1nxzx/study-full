@@ -126,7 +126,7 @@ export function AiPanel() {
       ) : (
         <>
           <div className={cn("min-h-0 flex-1 flex-col", mode === "none" ? "flex" : "hidden")}>
-            <AskView active={isOpen && mode === "none"} />
+            <AskView />
           </div>
 
           {activeNote && (

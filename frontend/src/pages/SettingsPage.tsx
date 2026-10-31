@@ -11,6 +11,7 @@ import { Field } from "@/components/ui/label";
 import { Segmented } from "@/components/ui/segmented";
 import { useAuth } from "@/hooks/useAuth";
 import { Link } from "react-router-dom";
+import { useFullscreen } from "@/hooks/useFullscreen";
 import { useTheme } from "@/hooks/useTheme";
 import { usePreferences } from "@/hooks/usePreferences";
 import { useUpdateProfile } from "@/hooks/useUpdateProfile";
@@ -127,6 +128,7 @@ function SidebarSettings() {
 export function SettingsPage() {
   const { user } = useAuth();
   const { theme, setTheme } = useTheme();
+  const fullscreen = useFullscreen();
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [status, setStatus] = useState<{ type: "error" | "success"; message: string } | null>(null);
@@ -175,6 +177,13 @@ export function SettingsPage() {
             { value: "system", label: "Match system" },
           ]}
         />
+        {fullscreen.supported && (
+          <div>
+            <Button variant="outline" onClick={fullscreen.toggle}>
+              {fullscreen.isFull ? "Leave full screen" : "Full screen"}
+            </Button>
+          </div>
+        )}
       </SettingsSection>
 
       <FontSettings />

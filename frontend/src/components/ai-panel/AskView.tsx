@@ -26,7 +26,7 @@ const quickActionButton =
   "inline-flex h-7 items-center gap-1.5 rounded-md border border-rule px-2.5 text-meta text-fg-muted transition-colors hover:border-rule-strong hover:text-fg disabled:opacity-45";
 
 /** The conversation: a general study chat, or questions answered from the open note. */
-export function AskView({ active }: { active: boolean }) {
+export function AskView() {
   const { isOpen, activeNote, messages, appendMessage, updateMessage, clearMessages, saveState } = useAiPanel();
   const [input, setInput] = useState("");
   const [showHistory, setShowHistory] = useState(false);
@@ -238,7 +238,6 @@ export function AskView({ active }: { active: boolean }) {
         onSubmit={() => ask(input)}
         disabled={isPending}
         placeholder={activeNote ? "Ask about this note" : "Ask anything about your studies"}
-        autoFocusKey={active && isOpen ? activeNote?.id ?? "general" : undefined}
         actions={
           activeNote && (
             <>

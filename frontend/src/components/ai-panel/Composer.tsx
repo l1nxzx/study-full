@@ -10,12 +10,12 @@ interface ComposerProps {
   placeholder: string;
   /** Extra controls on the left under the field (e.g. Summarize / Explain for a note). */
   actions?: ReactNode;
-  autoFocusKey?: unknown;
 }
 
 // The question field sits in the panel's footer, ruled off from the conversation - part of
 // the workspace, not a floating widget. It grows with the text up to a few lines.
-export function Composer({ value, onChange, onSubmit, disabled, placeholder, actions, autoFocusKey }: ComposerProps) {
+// It never takes focus by itself: opening the assistant must not bring up the keyboard.
+export function Composer({ value, onChange, onSubmit, disabled, placeholder, actions }: ComposerProps) {
   const ref = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -24,10 +24,6 @@ export function Composer({ value, onChange, onSubmit, disabled, placeholder, act
     el.style.height = "auto";
     el.style.height = `${Math.min(el.scrollHeight, 192)}px`;
   }, [value]);
-
-  useEffect(() => {
-    if (autoFocusKey !== undefined && window.matchMedia("(min-width: 1024px)").matches) ref.current?.focus();
-  }, [autoFocusKey]);
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();

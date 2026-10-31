@@ -23,7 +23,10 @@ export function PullToRefresh({ scrollRef }: { scrollRef: RefObject<HTMLElement 
 
   useEffect(() => {
     const scroller = scrollRef.current;
-    if (!scroller || !window.matchMedia("(pointer: coarse)").matches) return;
+    // Any touch input counts: a tablet with a keyboard or mouse attached may report a fine
+    // primary pointer, and the gesture must still work.
+    const touch = navigator.maxTouchPoints > 0 || window.matchMedia("(any-pointer: coarse)").matches;
+    if (!scroller || !touch) return;
 
     let startX = 0;
     let startY = 0;
@@ -142,7 +145,7 @@ export function PullToRefresh({ scrollRef }: { scrollRef: RefObject<HTMLElement 
     <div
       ref={discRef}
       aria-hidden
-      className="pointer-events-none absolute left-1/2 top-0 z-30 flex items-center justify-center rounded-full bg-raised opacity-0 shadow-[0_1px_3px_oklch(0_0_0/0.3),0_4px_12px_oklch(0_0_0/0.18)] lg:hidden"
+      className="pointer-events-none absolute left-1/2 top-0 z-30 flex items-center justify-center rounded-full bg-raised opacity-0 shadow-[0_1px_3px_oklch(0_0_0/0.3),0_4px_12px_oklch(0_0_0/0.18)]"
       style={{ width: SIZE, height: SIZE, transform: `translate(-50%, ${-SIZE - 4}px) scale(0.6)` }}
     >
       <svg ref={spinnerRef} viewBox="0 0 24 24" className="size-6 text-accent">
