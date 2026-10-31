@@ -1,4 +1,3 @@
-import { ArrowLeft } from "lucide-react";
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -32,35 +31,21 @@ interface PageHeaderProps {
   actions?: ReactNode;
   /** A "more" menu, pinned to the header's top-right corner at every width. */
   menu?: ReactNode;
-  back?: { to: string; label: string };
   className?: string;
 }
 
-export function PageHeader({ title, description, actions, menu, back, className }: PageHeaderProps) {
+export function PageHeader({ title, description, actions, menu, className }: PageHeaderProps) {
   return (
     <header className={cn("relative mb-8 lg:mb-10", className)}>
       {menu && <div className="absolute -right-2 top-0">{menu}</div>}
-      {back && <BackLink to={back.to} label={back.label} />}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div className={cn("min-w-0", menu && !back && "pr-10")}>
+        <div className={cn("min-w-0", menu && "pr-10")}>
           {typeof title === "string" ? <h1 className="page-title">{title}</h1> : title}
           {description && <div className="mt-1 text-sm text-fg-muted">{description}</div>}
         </div>
         {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
       </div>
     </header>
-  );
-}
-
-export function BackLink({ to, label }: { to: string; label: string }) {
-  return (
-    <Link
-      to={to}
-      className="-ml-1 mb-3 inline-flex h-7 items-center gap-1 rounded-sm px-1 text-[0.8125rem] text-fg-muted transition-colors hover:text-fg"
-    >
-      <ArrowLeft className="size-3.5" />
-      {label}
-    </Link>
   );
 }
 

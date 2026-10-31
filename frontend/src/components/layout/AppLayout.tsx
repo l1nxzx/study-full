@@ -4,6 +4,7 @@ import { AiPanel } from "@/components/ai-panel/AiPanel";
 import { useAiPanel } from "@/hooks/useAiPanel";
 import { ShellProvider } from "@/hooks/useShell";
 import { BottomNav, MobileHeader } from "./MobileNav";
+import { BackButton } from "./BackButton";
 import { PullToRefresh } from "./PullToRefresh";
 import { SearchDialog } from "./SearchDialog";
 import { Sidebar } from "./Sidebar";
@@ -54,6 +55,7 @@ function Shell() {
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <MobileHeader />
+        <BackButton />
         <div className="relative flex min-h-0 flex-1 flex-col">
           <PullToRefresh scrollRef={mainRef} />
           <main ref={mainRef} id="main" className="flex-1 overflow-y-auto overscroll-y-contain">

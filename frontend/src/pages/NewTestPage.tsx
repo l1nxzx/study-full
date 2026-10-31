@@ -137,7 +137,6 @@ export function NewTestPage() {
   return (
     <Page>
       <PageHeader
-        back={{ to: "/tests", label: "Tests" }}
         title="New test"
         description="A long written test from your notes: no answer options, every answer in your own words."
       />

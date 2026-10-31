@@ -305,7 +305,7 @@ export function AdminPage() {
   if (user?.role !== "superadmin") return <Navigate to="/settings" replace />;
   return (
     <Page>
-      <PageHeader back={{ to: "/settings", label: "Settings" }} title="Admin" description="Referral codes and accounts." />
+      <PageHeader title="Admin" description="Referral codes and accounts." />
       <div className="space-y-12">
         <CodesSection />
         <AccountsSection />

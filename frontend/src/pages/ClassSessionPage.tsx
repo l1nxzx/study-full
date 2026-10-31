@@ -39,7 +39,6 @@ export function ClassSessionPage() {
   return (
     <Page>
       <PageHeader
-        back={subject ? { to: `/subjects/${subject.id}`, label: subject.name } : { to: "/schedule", label: "Schedule" }}
         title={session.title || subject?.name || "Class session"}
         description={`${subject && session.title ? `${subject.name} · ` : ""}${formatDateLong(session.date)}`}
         actions={

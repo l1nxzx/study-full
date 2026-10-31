@@ -5,7 +5,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import { apiClient, getErrorMessage, TOKEN_STORAGE_KEY } from "@/api/client";
 import * as testsApi from "@/api/tests";
-import { BackLink, Page } from "@/components/layout/PageHeader";
+import { Page } from "@/components/layout/PageHeader";
 import { InlineMarkdown } from "@/components/notes/InlineMarkdown";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { MoreMenu } from "@/components/shared/MoreMenu";
@@ -471,7 +471,6 @@ function Results({ attempt, onRegrade, regradeError }: { attempt: testsApi.TestA
 
   return (
     <Page width="reading">
-      <BackLink to={`/tests/${attempt.testId}`} label={attempt.test.title} />
       <header className="relative">
         <MoreMenu
           className="absolute -right-2 -top-1"
