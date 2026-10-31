@@ -2,7 +2,9 @@ import { z } from "zod";
 
 export const registerSchema = z.object({
   email: z.string().email().toLowerCase().trim(),
-  password: z.string().min(8, "Password must be at least 8 characters"),
+  password: z.string().min(8, "Password must be at least 8 characters").max(200),
+  // Typed by hand: spaces, dashes and case don't matter (normalized on the server).
+  referralCode: z.string().trim().min(8, "Enter the referral code").max(40),
 });
 
 export const loginSchema = z.object({

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { requireAuth } from "../middleware/auth";
 import authRoutes from "./auth.routes";
+import adminRoutes from "./admin.routes";
 import subjectsRoutes from "./subjects.routes";
 import classesRoutes from "./classes.routes";
 import classSessionsRoutes from "./classSessions.routes";
@@ -39,5 +40,6 @@ router.use("/tests", requireAuth, testsRoutes);
 router.use("/test-attempts", requireAuth, testAttemptsRoutes);
 router.use("/activity", requireAuth, activityRoutes);
 router.use("/stats", requireAuth, statsRoutes);
+router.use("/admin", requireAuth, adminRoutes);
 
 export default router;

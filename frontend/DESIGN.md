@@ -166,6 +166,23 @@ Deleting a subject asks first, and what to do with its notes: keep them (they st
 subject; the default) or delete them too. Its classes and class sessions are removed; its tasks and
 tests stay without a subject. Statistics never list a deleted subject, though the time stays in totals.
 
+## Accounts and the admin panel
+
+Sign-up needs a referral code from the superadmin. The code is checked, used and the account created in one
+database transaction; the email is claimed in the same step, so two sign-ups can't both take the last use or
+the same address. Codes are 12 characters without look-alikes, shown as XXXX-XXXX-XXXX, and refused with one
+generic message.
+
+The superadmin is an account with `role: "superadmin"` in its user record (set once in the Firebase console).
+The admin area (`/api/admin/*`, `/admin` in the app) checks that role against the account's record on every
+request; the app only hides the link. Superadmin can create and revoke codes (with uses, expiry and a note),
+see every account, set a new password for an account, and disable or enable it. Superadmin accounts can't be
+disabled or reset from the panel, and nobody can change their own role through the API.
+
+Disabling or resetting a password ends the account's sessions: tokens issued before that moment are refused
+(tokens carry their exact issue time). Accounts are checked on each request from memory, which the admin
+actions clear at once. Every admin action is written to the audit log.
+
 ## Back button
 
 Anything that covers the page closes with the system Back button (phones' back gesture included)

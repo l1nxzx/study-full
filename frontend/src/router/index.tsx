@@ -24,6 +24,7 @@ const pages = {
   newTest: () => import("@/pages/NewTestPage").then((m) => m.NewTestPage),
   test: () => import("@/pages/TestPage").then((m) => m.TestPage),
   testAttempt: () => import("@/pages/TestAttemptPage").then((m) => m.TestAttemptPage),
+  admin: () => import("@/pages/AdminPage").then((m) => m.AdminPage),
 };
 
 function page(load: () => Promise<ComponentType>) {
@@ -56,6 +57,7 @@ export const router = createBrowserRouter([
           { path: "subjects/:id", lazy: page(pages.subject) },
           { path: "class-sessions/:id", lazy: page(pages.classSession) },
           { path: "settings", lazy: page(pages.settings) },
+          { path: "admin", lazy: page(pages.admin) },
           { path: "profile", lazy: page(pages.profile) },
           { path: "tests", element: <TestsPage /> },
           { path: "tests/new", lazy: page(pages.newTest) },

@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/label";
 import { Segmented } from "@/components/ui/segmented";
 import { useAuth } from "@/hooks/useAuth";
+import { Link } from "react-router-dom";
 import { useTheme } from "@/hooks/useTheme";
 import { usePreferences } from "@/hooks/usePreferences";
 import { useUpdateProfile } from "@/hooks/useUpdateProfile";
@@ -154,6 +155,14 @@ export function SettingsPage() {
       <SettingsSection title="Account" description={`Signed in as ${user?.email ?? ""}. Your name is used in the greeting on the overview.`}>
         {user && <ProfileNameForm initialName={user.name} />}
       </SettingsSection>
+
+      {user?.role === "superadmin" && (
+        <SettingsSection title="Admin" description="Referral codes for new people, and the accounts.">
+          <Button variant="outline" asChild>
+            <Link to="/admin">Open the admin panel</Link>
+          </Button>
+        </SettingsSection>
+      )}
 
       <SettingsSection title="Appearance" description="How Study looks on this device.">
         <Segmented

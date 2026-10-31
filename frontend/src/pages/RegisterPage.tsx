@@ -14,6 +14,7 @@ export function RegisterPage() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [referralCode, setReferralCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -29,7 +30,7 @@ export function RegisterPage() {
     setError(null);
     setIsSubmitting(true);
     try {
-      await register(email, password);
+      await register(email, password, referralCode);
       navigate("/dashboard");
     } catch (err) {
       setError(getErrorMessage(err, "Could not create account"));
@@ -60,6 +61,18 @@ export function RegisterPage() {
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+          />
+        </Field>
+        <Field label="Referral code" htmlFor="referral" hint="The code you were given. Dashes and capitals don't matter.">
+          <Input
+            id="referral"
+            autoComplete="off"
+            autoCapitalize="characters"
+            spellCheck={false}
+            required
+            placeholder="XXXX-XXXX-XXXX"
+            value={referralCode}
+            onChange={(e) => setReferralCode(e.target.value)}
           />
         </Field>
         <Field label="Password" htmlFor="password" hint="At least 8 characters.">

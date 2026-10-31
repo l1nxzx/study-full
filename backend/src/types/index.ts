@@ -81,6 +81,8 @@ export interface Task {
 }
 
 export interface AuthPayload {
+  /** When the token was issued, in ms (exact, unlike the iat in seconds). */
+  issuedMs?: number;
   userId: string;
   email: string;
 }
