@@ -1,6 +1,7 @@
 import { Plus } from "lucide-react";
 import { useMemo, useState } from "react";
 import { ClassFormDialog } from "@/components/schedule/ClassFormDialog";
+import { CreateFromTimetableDialog } from "@/components/settings/CreateFromTimetableDialog";
 import { SettingsSection } from "@/components/settings/SettingsSection";
 import { Button } from "@/components/ui/button";
 import { useClasses } from "@/hooks/useClasses";
@@ -19,6 +20,7 @@ export function RegularClassesCard() {
   const { data: classes } = useClasses();
   const { data: subjects } = useSubjects();
   const [dialog, setDialog] = useState<{ open: boolean; editing: ClassEntity | null }>({ open: false, editing: null });
+  const [fromTimetable, setFromTimetable] = useState(false);
 
   const subjectById = useMemo(() => new Map((subjects ?? []).map((s) => [s.id, s])), [subjects]);
   const sorted = useMemo(
@@ -64,15 +66,21 @@ export function RegularClassesCard() {
           </ul>
         )}
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <Button variant="outline" onClick={() => setDialog({ open: true, editing: null })}>
-            <Plus />
-            Add class
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={() => setFromTimetable(true)}>
+              Create from school timetable
+            </Button>
+            <Button variant="outline" onClick={() => setDialog({ open: true, editing: null })}>
+              <Plus />
+              Add class
+            </Button>
+          </div>
           {fixedSubjects.length > 0 && (
             <p className="text-meta text-fg-faint">Subjects: {fixedSubjects.join(", ")}</p>
           )}
         </div>
       </div>
+      <CreateFromTimetableDialog open={fromTimetable} onOpenChange={setFromTimetable} />
       <ClassFormDialog
         open={dialog.open}
         onOpenChange={(open) => setDialog((d) => ({ ...d, open }))}
