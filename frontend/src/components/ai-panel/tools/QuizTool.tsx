@@ -142,17 +142,19 @@ export function QuizTool({ noteId, noteTitle, active }: { noteId: string; noteTi
       <>
         {!attempt.id && <p className="mb-4 text-meta text-warn">This quiz couldn't be saved, so it won't appear in your history.</p>}
         <InlineError className="mb-4">{retry.isError ? getErrorMessage(retry.error, "Couldn't start the retry") : null}</InlineError>
-        <QuizRunner
-          key={attempt.id || attempt.createdAt}
-          attempt={attempt}
-          onNewQuiz={() => {
-            setAttempt(null);
-            generate.reset();
-          }}
-          onRetry={() => retry.mutate(attempt)}
-          isRetrying={retry.isPending}
-          active={active}
-        />
+        <div className="copyable">
+          <QuizRunner
+            key={attempt.id || attempt.createdAt}
+            attempt={attempt}
+            onNewQuiz={() => {
+              setAttempt(null);
+              generate.reset();
+            }}
+            onRetry={() => retry.mutate(attempt)}
+            isRetrying={retry.isPending}
+            active={active}
+          />
+        </div>
       </>
     );
   }
