@@ -185,7 +185,11 @@ export function NotePage() {
         <h1 className="material-title">{note.title}</h1>
         <div className="mt-3 flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
           <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.8125rem] text-fg-muted">
-            {subject && <SubjectLabel name={subject.name} color={subject.color} />}
+            {subject && (
+              <Link to={`/subjects/${subject.id}`} className="min-w-0 rounded-sm transition-colors hover:text-fg">
+                <SubjectLabel name={subject.name} color={subject.color} />
+              </Link>
+            )}
             {subject && <span aria-hidden className="text-fg-faint">·</span>}
             <span>{formatDateLong(note.date)}</span>
             <span aria-hidden className="text-fg-faint">·</span>
