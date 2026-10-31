@@ -1,6 +1,7 @@
 import { ChartNoAxesColumn, ChevronDown, MessagesSquare, Pin, Plus, Search, Settings } from "lucide-react";
 import { useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import { BackButton } from "@/components/layout/BackButton";
 import { usePressMenu } from "@/components/shared/PressMenu";
 import { SubjectFormDialog } from "@/components/subjects/SubjectFormDialog";
 import { SubjectSwatch } from "@/components/shared/SubjectSwatch";
@@ -217,8 +218,11 @@ export function Sidebar() {
 
   return (
     <aside className="hidden h-full w-64 shrink-0 flex-col border-r border-rule bg-panel lg:flex">
-      <div className="flex h-20 items-center px-5">
+      <div className="flex h-20 items-center justify-between px-5">
         <Brand />
+        <div className="me-2">
+          <BackButton variant="sidebar" />
+        </div>
       </div>
 
       <div className="space-y-px px-3">
