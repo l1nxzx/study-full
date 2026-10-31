@@ -55,9 +55,9 @@ function Shell() {
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <MobileHeader />
-        <BackButton />
         <div className="relative flex min-h-0 flex-1 flex-col">
           <PullToRefresh scrollRef={mainRef} />
+          <BackButton variant="corner" />
           <main ref={mainRef} id="main" className="flex-1 overflow-y-auto overscroll-y-contain">
             <div ref={contentRef} className="@container px-5 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-6 sm:px-8 lg:px-12 lg:pb-20 lg:pt-11">
               <Outlet />
