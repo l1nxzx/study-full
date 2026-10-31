@@ -676,6 +676,18 @@ export function NotebookPage() {
           {fullscreen && (
             <button
               type="button"
+              onClick={close}
+              className="absolute left-2 top-[max(0.5rem,env(safe-area-inset-top))] z-20 flex size-9 items-center justify-center rounded-full bg-[color-mix(in_oklch,var(--nb-desk)_70%,transparent)] text-[var(--nb-desk-fg-faint)] backdrop-blur-sm transition-colors hover:text-[var(--nb-desk-fg)]"
+              aria-label="Close notebook view"
+              title="Close (Esc)"
+            >
+              <X className="size-4" />
+            </button>
+          )}
+
+          {fullscreen && (
+            <button
+              type="button"
               onClick={() => setFullscreen(false)}
               className="absolute right-2 top-[max(0.5rem,env(safe-area-inset-top))] z-20 flex size-9 items-center justify-center rounded-full bg-[color-mix(in_oklch,var(--nb-desk)_70%,transparent)] text-[var(--nb-desk-fg-faint)] backdrop-blur-sm transition-colors hover:text-[var(--nb-desk-fg)]"
               aria-label="Leave full screen"
