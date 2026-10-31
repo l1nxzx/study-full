@@ -151,3 +151,21 @@ export async function pruneStaleFutureEvents(
     await batch.commit();
   }
 }
+
+// Imported lessons after the sync window are removed: the timetable shows the regular weekly
+// classes for those days until the school publishes its own events.
+export async function pruneBeyondWindow(
+  existingDocs: FirebaseFirestore.QueryDocumentSnapshot[],
+  lastDayISO: string
+): Promise<number> {
+  const extraDocs = existingDocs.filter((doc) => {
+    const data = doc.data();
+    return data.source === "edupage" && typeof data.date === "string" && data.date > lastDayISO;
+  });
+  for (let i = 0; i < extraDocs.length; i += CHUNK_SIZE) {
+    const batch = db.batch();
+    extraDocs.slice(i, i + CHUNK_SIZE).forEach((doc) => batch.delete(doc.ref));
+    await batch.commit();
+  }
+  return extraDocs.length;
+}

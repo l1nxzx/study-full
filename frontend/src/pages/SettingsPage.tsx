@@ -2,6 +2,7 @@ import { type FormEvent, useState } from "react";
 import * as authApi from "@/api/auth";
 import { getErrorMessage } from "@/api/client";
 import { Page, PageHeader } from "@/components/layout/PageHeader";
+import { RegularClassesCard } from "@/components/settings/RegularClassesCard";
 import { ScheduleIntegrationCard } from "@/components/settings/ScheduleIntegrationCard";
 import { SettingsSection } from "@/components/settings/SettingsSection";
 import { InlineError } from "@/components/shared/EmptyState";
@@ -193,6 +194,8 @@ export function SettingsPage() {
       <SidebarSettings />
 
       <ScheduleIntegrationCard />
+
+      <RegularClassesCard />
 
       <SettingsSection title="Password" description="At least 8 characters.">
         <form onSubmit={handleChangePassword} className="space-y-4">
