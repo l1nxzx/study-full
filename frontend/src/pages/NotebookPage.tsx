@@ -142,7 +142,8 @@ export function NotebookPage() {
   // their letters a little above or below the middle of a line).
   const [inkShift, setInkShift] = useState(0);
   const [showHint, setShowHint] = useState(false);
-  const [fullscreen, setFullscreen] = useState(false);
+  // Already in the browser's full screen (from Settings): the notebook starts in full screen too.
+  const [fullscreen, setFullscreen] = useState(() => typeof document !== "undefined" && !!document.fullscreenElement);
   const pageRef = useRef(page);
   pageRef.current = page;
 
@@ -322,12 +323,21 @@ export function NotebookPage() {
   // iPhones), and always hides the bars; Esc, Back or the corner button leave it.
   const fullscreenRef = useRef(fullscreen);
   fullscreenRef.current = fullscreen;
+  // Only the browser full screen this page started is ended by this page. One the user started
+  // (from Settings) stays on when they leave the notebook.
+  const ownsFullscreen = useRef(false);
   useEffect(() => {
     const el = document.documentElement;
     if (fullscreen) {
-      if (!document.fullscreenElement && el.requestFullscreen) el.requestFullscreen().catch(() => undefined);
-    } else if (document.fullscreenElement) {
-      document.exitFullscreen().catch(() => undefined);
+      if (!document.fullscreenElement && el.requestFullscreen) {
+        ownsFullscreen.current = true;
+        el.requestFullscreen().catch(() => {
+          ownsFullscreen.current = false;
+        });
+      }
+    } else if (ownsFullscreen.current) {
+      ownsFullscreen.current = false;
+      if (document.fullscreenElement) document.exitFullscreen().catch(() => undefined);
     }
   }, [fullscreen]);
   useEffect(() => {
@@ -337,7 +347,10 @@ export function NotebookPage() {
     document.addEventListener("fullscreenchange", onChange);
     return () => {
       document.removeEventListener("fullscreenchange", onChange);
-      if (document.fullscreenElement) document.exitFullscreen().catch(() => undefined);
+      if (ownsFullscreen.current && document.fullscreenElement) {
+        ownsFullscreen.current = false;
+        document.exitFullscreen().catch(() => undefined);
+      }
     };
   }, []);
   useCloseOnBack(fullscreen, () => setFullscreen(false));
@@ -669,6 +682,18 @@ export function NotebookPage() {
               title="Leave full screen (Esc)"
             >
               <Minimize2 className="size-4" />
+            </button>
+          )}
+
+          {fullscreen && (
+            <button
+              type="button"
+              onClick={() => updatePreferences({ notebookPaper: paper === "light" ? "dark" : "light" })}
+              className="absolute right-[3.25rem] top-[max(0.5rem,env(safe-area-inset-top))] z-20 flex size-9 items-center justify-center rounded-full bg-[color-mix(in_oklch,var(--nb-desk)_70%,transparent)] text-[var(--nb-desk-fg-faint)] backdrop-blur-sm transition-colors hover:text-[var(--nb-desk-fg)]"
+              aria-label={paper === "light" ? "Use dark paper" : "Use white paper"}
+              title={paper === "light" ? "Dark paper" : "White paper"}
+            >
+              {paper === "light" ? <Moon className="size-4" /> : <Sun className="size-4" />}
             </button>
           )}
 
