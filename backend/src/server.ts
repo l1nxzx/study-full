@@ -2,6 +2,7 @@ import app from "./app";
 import { env } from "./config/env";
 import { verifyStorageBucket } from "./config/firebase"; // fail fast if Firebase credentials/storage are missing or invalid
 import { startScheduleSyncLoop } from "./config/scheduler";
+import { runStudyCleanupOnce } from "./services/studyCleanup.service";
 
 async function start() {
   await verifyStorageBucket();
@@ -14,6 +15,7 @@ async function start() {
   });
 
   startScheduleSyncLoop();
+  runStudyCleanupOnce().catch((err) => console.error("Study cleanup failed:", err));
 }
 
 start();
