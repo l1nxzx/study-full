@@ -51,6 +51,8 @@ export interface OverviewStats {
     byArea: Partial<Record<ActivityArea, number>>;
     byHour: number[];
     byWeekday: number[];
+    /** Every day with study time, oldest first. */
+    allDays: DaySeconds[];
     bySubject: { subjectId: string; name: string; color: string | null; seconds: number }[];
     topNotes: { noteId: string; title: string; subjectId: string; seconds: number }[];
   };
