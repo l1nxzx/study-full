@@ -234,6 +234,12 @@ async function overviewData(userId: string, today: string, tzOffsetMinutes: numb
       byArea,
       byHour,
       byWeekday,
+      // Every day with study time (sparse, oldest first). The client works out periods, averages
+      // and weekdays from it, and adds this device's unconfirmed time to it (see statsOverlay).
+      allDays: data.days
+        .filter((d) => d.seconds > 0)
+        .map((d) => ({ date: d.date, seconds: d.seconds }))
+        .sort((a, b) => a.date.localeCompare(b.date)),
       // Only subjects that still exist: time spent on a deleted one stays in the totals, but a
       // subject you deleted isn't listed.
       bySubject: topEntries(

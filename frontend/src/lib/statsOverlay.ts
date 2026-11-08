@@ -41,6 +41,12 @@ function addToDays(days: { date: string; seconds: number }[], entries: LedgerEnt
   return days.map((d) => ({ ...d, seconds: d.seconds + sumOf(entries.filter((e) => e.date === d.date)) }));
 }
 
+function addToAllDays(allDays: { date: string; seconds: number }[], entries: LedgerEntry[]) {
+  const byDate = new Map(allDays.map((d) => [d.date, d.seconds]));
+  for (const e of entries) byDate.set(e.date, (byDate.get(e.date) ?? 0) + e.seconds);
+  return [...byDate].sort(([a], [b]) => a.localeCompare(b)).map(([date, seconds]) => ({ date, seconds }));
+}
+
 export function overviewWithStudy(stats: OverviewStats, overlay: StudyOverlay, today = todayISO()): OverviewStats {
   const { entries, subjectOf } = overlay;
   const week = since(entries, addDaysISO(today, -6));
@@ -65,6 +71,7 @@ export function overviewWithStudy(stats: OverviewStats, overlay: StudyOverlay, t
       last7Seconds: stats.time.last7Seconds + sumOf(week),
       last30Seconds: stats.time.last30Seconds + sumOf(month),
       days: addToDays(stats.time.days, entries),
+      allDays: addToAllDays(stats.time.allDays, entries),
       byArea,
       bySubject: stats.time.bySubject
         .map((s) => ({ ...s, seconds: s.seconds + (bySubjectSeconds.get(s.subjectId) ?? 0) }))
