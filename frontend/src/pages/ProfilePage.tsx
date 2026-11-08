@@ -18,6 +18,8 @@ import {
   changeLabel,
   dailySeries,
   dayCount,
+  MONTH_AVERAGE_AFTER_DAYS,
+  WEEK_AVERAGE_AFTER_DAYS,
   monthRows,
   periodRange,
   streaks,
@@ -154,7 +156,7 @@ export function ProfilePage() {
           </FigureRow>
 
           <Section title="Usage over time" description="How much you studied in each period.">
-            <div className="flex flex-wrap gap-1.5 pb-5">
+            <div className="flex flex-wrap gap-1.5 pb-5 pt-5">
               {PERIODS.map((p) => (
                 <button
                   key={p.key}
@@ -201,8 +203,16 @@ export function ProfilePage() {
           <Section title="Averages" description="Over your whole history, not just the total.">
             <FigureRow>
               <Figure label="Per day" value={formatStudyTime(avg.perDaySeconds)} detail="Last 30 days" />
-              <Figure label="Per week" value={formatStudyTime(avg.perWeekSeconds)} detail="Since you started" />
-              <Figure label="Per month" value={formatStudyTime(avg.perMonthSeconds)} detail="Since you started" />
+              <Figure
+                label="Per week"
+                value={avg.perWeekSeconds === null ? "–" : formatStudyTime(avg.perWeekSeconds)}
+                detail={avg.perWeekSeconds === null ? `Shown after ${WEEK_AVERAGE_AFTER_DAYS} days of history` : "Since you started"}
+              />
+              <Figure
+                label="Per month"
+                value={avg.perMonthSeconds === null ? "–" : formatStudyTime(avg.perMonthSeconds)}
+                detail={avg.perMonthSeconds === null ? `Shown after ${MONTH_AVERAGE_AFTER_DAYS} days of history` : "Since you started"}
+              />
             </FigureRow>
             <div className="pt-5">
               <p className="pb-1 text-[0.8125rem] text-fg-muted">Average per week, month by month</p>
@@ -212,8 +222,8 @@ export function ProfilePage() {
                   key: row.month,
                   label: format(parseISO(`${row.month}-01`), "MMM"),
                   title: `${format(parseISO(`${row.month}-01`), "MMMM yyyy")} · ${formatStudyTime(row.seconds)} in total, ${row.activeDays} active days`,
-                  value: row.perWeekSeconds,
-                  valueLabel: formatStudyTime(row.perWeekSeconds),
+                  value: row.perWeekSeconds ?? 0,
+                  valueLabel: row.perWeekSeconds === null ? "too early" : formatStudyTime(row.perWeekSeconds),
                   highlight: row.month === today.slice(0, 7),
                 }))}
                 emptyLabel="Not enough history yet."
@@ -246,6 +256,36 @@ export function ProfilePage() {
                   title: `${WEEKDAYS[d]}days · ${formatStudyTime(weekdays[d]!)} on average`,
                   value: weekdays[d]!,
                   valueLabel: formatStudyTime(weekdays[d]!),
+                }))}
+              />
+            </Section>
+          </div>
+
+          <div className="grid grid-cols-1 gap-x-14 gap-y-12 @4xl:grid-cols-2">
+            <Section title="Totals by hour" description="All study time, by the hour a session starts.">
+              <BarChart
+                className="pt-3"
+                height={88}
+                data={data.time.byHour.map((seconds, hour) => ({
+                  key: String(hour),
+                  label: String(hour),
+                  title: `${String(hour).padStart(2, "0")}:00–${String(hour).padStart(2, "0")}:59 · ${formatStudyTime(seconds)} in total`,
+                  value: seconds,
+                  valueLabel: formatStudyTime(seconds),
+                }))}
+                labelEvery={3}
+              />
+            </Section>
+            <Section title="Totals by weekday" description="All study time, by weekday.">
+              <BarChart
+                className="pt-3"
+                height={88}
+                data={WEEK_ORDER.map((d) => ({
+                  key: String(d),
+                  label: WEEKDAYS[d]!,
+                  title: `${WEEKDAYS[d]}days · ${formatStudyTime(data.time.byWeekday[d]!)} in total`,
+                  value: data.time.byWeekday[d]!,
+                  valueLabel: formatStudyTime(data.time.byWeekday[d]!),
                 }))}
               />
             </Section>

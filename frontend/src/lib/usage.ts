@@ -121,12 +121,18 @@ export function dailySeries(days: DayTotal[], from: string, to: string): DayTota
   });
 }
 
+/** Shortest history a weekly average is shown for, and a monthly one. */
+export const WEEK_AVERAGE_AFTER_DAYS = 14;
+export const MONTH_AVERAGE_AFTER_DAYS = 30;
+/** Days of a month that must have passed before its weekly average is shown. */
+const MONTH_ROW_AFTER_DAYS = 7;
+
 export interface MonthRow {
   month: string; // YYYY-MM
   seconds: number;
   activeDays: number;
-  /** Average per week within the month (only the days since the first recorded day). */
-  perWeekSeconds: number;
+  /** Average per week within the month; null until the month has enough days behind it. */
+  perWeekSeconds: number | null;
 }
 
 /** The last `count` calendar months, oldest first, that have started since the first recorded day. */
@@ -142,8 +148,9 @@ export function monthRows(days: DayTotal[], first: string | null, today: string,
     const to = monthEnd(ref) > today ? today : monthEnd(ref);
     if (from > to) continue;
     const { seconds, activeDays } = sumBetween(days, from, to);
-    const weeks = dayCount(from, to) / 7;
-    rows.push({ month: ref.slice(0, 7), seconds, activeDays, perWeekSeconds: seconds / weeks });
+    const elapsed = dayCount(from, to);
+    const perWeekSeconds = elapsed >= MONTH_ROW_AFTER_DAYS ? seconds / (elapsed / 7) : null;
+    rows.push({ month: ref.slice(0, 7), seconds, activeDays, perWeekSeconds });
   }
   return rows;
 }
@@ -151,22 +158,23 @@ export function monthRows(days: DayTotal[], first: string | null, today: string,
 export interface Averages {
   /** Per calendar day over the last 30 days (fewer if the study history is shorter). */
   perDaySeconds: number;
-  perWeekSeconds: number;
-  perMonthSeconds: number;
+  /** Null until there is enough history for an average to mean something. */
+  perWeekSeconds: number | null;
+  perMonthSeconds: number | null;
   /** Calendar days since the first recorded day. */
   spanDays: number;
 }
 
 export function averages(days: DayTotal[], first: string | null, today: string): Averages {
-  if (!first) return { perDaySeconds: 0, perWeekSeconds: 0, perMonthSeconds: 0, spanDays: 0 };
+  if (!first) return { perDaySeconds: 0, perWeekSeconds: null, perMonthSeconds: null, spanDays: 0 };
   const spanDays = dayCount(first, today);
   const window = Math.min(30, spanDays);
   const recent = sumBetween(days, addDays(today, -(window - 1)), today).seconds;
   const total = sumBetween(days, first, today).seconds;
   return {
     perDaySeconds: recent / window,
-    perWeekSeconds: total / (spanDays / 7),
-    perMonthSeconds: total / (spanDays / DAYS_PER_MONTH),
+    perWeekSeconds: spanDays >= WEEK_AVERAGE_AFTER_DAYS ? total / (spanDays / 7) : null,
+    perMonthSeconds: spanDays >= MONTH_AVERAGE_AFTER_DAYS ? total / (spanDays / DAYS_PER_MONTH) : null,
     spanDays,
   };
 }
