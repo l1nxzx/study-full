@@ -18,6 +18,10 @@ export interface BarDatum {
  * a 2px gap between bars, a hover tooltip per bar, and every bar described for screen
  * readers. One hue (the accent); the highlighted bar (e.g. today) is full strength.
  */
+// A bar never gets more room than this: with only a few bars, the chart shrinks instead of
+// turning each bar into a block as wide as the page.
+const MAX_SLOT_PX = 40;
+
 export function BarChart({
   data,
   height = 112,
@@ -34,6 +38,7 @@ export function BarChart({
   const [hover, setHover] = useState<number | null>(null);
   const max = Math.max(...data.map((d) => d.value), 0);
   const active = hover !== null ? data[hover] : null;
+  const maxWidth = data.length * MAX_SLOT_PX;
 
   return (
     <figure className={cn("relative", className)}>
@@ -47,8 +52,8 @@ export function BarChart({
         ) : null}
       </div>
       <div
-        className="flex items-end gap-[2px] border-b border-rule-strong"
-        style={{ height }}
+        className="flex w-full items-end gap-[2px] border-b border-rule-strong"
+        style={{ height, maxWidth }}
         role="list"
         onPointerLeave={() => setHover(null)}
       >
@@ -78,7 +83,7 @@ export function BarChart({
           );
         })}
       </div>
-      <div className="mt-1 flex gap-[2px]" aria-hidden>
+      <div className="mt-1 flex w-full gap-[2px]" style={{ maxWidth }} aria-hidden>
         {data.map((d, i) => (
           <span key={d.key} className="min-w-0 flex-1 overflow-visible whitespace-nowrap text-center text-[0.6875rem] text-fg-faint tabular">
             {i % labelEvery === 0 ? d.label : ""}
