@@ -97,7 +97,7 @@ export function ProfilePage() {
           valueLabel: formatStudyTime(row.seconds),
           highlight: row.month === today.slice(0, 7),
         }))
-      : dailySeries(days, from, range.to).map((d) => ({
+      : dailySeries(days, first && first > from ? first : from, range.to).map((d) => ({
           key: d.date,
           label: d.date.slice(8),
           title: `${format(parseISO(d.date), "EEEE, MMMM d")}${d.seconds ? "" : " · no study"}`,
