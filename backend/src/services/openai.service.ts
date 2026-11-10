@@ -1,6 +1,7 @@
 import { AI_MODELS, openai } from "../config/openai";
 import { planTest, type QuestionKind, type QuestionSlot } from "./testPlan";
 import { AppError } from "../utils/AppError";
+import { NO_TEST_CLOSE, NO_TEST_OPEN } from "../utils/noteMarkup";
 import {
   askResultSchema,
   chatResultSchema,
@@ -249,6 +250,20 @@ export async function generateFlashcards(notes: NoteContext[], count: number) {
   });
 }
 
+// The note chat sees the whole note, with the passages the student marked as not examined
+// wrapped in markers (see markNotExamined in utils/noteMarkup.ts).
+const NOT_EXAMINED_CHAT_RULE =
+  ` Passages of the note between ${NO_TEST_OPEN} and ${NO_TEST_CLOSE} are ones the student marked as not part of ` +
+  "their school test. Explain or discuss them normally when asked, but whenever you quiz, test or examine the " +
+  "student, or write practice questions, flashcards or anything else that checks their knowledge, leave those " +
+  "passages out completely. Never write the markers themselves in your answer.";
+
+// Rewriting keeps the student's marking of text that is not examined.
+const NOT_EXAMINED_REWRITE_RULE =
+  " The note may contain <notest>...</notest> tags: the student wrapped text in them that is not part of their " +
+  "school test. Keep these tags in your rewrite, around the same information they wrapped (a tag may wrap a few " +
+  "words or whole paragraphs), and never add the tag anywhere else.";
+
 export async function askNote(
   note: NoteContext,
   question: string,
@@ -272,6 +287,7 @@ export async function askNote(
           '"groundedInNote" to true when the answer comes from the note, and false when a meaningful part of it ' +
           "comes from outside the note. Do not add disclaimers about this in the answer text itself - the app shows " +
           'that separately. Respond as JSON: { "answer": string, "groundedInNote": boolean }.' +
+          NOT_EXAMINED_CHAT_RULE +
           MARKDOWN_FORMATTING_INSTRUCTION +
           SLOVAK_INSTRUCTION +
           `\n\nNote content:\n${note.contentMarkdown.slice(0, MAX_CHARS_PER_NOTE)}`,
@@ -382,7 +398,7 @@ export async function rewriteNote(note: NoteContext, options: RewriteOptions) {
         "passage below, and return ONLY the replacement text for that passage, not the whole note. You may freely " +
         "restructure sentences, turn a run-on into a list, fix grammar, and reorganize for clarity - you are not " +
         "limited to small corrections. Preserve the actual facts/meaning of the passage unless the student's own " +
-        `instructions ask you to add something new.${instructionsLine} Respond as JSON: { "rewritten": string }.` +
+        `instructions ask you to add something new.${instructionsLine}${NOT_EXAMINED_REWRITE_RULE} Respond as JSON: { "rewritten": string }.` +
         MARKDOWN_FORMATTING_INSTRUCTION +
         SLOVAK_INSTRUCTION,
       user: `Full note "${note.title}" for context:\n${note.contentMarkdown.slice(0, MAX_CHARS_PER_NOTE)}\n\nSelected passage to rewrite:\n${options.selectionText}`,
@@ -398,7 +414,8 @@ export async function rewriteNote(note: NoteContext, options: RewriteOptions) {
       "often has to write quickly during class, so the original can be rough, run-on, or unclear in places. Rewrite " +
       "the whole note: improve phrasing and clarity, and reorganize into clearer sections/lists where that genuinely " +
       "helps. Preserve all the actual information in the note - never drop a fact - but you are not limited to only " +
-      `correcting wording; restructure freely where it makes the note clearer.${instructionsLine} Respond as JSON: ` +
+      `correcting wording; restructure freely where it makes the note clearer.${instructionsLine}${NOT_EXAMINED_REWRITE_RULE} ` +
+      "Respond as JSON: " +
       '{ "rewritten": string }.' +
       MARKDOWN_FORMATTING_INSTRUCTION +
       SLOVAK_INSTRUCTION,

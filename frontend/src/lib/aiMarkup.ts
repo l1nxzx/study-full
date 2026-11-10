@@ -30,6 +30,21 @@ const ADD_SENTINEL = (i: number) => `${PUA}D${i}${PUA}`;
 const HIGHLIGHT_SENTINEL = (i: number) => `${PUA}H${i}${PUA}`;
 export const SENTINEL_PATTERN = new RegExp(`${PUA}([ADH])(\\d+)${PUA}`, "g");
 
+// <notest>...</notest> marks text that stays in the note but is left out of everything that
+// tests knowledge: quizzes, flashcards, tests (the backend removes it before the AI sees the
+// note - see backend/src/utils/noteMarkup.ts). Marked in the formatting editor's toolbar.
+export const NO_TEST_OPEN_TAG = "<notest>";
+export const NO_TEST_CLOSE_TAG = "</notest>";
+const NO_TEST_OPEN_PATTERN = /<notest>/gi;
+const NO_TEST_CLOSE_PATTERN = /<\/notest>/gi;
+// Each sentinel is a private-use character (which makes it unmistakable) between two rare
+// punctuation marks: Markdown only opens or closes **bold** next to a tag when the tag looks
+// like punctuation to it, e.g. in <notest>**"quoted"**</notest>.
+export const NO_TEST_OPEN_SENTINEL = `\u2e1c${String.fromCharCode(0xe001)}\u2e1c`;
+export const NO_TEST_CLOSE_SENTINEL = `\u2e1d${String.fromCharCode(0xe002)}\u2e1d`;
+export const NO_TEST_SENTINEL_PATTERN = new RegExp(`${NO_TEST_OPEN_SENTINEL}|${NO_TEST_CLOSE_SENTINEL}`, "g");
+export const NO_TEST_TITLE = "Not included in quizzes, flashcards or tests";
+
 export interface AiAlteration {
   index: number;
   original: string;
@@ -85,16 +100,23 @@ export function findHighlights(markdown: string): AiHighlight[] {
 // Swaps every <aialter>/<aiadd>/<highlight> tag for a plain-text sentinel, indexed in
 // the same left-to-right order findAlterations()/findAdditions()/findHighlights() use,
 // so they all stay in sync.
+//
+// The <notest> tags are different: they wrap ordinary Markdown (bold, math, several paragraphs)
+// instead of holding plain text, so the opening and the closing tag each become their own
+// sentinel and the text between them is parsed as usual.
 export function prepareContentForRendering(markdown: string): string {
   let alterI = 0;
   let addI = 0;
   let highlightI = 0;
-  return markdown.replace(combinedPattern(), (_match, alterOriginal, _alterCorrected, addText, highlightColor) => {
-    if (alterOriginal !== undefined) return ALTER_SENTINEL(alterI++);
-    if (addText !== undefined) return ADD_SENTINEL(addI++);
-    if (highlightColor !== undefined) return HIGHLIGHT_SENTINEL(highlightI++);
-    return "";
-  });
+  return markdown
+    .replace(combinedPattern(), (_match, alterOriginal, _alterCorrected, addText, highlightColor) => {
+      if (alterOriginal !== undefined) return ALTER_SENTINEL(alterI++);
+      if (addText !== undefined) return ADD_SENTINEL(addI++);
+      if (highlightColor !== undefined) return HIGHLIGHT_SENTINEL(highlightI++);
+      return "";
+    })
+    .replace(NO_TEST_OPEN_PATTERN, NO_TEST_OPEN_SENTINEL)
+    .replace(NO_TEST_CLOSE_PATTERN, NO_TEST_CLOSE_SENTINEL);
 }
 
 export type AlterationAction = "accept" | "reject" | "manual";

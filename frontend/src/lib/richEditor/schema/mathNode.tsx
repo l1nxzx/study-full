@@ -85,7 +85,8 @@ function MathNodeView({ node, updateAttributes, deleteNode, displayMode }: React
       as={Wrapper}
       className={cn(
         "cursor-pointer rounded-sm transition-colors hover:bg-tint",
-        displayMode ? "my-2 block px-2 py-1 text-center" : "inline-block px-0.5"
+        displayMode ? "my-2 block px-2 py-1 text-center" : "inline-block px-0.5",
+        displayMode && node.attrs.noTest && "study-untested-block"
       )}
       onClick={() => setIsEditing(true)}
       dangerouslySetInnerHTML={html ? { __html: html } : undefined}

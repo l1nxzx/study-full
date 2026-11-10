@@ -3,6 +3,7 @@ import {
   Bold,
   Code,
   Code2,
+  GraduationCap,
   Heading2,
   Heading3,
   Highlighter,
@@ -71,6 +72,16 @@ function ToolbarButton({
     >
       {children}
     </button>
+  );
+}
+
+// "Not in tests": a graduation cap, struck through.
+function NotInTestsIcon() {
+  return (
+    <span className="relative flex size-4 items-center justify-center">
+      <GraduationCap className="size-4" />
+      <span aria-hidden className="absolute h-[1.5px] w-[1.15rem] -rotate-45 rounded-full bg-current ring-1 ring-canvas" />
+    </span>
   );
 }
 
@@ -207,6 +218,14 @@ export function EditorToolbar({ editor }: EditorToolbarProps) {
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+
+      <ToolbarButton
+        title="Leave out of quizzes and tests (select text first)"
+        active={editor.isActive("noTest")}
+        onClick={() => editor.chain().focus().toggleNoTest().run()}
+      >
+        <NotInTestsIcon />
+      </ToolbarButton>
 
       <Divider />
 

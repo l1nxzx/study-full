@@ -16,6 +16,7 @@ import { PROSE_CLASSES } from "@/lib/proseClasses";
 import { remarkAiMarkup } from "@/lib/remarkAiMarkup";
 import { remarkCallouts } from "@/lib/remarkCallouts";
 import { remarkHighlightMark } from "@/lib/remarkHighlightMark";
+import { remarkNoTest } from "@/lib/remarkNoTest";
 import { cn } from "@/lib/utils";
 
 interface MarkdownRendererProps {
@@ -32,7 +33,8 @@ interface MarkdownRendererProps {
 // rendered as-is by the design system's typography (prose) styles below - no element is
 // ever auto-colored. Study's own syntax - ==highlight==, <highlight color="...">,
 // [!NOTE]-style callouts, and the note-review <aialter>/<aiadd> markers - is the only
-// thing that introduces color, and only where the author explicitly asked for it.
+// thing that introduces color, and only where the author explicitly asked for it. Text inside
+// <notest> tags (kept out of quizzes and tests) gets a faint dotted underline.
 export function MarkdownRenderer({
   content,
   className,
@@ -53,7 +55,7 @@ export function MarkdownRenderer({
   return (
     <div className={cn(PROSE_CLASSES, variant === "compact" && "study-prose-compact", className)}>
       <ReactMarkdown
-        remarkPlugins={[remarkGfm, remarkMath, remarkCallouts, remarkAiMarkup, remarkHighlightMark]}
+        remarkPlugins={[remarkGfm, remarkMath, remarkCallouts, remarkNoTest, remarkAiMarkup, remarkHighlightMark]}
         rehypePlugins={[rehypeKatex]}
         components={
           {
