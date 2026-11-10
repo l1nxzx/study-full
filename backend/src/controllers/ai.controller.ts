@@ -1,13 +1,14 @@
 import { Request, Response } from "express";
 import { asyncHandler } from "../utils/asyncHandler";
-import { stripReviewMarkup } from "../utils/noteMarkup";
+import { markNotExamined, stripForTesting, stripReviewMarkup, stripReviewTagsOnly } from "../utils/noteMarkup";
 import * as notesService from "../services/notes.service";
 import * as aiService from "../services/openai.service";
 import { buildCacheKey, getCached, hashText, ONE_HOUR_MS, setCached } from "../services/aiCache.service";
 
+// Notes as quizzes and flashcards see them: without the text marked as not examined.
 export async function loadOwnedNotes(userId: string, noteIds: string[]) {
   const notes = await Promise.all(noteIds.map((id) => notesService.getNoteRaw(userId, id)));
-  return notes.map((n) => ({ title: n.title, contentMarkdown: stripReviewMarkup(n.contentMarkdown) }));
+  return notes.map((n) => ({ title: n.title, contentMarkdown: stripForTesting(n.contentMarkdown) }));
 }
 
 export const summary = asyncHandler(async (req: Request, res: Response) => {
@@ -67,7 +68,7 @@ export const flashcards = asyncHandler(async (req: Request, res: Response) => {
 export const ask = asyncHandler(async (req: Request, res: Response) => {
   const note = await notesService.getNoteRaw(req.user!.userId, req.body.noteId);
   const result = await aiService.askNote(
-    { title: note.title, contentMarkdown: stripReviewMarkup(note.contentMarkdown) },
+    { title: note.title, contentMarkdown: markNotExamined(note.contentMarkdown) },
     req.body.question,
     req.body.history
   );
@@ -81,7 +82,7 @@ export const chat = asyncHandler(async (req: Request, res: Response) => {
 
 export const rewrite = asyncHandler(async (req: Request, res: Response) => {
   const note = await notesService.getNoteRaw(req.user!.userId, req.body.noteId);
-  const cleanContent = stripReviewMarkup(note.contentMarkdown);
+  const cleanContent = stripReviewTagsOnly(note.contentMarkdown);
   const result = await aiService.rewriteNote(
     { title: note.title, contentMarkdown: cleanContent },
     { scope: req.body.scope, selectionText: req.body.selectionText, instructions: req.body.instructions }

@@ -1,3 +1,4 @@
+import { NO_TEST_CLOSE_TAG, NO_TEST_OPEN_TAG } from "@/lib/aiMarkup";
 import type { TiptapMark, TiptapNode } from "@/lib/richEditor/markdownToTiptap";
 
 // Backslash-escapes characters that would otherwise be re-interpreted as Markdown syntax
@@ -23,7 +24,15 @@ function wrapInlineCode(text: string): string {
 // pipeline - see aiMarkup.ts - so anything markdown-ish placed *inside* it wouldn't
 // round-trip), strike/italic/bold wrap outward from there.
 function wrapWithMarks(text: string, marks: TiptapMark[]): string {
-  if (marks.some((m) => m.type === "code")) return wrapInlineCode(text);
+  if (marks.some((m) => m.type === "code")) return wrapNoTest(wrapInlineCode(text), marks);
+
+  // Emphasis markers only work right next to a word, and a piece of a sentence that differs
+  // from its neighbours in one mark (half of a bold phrase highlighted, or left out of tests)
+  // usually starts or ends with a space - so spaces at the edges stay outside the markers.
+  const emphasized = marks.some((m) => m.type === "strike" || m.type === "italic" || m.type === "bold");
+  const [, lead, core, trail] = emphasized ? /^(\s*)([\s\S]*?)(\s*)$/.exec(text)! : [null, "", text, ""];
+  if (!core) return wrapNoTest(escapeText(text), marks);
+  text = core;
 
   // AI-added text is read back as opaque plain text (see aiMarkup.ts), so it isn't escaped;
   // only a literal closing tag inside it would break the marker.
@@ -40,18 +49,33 @@ function wrapWithMarks(text: string, marks: TiptapMark[]): string {
   if (marks.some((m) => m.type === "italic")) result = `*${result}*`;
   if (marks.some((m) => m.type === "bold")) result = `**${result}**`;
 
-  return result;
+  // "Not in tests" goes around everything else: the opaque tags can't contain it, and the
+  // read pipeline treats the tag as punctuation, which emphasis markers may sit next to.
+  return wrapNoTest(`${lead}${result}${trail}`, marks);
+}
+
+function wrapNoTest(markdown: string, marks: TiptapMark[]): string {
+  return marks.some((m) => m.type === "noTest") ? `${NO_TEST_OPEN_TAG}${markdown}${NO_TEST_CLOSE_TAG}` : markdown;
+}
+
+function wrapNoTestBlock(markdown: string, node: TiptapNode): string {
+  return node.attrs?.noTest ? `${NO_TEST_OPEN_TAG}\n\n${markdown}\n\n${NO_TEST_CLOSE_TAG}` : markdown;
 }
 
 function serializeInline(nodes: TiptapNode[]): string {
-  return nodes
-    .map((node) => {
-      if (node.type === "text") return wrapWithMarks(node.text || "", node.marks || []);
-      if (node.type === "hardBreak") return "  \n";
-      if (node.type === "mathInline") return `$${(node.attrs?.latex as string) || ""}$`;
-      return "";
-    })
-    .join("");
+  return (
+    nodes
+      .map((node) => {
+        if (node.type === "text") return wrapWithMarks(node.text || "", node.marks || []);
+        if (node.type === "hardBreak") return "  \n";
+        if (node.type === "mathInline") return wrapNoTest(`$${(node.attrs?.latex as string) || ""}$`, node.marks || []);
+        return "";
+      })
+      .join("")
+      // Neighbouring pieces of one marked passage become a single region.
+      .split(`${NO_TEST_CLOSE_TAG}${NO_TEST_OPEN_TAG}`)
+      .join("")
+  );
 }
 
 function prefixLines(text: string, prefix: string): string {
@@ -106,7 +130,7 @@ function serializeBlock(node: TiptapNode): string {
       const runs = text.match(/`+/g) || [];
       const maxRun = runs.reduce((max, run) => Math.max(max, run.length), 0);
       const fence = "`".repeat(Math.max(3, maxRun + 1));
-      return `${fence}${lang}\n${text}\n${fence}`;
+      return wrapNoTestBlock(`${fence}${lang}\n${text}\n${fence}`, node);
     }
     case "blockquote": {
       const inner = (node.content || []).map((c) => serializeBlock(c)).join("\n\n");
@@ -124,7 +148,7 @@ function serializeBlock(node: TiptapNode): string {
     case "table":
       return serializeTable(node);
     case "mathBlock":
-      return `$$\n${(node.attrs?.latex as string) || ""}\n$$`;
+      return wrapNoTestBlock(`$$\n${(node.attrs?.latex as string) || ""}\n$$`, node);
     default:
       return "";
   }

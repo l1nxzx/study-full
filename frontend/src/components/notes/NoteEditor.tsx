@@ -171,8 +171,8 @@ export function NoteEditor({ heading, initialValues, onSubmit, onCancel, isSubmi
 
         {!values.contentMarkdown.trim() && view !== "preview" && (
           <p className="mb-3 max-w-[46rem] text-[0.8125rem] leading-relaxed text-fg-faint">
-            Paste the Markdown from ChatGPT or Claude here. To convert photos or PDFs of handwritten notes, copy the conversion prompt
-            and give it to them together with your files.
+            Paste the Markdown from ChatGPT or Claude here. To convert handwritten notes or a presentation, open Conversion prompt,
+            choose what you have, and give the copied prompt to them together with your files.
           </p>
         )}
 

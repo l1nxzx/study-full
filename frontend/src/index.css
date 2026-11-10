@@ -437,6 +437,25 @@
     overflow-wrap: break-word;
   }
 
+  /*
+   * Text the student marked as not examined (<notest>): left out of quizzes and tests. It
+   * reads exactly like the rest of the note; a faint dotted underline is the only sign.
+   */
+  .study-untested {
+    text-decoration: underline dotted 1px color-mix(in oklab, var(--color-fg-faint) 75%, transparent);
+    text-underline-offset: 0.32em;
+  }
+
+  /* Rendered math and inline code are inline boxes, which an underline doesn't cross. */
+  .study-untested :where(.katex, [data-math-inline], code) {
+    border-bottom: 1px dotted color-mix(in oklab, var(--color-fg-faint) 75%, transparent);
+  }
+
+  .study-untested-block,
+  .study-prose :where(pre[data-no-test]) {
+    border-left: 1px dotted color-mix(in oklab, var(--color-fg-faint) 75%, transparent);
+  }
+
   .study-prose-compact {
     font-size: 0.96875rem;
     line-height: 1.66;

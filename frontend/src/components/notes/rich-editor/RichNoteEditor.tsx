@@ -43,6 +43,8 @@ function RichNoteEditor({ content, onSave, onCancel, isSaving }: RichNoteEditorP
     extensions,
     content: initialDoc,
     onUpdate: () => setDirty(true),
+    // The toolbar shows which formats apply at the cursor, so it follows every selection change.
+    shouldRerenderOnTransaction: true,
     editorProps: {
       attributes: {
         class: cn(PROSE_CLASSES, "min-h-[50vh] py-2 focus:outline-none"),

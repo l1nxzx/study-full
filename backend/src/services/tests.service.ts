@@ -1,6 +1,6 @@
 import { db } from "../config/firebase";
 import { AppError } from "../utils/AppError";
-import { stripReviewMarkup } from "../utils/noteMarkup";
+import { stripForTesting } from "../utils/noteMarkup";
 import type { CreateTestInput, SaveTestAnswersInput } from "../models/test.model";
 import * as aiService from "./openai.service";
 import { getNoteRaw } from "./notes.service";
@@ -224,7 +224,7 @@ function writeTest(userId: string, testId: string, run: string) {
       if (!data) return;
       const notes = await loadNotes(userId, data.noteIds);
       const generated = await aiService.generateTest(
-        notes.map((n) => ({ title: n.title, contentMarkdown: stripReviewMarkup(n.contentMarkdown) })),
+        notes.map((n) => ({ title: n.title, contentMarkdown: stripForTesting(n.contentMarkdown) })),
         data.settings
       );
       const questions: StoredQuestion[] = generated.questions.map((q, i) => ({
@@ -403,7 +403,7 @@ export function submitAttempt(userId: string, id: string, input?: SaveTestAnswer
       if (answered.length > 0) {
         const notes = await loadNotes(userId, test.noteIds).catch(() => []);
         aiResult = await aiService.gradeTest(
-          notes.map((n) => ({ title: n.title, contentMarkdown: stripReviewMarkup(n.contentMarkdown) })),
+          notes.map((n) => ({ title: n.title, contentMarkdown: stripForTesting(n.contentMarkdown) })),
           answered.map((q) => ({ ...q, answer: answers[q.id] }))
         );
       }
