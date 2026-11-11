@@ -7,9 +7,10 @@ import { HighlightMark } from "@/lib/richEditor/schema/highlightMark";
 import { MathBlock, MathInline } from "@/lib/richEditor/schema/mathNode";
 import { NoTestBlockAttribute, NoTestMark } from "@/lib/richEditor/schema/noTestMark";
 
-// Inline code normally refuses every other mark. It still does, except the "not in tests"
-// mark: a marked sentence that contains code has to stay marked as a whole.
-const InlineCode = Code.extend({ excludes: "bold italic strike underline link highlight aiAdd" });
+// Inline code normally refuses every other mark. Bold, italic, strike, highlight, links and
+// "not in tests" are fine on it (`**`code`**` and ==`code`== are ordinary Markdown), and so is
+// the AI-added mark.
+const InlineCode = Code.extend({ excludes: "" });
 
 // Matches this app's Markdown dialect: never a single "#" heading (see notesPrompt.ts /
 // openai.service.ts's formatting instructions), plus the app's custom callout/highlight/
@@ -19,6 +20,10 @@ export function buildRichEditorExtensions() {
     StarterKit.configure({
       heading: { levels: [2, 3] },
       code: false,
+      // Neither has Markdown syntax in this app's dialect, so they would be lost on save. Links
+      // are kept as [text](address) when a note has them, but there is no way to type one.
+      underline: false,
+      link: { openOnClick: false, autolink: false, linkOnPaste: false },
     }),
     TableKit.configure({
       table: { resizable: false },

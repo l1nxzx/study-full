@@ -4,17 +4,17 @@ import remarkParse from "remark-parse";
 import { unified } from "unified";
 import type { Blockquote, Content, List, PhrasingContent, Root, Table, TableRow, Text } from "mdast";
 import {
-  findAdditions,
-  findHighlights,
+  HIGHLIGHT_SENTINEL_PATTERN,
   NO_TEST_OPEN_SENTINEL,
   NO_TEST_SENTINEL_PATTERN,
+  parseHighlightSentinel,
+  parseReviewSentinel,
   prepareContentForRendering,
-  SENTINEL_PATTERN,
-  type AiAddition,
-  type AiHighlight,
+  REVIEW_SENTINEL_PATTERN,
+  type HighlightColor,
 } from "@/lib/aiMarkup";
+import { collectTexts, EQUALS_TOKEN, equalsRoles, type EqualsRole } from "@/lib/highlightSyntax";
 import { CALLOUT_PATTERN, CALLOUT_TYPES } from "@/lib/remarkCallouts";
-import { MARK_PATTERN } from "@/lib/remarkHighlightMark";
 
 export interface TiptapMark {
   type: string;
@@ -33,9 +33,13 @@ const processor = unified().use(remarkParse).use(remarkGfm).use(remarkMath);
 
 // Converts this app's Markdown dialect into a Tiptap/ProseMirror JSON document. Assumes
 // the caller has already ruled out pending <aialter> corrections (see the "Format visually"
-// guard in NotePage.tsx) - those are never modeled here. <aiadd> additions become the
-// aiAdd mark and are written back out by tiptapToMarkdown.ts.
-let currentAdditions: AiAddition[] = [];
+// guard in NotePage.tsx) - those are never modeled here. What is inside <aiadd>...</aiadd> becomes
+// text with the aiAdd mark (and any other marks it has) and is written back out by
+// tiptapToMarkdown.ts.
+//
+// How many <aiadd> tags are open around the text being converted - they carry on from block to
+// block like the regions below.
+let openAiAdds = 0;
 
 // Whether the conversion is currently between a <notest> and its </notest>. The blocks are
 // converted in reading order, so a region may start in one block and end in a later one;
@@ -43,22 +47,55 @@ let currentAdditions: AiAddition[] = [];
 // marks, the noTest attribute) - mirrors remarkNoTest.ts.
 let insideNoTest = false;
 
-function withNoTest(marks: TiptapMark[]): TiptapMark[] {
-  return insideNoTest ? [...marks, { type: "noTest" }] : marks;
+// The highlights currently open - ==...== and <highlight color="..."> - nest to any depth and
+// the innermost colour applies. Like insideNoTest they carry on from block to block - mirrors
+// remarkHighlight.ts.
+interface ActiveHighlight {
+  color: HighlightColor;
+  kind: "equals" | "tag";
+}
+let openHighlights: ActiveHighlight[] = [];
+
+// How each "==" of the paragraph being converted pairs up (see highlightSyntax.ts), and how
+// many texts of it have been converted so far.
+let equalsOfParagraph: EqualsRole[][] = [];
+let equalsTextIndex = 0;
+
+function closeHighlight(kind: ActiveHighlight["kind"]) {
+  for (let i = openHighlights.length - 1; i >= 0; i--) {
+    if (openHighlights[i].kind === kind) return void openHighlights.splice(i, 1);
+  }
+}
+
+// The marks a piece of text gets from the regions that are open around it, on top of its own.
+function withRegions(marks: TiptapMark[]): TiptapMark[] {
+  const all = marks.filter((m) => m.type !== "highlight" || !openHighlights.length);
+  const color = openHighlights[openHighlights.length - 1]?.color;
+  if (color) all.push({ type: "highlight", attrs: { color } });
+  if (openAiAdds > 0) all.push({ type: "aiAdd" });
+  if (insideNoTest) all.push({ type: "noTest" });
+  return all;
 }
 
 function marksProp(marks: TiptapMark[]): { marks?: TiptapMark[] } {
-  const all = withNoTest(marks);
+  const all = withRegions(marks);
   return all.length ? { marks: all } : {};
 }
 
+// Converts the inline content of one paragraph, heading or table cell.
+function convertInlineContainer(children: PhrasingContent[]): TiptapNode[] {
+  equalsOfParagraph = equalsRoles(collectTexts(children).map((t) => t.value));
+  equalsTextIndex = 0;
+  return convertInline(children);
+}
+
 export function markdownToTiptap(markdown: string): TiptapNode {
-  const highlights = findHighlights(markdown);
-  currentAdditions = findAdditions(markdown);
+  openAiAdds = 0;
   insideNoTest = false;
+  openHighlights = [];
   const sentinelSource = prepareContentForRendering(markdown);
   const tree = processor.parse(sentinelSource) as Root;
-  const content = tree.children.flatMap((node) => convertBlock(node, highlights));
+  const content = tree.children.flatMap((node) => convertBlock(node));
   return { type: "doc", content: content.length > 0 ? content : [{ type: "paragraph" }] };
 }
 
@@ -100,17 +137,17 @@ function stripCalloutPrefix(node: Blockquote): Content[] {
   return children;
 }
 
-function convertBlock(node: Content, highlights: AiHighlight[]): TiptapNode[] {
+function convertBlock(node: Content): TiptapNode[] {
   switch (node.type) {
     case "paragraph": {
-      const content = convertInline(node.children, highlights);
+      const content = convertInlineContainer(node.children);
       // A <notest> tag on a line of its own leaves a paragraph with nothing in it.
       if (!content.length && node.children.length) return [];
       return [{ type: "paragraph", ...(content.length ? { content } : {}) }];
     }
     case "heading": {
       const level = Math.min(3, Math.max(2, node.depth)) as 2 | 3;
-      const content = convertInline(node.children, highlights);
+      const content = convertInlineContainer(node.children);
       return [{ type: "heading", attrs: { level }, ...(content.length ? { content } : {}) }];
     }
     case "thematicBreak":
@@ -127,16 +164,16 @@ function convertBlock(node: Content, highlights: AiHighlight[]): TiptapNode[] {
       const variant = detectCalloutVariant(node);
       if (variant) {
         const remaining = stripCalloutPrefix(node);
-        const content = remaining.flatMap((c) => convertBlock(c, highlights));
+        const content = remaining.flatMap((c) => convertBlock(c));
         return [{ type: "callout", attrs: { variant }, content: content.length ? content : [{ type: "paragraph" }] }];
       }
-      const content = node.children.flatMap((c) => convertBlock(c, highlights));
+      const content = node.children.flatMap((c) => convertBlock(c));
       return [{ type: "blockquote", content: content.length ? content : [{ type: "paragraph" }] }];
     }
     case "list": {
       const list = node as List;
       const items = list.children.map((item) => {
-        const content = item.children.flatMap((c) => convertBlock(c, highlights));
+        const content = item.children.flatMap((c) => convertBlock(c));
         return { type: "listItem", content: content.length ? content : [{ type: "paragraph" }] };
       });
       return [{ type: list.ordered ? "orderedList" : "bulletList", content: items }];
@@ -146,7 +183,7 @@ function convertBlock(node: Content, highlights: AiHighlight[]): TiptapNode[] {
       const rows = table.children.map((row: TableRow, rowIndex: number) => ({
         type: "tableRow",
         content: row.children.map((cell) => {
-          const cellContent = convertInline(cell.children, highlights);
+          const cellContent = convertInlineContainer(cell.children);
           return {
             type: rowIndex === 0 ? "tableHeader" : "tableCell",
             content: [{ type: "paragraph", ...(cellContent.length ? { content: cellContent } : {}) }],
@@ -166,91 +203,86 @@ function convertBlock(node: Content, highlights: AiHighlight[]): TiptapNode[] {
   }
 }
 
-function findHighlightByIndex(highlights: AiHighlight[], index: number): AiHighlight | undefined {
-  return highlights.find((h) => h.index === index);
-}
-
-// Splits a text value on both the ==highlight== shorthand (a live regex pass) and the
-// sentinel markers left by prepareContentForRendering() for <highlight color="..."> tags
-// (an indexed lookup, exactly mirroring remarkAiMarkup.ts), applying any marks already
-// active from an enclosing strong/emphasis/etc.
-function convertText(value: string, highlights: AiHighlight[], marks: TiptapMark[]): TiptapNode[] {
-  const combined = new RegExp(`${SENTINEL_PATTERN.source}|${MARK_PATTERN.source}|(${NO_TEST_SENTINEL_PATTERN.source})`, "g");
+// Splits a text value on the open/close sentinels left by prepareContentForRendering() for
+// <highlight color="..."> tags, on "==" (paired up beforehand - see highlightSyntax.ts) and on the
+// <aiadd> and <notest> sentinels, applying any marks already active from an enclosing
+// strong/emphasis/etc. Mirrors remarkHighlight.ts, remarkAiMarkup.ts and remarkNoTest.ts.
+function convertText(value: string, marks: TiptapMark[]): TiptapNode[] {
+  const equalsOf = equalsOfParagraph[equalsTextIndex++] ?? [];
+  const combined = new RegExp(
+    `${REVIEW_SENTINEL_PATTERN.source}|${HIGHLIGHT_SENTINEL_PATTERN.source}|${NO_TEST_SENTINEL_PATTERN.source}|${EQUALS_TOKEN}`,
+    "g"
+  );
   const result: TiptapNode[] = [];
+  let equalsIndex = 0;
   let lastEnd = 0;
   let match: RegExpExecArray | null;
 
+  const pushPlain = (text: string) => {
+    if (text) result.push({ type: "text", text, ...marksProp(marks) });
+  };
+
   while ((match = combined.exec(value))) {
-    if (match.index > lastEnd) {
-      const plain = value.slice(lastEnd, match.index);
-      if (plain) result.push({ type: "text", text: plain, ...marksProp(marks) });
-    }
-
-    const [, sentinelKind, sentinelIndex, markText, noTestSentinel] = match;
-    if (noTestSentinel !== undefined) {
-      insideNoTest = noTestSentinel === NO_TEST_OPEN_SENTINEL;
-    } else if (sentinelKind === "D" && sentinelIndex !== undefined) {
-      const addition = currentAdditions.find((a) => a.index === Number(sentinelIndex));
-      if (addition?.text) {
-        result.push({ type: "text", text: addition.text, marks: withNoTest([...marks, { type: "aiAdd" }]) });
-      }
-    } else if (sentinelKind === "H" && sentinelIndex !== undefined) {
-      const highlight = findHighlightByIndex(highlights, Number(sentinelIndex));
-      if (highlight?.text) {
-        result.push({
-          type: "text",
-          text: highlight.text,
-          marks: withNoTest([...marks, { type: "highlight", attrs: { color: highlight.color } }]),
-        });
-      }
-    } else if (markText !== undefined) {
-      result.push({ type: "text", text: markText, marks: withNoTest([...marks, { type: "highlight", attrs: { color: "blue" } }]) });
-    }
-
+    pushPlain(value.slice(lastEnd, match.index));
     lastEnd = combined.lastIndex;
+    const token = match[0];
+
+    if (token.charAt(0) === "\u2e24" || token.charAt(0) === "\u2e25") {
+      const { kind, open } = parseReviewSentinel(token);
+      if (kind === "D") openAiAdds = Math.max(0, openAiAdds + (open ? 1 : -1));
+    } else if (token === NO_TEST_OPEN_SENTINEL) {
+      insideNoTest = true;
+    } else if (token === EQUALS_TOKEN) {
+      const role = equalsOf[equalsIndex++];
+      if (role === "open") openHighlights.push({ color: "blue", kind: "equals" });
+      else if (role === "close") closeHighlight("equals");
+      else pushPlain(EQUALS_TOKEN);
+    } else if (token.charAt(0) === "\u2e22" || token.charAt(0) === "\u2e23") {
+      const color = parseHighlightSentinel(token);
+      if (color === "close") closeHighlight("tag");
+      else openHighlights.push({ color, kind: "tag" });
+    } else {
+      insideNoTest = false;
+    }
   }
 
-  if (lastEnd < value.length) {
-    const plain = value.slice(lastEnd);
-    if (plain) result.push({ type: "text", text: plain, ...marksProp(marks) });
-  }
-
+  pushPlain(value.slice(lastEnd));
   return result;
 }
 
-function convertInline(nodes: PhrasingContent[], highlights: AiHighlight[], marks: TiptapMark[] = []): TiptapNode[] {
+function convertInline(nodes: PhrasingContent[], marks: TiptapMark[] = []): TiptapNode[] {
   const result: TiptapNode[] = [];
 
   for (const node of nodes) {
     switch (node.type) {
       case "text":
-        result.push(...convertText(node.value, highlights, marks));
+        result.push(...convertText(node.value, marks));
         break;
       case "strong":
-        result.push(...convertInline(node.children, highlights, [...marks, { type: "bold" }]));
+        result.push(...convertInline(node.children, [...marks, { type: "bold" }]));
         break;
       case "emphasis":
-        result.push(...convertInline(node.children, highlights, [...marks, { type: "italic" }]));
+        result.push(...convertInline(node.children, [...marks, { type: "italic" }]));
         break;
       case "delete":
-        result.push(...convertInline(node.children, highlights, [...marks, { type: "strike" }]));
+        result.push(...convertInline(node.children, [...marks, { type: "strike" }]));
         break;
       case "inlineCode":
-        // Inline code carries no other mark than "not in tests" (see extensions.ts).
-        result.push({ type: "text", text: node.value, marks: withNoTest([{ type: "code" }]) });
+        // Inline code takes every mark but the AI-added one (see extensions.ts).
+        result.push({ type: "text", text: node.value, marks: withRegions([...marks, { type: "code" }]) });
         break;
       case "break":
         result.push({ type: "hardBreak" });
         break;
       case "inlineMath":
-        result.push({ type: "mathInline", attrs: { latex: node.value }, ...marksProp([]) });
+        result.push({ type: "mathInline", attrs: { latex: node.value }, ...marksProp(marks) });
         break;
       case "link":
-        // Links aren't part of this app's authoring conventions yet - degrade to plain
-        // text rather than silently dropping the label.
-        result.push(...convertInline(node.children, highlights, marks));
+        result.push(...convertInline(node.children, [...marks, { type: "link", attrs: { href: node.url } }]));
         break;
       default:
+        // Anything else that holds text keeps it rather than dropping it.
+        if ("children" in node && Array.isArray(node.children)) result.push(...convertInline(node.children as PhrasingContent[], marks));
         break;
     }
   }

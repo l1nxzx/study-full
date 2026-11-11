@@ -38,7 +38,7 @@ const SOURCE_TEXT: Record<PromptSource, { intro: string; material: string; closi
 };
 
 // The two review tags, shared by every prompt that uses them.
-const TAG_SYNTAX = `Use plain text only inside these tags - no bold/italic/other Markdown formatting inside them, and never wrap a whole heading, list marker, or multiple paragraphs in one tag (only the specific run of words).
+const TAG_SYNTAX = `What is inside these tags is formatted like any other text in the notes: use **bold**, *italic*, ==highlights==, inline math and so on there exactly as you would outside the tags, e.g. <aiadd>the **powerhouse** of the cell</aiadd>. Never wrap a whole heading, list marker, or multiple paragraphs in one tag (only the specific run of words), and keep the value of original="..." as plain text, exactly as written, without formatting or quotation marks.
 
 1) __ALTER__:
    <aialter original="EXACT TEXT AS YOU READ IT ON THE PAGE">YOUR CORRECTED VERSION</aialter>
@@ -50,7 +50,7 @@ const TAG_SYNTAX = `Use plain text only inside these tags - no bold/italic/other
    <aiadd>YOUR ADDED TEXT</aiadd>
 
    Example:
-   The mitochondria is the <aiadd>powerhouse of the cell</aiadd>.
+   The mitochondria is the <aiadd>**powerhouse** of the cell</aiadd>.
 
 Use these tags inline, directly in the flow of the sentence/list item they belong to. Do not add any other commentary about your guesses outside of these tags - the tags are the only place uncertainty should appear.`;
 
@@ -120,7 +120,7 @@ There are two distinct cases. ${tagSyntax(SLIDES_ALTER, SLIDES_ADD)}`;
   }
 - One exception, so I can check it against the original: where ${
     handwritten ? "a word or number was unreadable and you had to guess it, or the notes state" : "the slides state"
-  } something that is clearly wrong and you corrected it, wrap the corrected run of words like this (plain text only inside the tag, only the specific words):
+  } something that is clearly wrong and you corrected it, wrap the corrected run of words like this (only the specific words; they can be formatted like any other text, but the value of original="..." stays plain text):
    <aialter original="EXACT TEXT AS IT IS IN THE ORIGINAL">YOUR CORRECTED VERSION</aialter>`;
 }
 
@@ -128,9 +128,9 @@ function highlightRule(fidelity: PromptFidelity, material: string): string {
   const colors =
     "blue (general emphasis - same as ==text==), green (a correct result/answer), red (a common mistake or incorrect example), purple (a key concept worth remembering), orange (secondary/supporting emphasis), yellow (caution/warning - something to be careful about, not general emphasis)";
   if (fidelity === "exact") {
-    return `- Inline highlighting: use it only where the ${material} themselves highlight something (highlighter pen, a coloured or marked word). Wrap that word or short phrase in ==double equals signs==, e.g. ==mitochondria==, or, to keep a specific colour meaning, use <highlight color="COLOR">text</highlight> with one of: ${colors}. Do not highlight anything the ${material} did not.`;
+    return `- Inline highlighting: use it only where the ${material} themselves highlight something (highlighter pen, a coloured or marked word). Wrap that word or short phrase in ==double equals signs==, e.g. ==mitochondria==, or, to keep a specific colour meaning, use <highlight color="COLOR">text</highlight> with one of: ${colors}. Do not highlight anything the ${material} did not. A highlight can contain bold, italic, inline code or math (e.g. ==**term**==), and can itself sit inside bold.`;
   }
-  return `- Actively use inline highlighting - this is required, not optional, for any note longer than a couple of lines: wrap the single most important term, name, number, or short phrase per key point in ==double equals signs==, e.g. ==mitochondria==, or, when the emphasis has a specific meaning, use <highlight color="COLOR">text</highlight> with one of: blue (general emphasis - same as ==text==), green (a correct result/answer), red (a common mistake or incorrect example), purple (a key concept worth remembering), orange (secondary/supporting emphasis), yellow (caution/warning - something to be careful about, not general emphasis). Only wrap the specific word or phrase, never a whole sentence or paragraph. Do not skip highlighting just because nothing looked visually marked in the original - if there is at least one term worth a student remembering, mark it. Most emphasis should still just be **bold**; highlights are for the smaller set of terms that most deserve to stand out.`;
+  return `- Actively use inline highlighting - this is required, not optional, for any note longer than a couple of lines: wrap the single most important term, name, number, or short phrase per key point in ==double equals signs==, e.g. ==mitochondria==, or, when the emphasis has a specific meaning, use <highlight color="COLOR">text</highlight> with one of: blue (general emphasis - same as ==text==), green (a correct result/answer), red (a common mistake or incorrect example), purple (a key concept worth remembering), orange (secondary/supporting emphasis), yellow (caution/warning - something to be careful about, not general emphasis). Only wrap the specific word or phrase, never a whole sentence or paragraph. Do not skip highlighting just because nothing looked visually marked in the original - if there is at least one term worth a student remembering, mark it. Most emphasis should still just be **bold**; highlights are for the smaller set of terms that most deserve to stand out. A highlight can contain bold, italic, inline code or math (e.g. ==**term**==), and can itself sit inside bold.`;
 }
 
 // The prompt to give ChatGPT/Claude together with the files. One prompt per kind of source
