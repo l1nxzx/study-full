@@ -2,11 +2,11 @@ import { Mark, mergeAttributes } from "@tiptap/core";
 
 // Text the AI added during transcription (<aiadd>...</aiadd>). It stays marked while you
 // format the note, so it survives a visual edit and is still distinguishable from your own
-// writing afterwards. Not inclusive: typing at its edge writes plain text, not more "AI" text.
+// writing afterwards, and it takes any other formatting (bold, highlight, code...) like normal
+// text. Not inclusive: typing at its edge writes plain text, not more "AI" text.
 export const AiAddMark = Mark.create({
   name: "aiAdd",
   inclusive: false,
-  excludes: "code",
 
   parseHTML() {
     return [{ tag: "span[data-ai-add]" }];

@@ -8,9 +8,9 @@ import { MathBlock, MathInline } from "@/lib/richEditor/schema/mathNode";
 import { NoTestBlockAttribute, NoTestMark } from "@/lib/richEditor/schema/noTestMark";
 
 // Inline code normally refuses every other mark. Bold, italic, strike, highlight, links and
-// "not in tests" are fine on it (`**`code`**` and ==`code`== are ordinary Markdown); only the
-// AI-added tag, which can't hold code, stays out.
-const InlineCode = Code.extend({ excludes: "aiAdd" });
+// "not in tests" are fine on it (`**`code`**` and ==`code`== are ordinary Markdown), and so is
+// the AI-added mark.
+const InlineCode = Code.extend({ excludes: "" });
 
 // Matches this app's Markdown dialect: never a single "#" heading (see notesPrompt.ts /
 // openai.service.ts's formatting instructions), plus the app's custom callout/highlight/

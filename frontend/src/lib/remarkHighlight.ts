@@ -3,8 +3,9 @@ import { collectTexts, EQUALS_TOKEN, equalsRoles, type EqualsRole } from "./high
 
 // Blocks whose children are inline content: "==" pairs up within one of them.
 const INLINE_CONTAINERS = new Set(["paragraph", "heading", "tableCell"]);
-// Inline nodes that have no children of their own but can sit inside a highlight.
-const HIGHLIGHTABLE_LEAVES = new Set(["inlineCode", "inlineMath", "aiAlter", "aiAdd"]);
+// Inline nodes that have no children of their own but can sit inside a highlight (the AI-marked
+// spans have children, so the walk goes into them instead).
+const HIGHLIGHTABLE_LEAVES = new Set(["inlineCode", "inlineMath"]);
 
 interface Active {
   color: HighlightColor;
@@ -27,7 +28,7 @@ function highlightNode(color: HighlightColor, children: any[]) {
 // The tags arrive as open/close sentinels (prepareContentForRendering in aiMarkup.ts); "==" is
 // found here, in text nodes only, so code and math are never touched. The document is walked in
 // reading order with the list of highlights currently open, and every piece of text (or code,
-// math, AI-marked text) met meanwhile is wrapped on its own - so a highlight never has to nest
+// math) met meanwhile is wrapped on its own - so a highlight never has to nest
 // properly with the bold or italic around it. Runs after remarkNoTest and remarkAiMarkup.
 export function remarkHighlight() {
   return (tree: any) => {

@@ -16,19 +16,29 @@ export const AI_ALTER_PATTERN = /<aialter\s+original="([^"]*)"\s*>([\s\S]*?)<\/a
 export const AI_ADD_PATTERN = /<aiadd>([\s\S]*?)<\/aiadd>/gi;
 const HIGHLIGHT_TAG_PATTERN = /<highlight\s+color="(yellow|blue|green|red|purple|orange)"\s*>|<\/highlight>/gi;
 
-// Only the two review markers hold opaque text. <highlight> (like ==...==) holds ordinary
-// Markdown, so its tags are turned into open/close sentinels instead (see below).
+// <aialter>, <aiadd>, <highlight> and ==...== all hold ordinary Markdown (bold, italic, code, math,
+// each other), so each tag is turned into an open or a close sentinel (see below) and the text
+// between them is parsed as usual.
 function combinedPattern(): RegExp {
   return new RegExp(`${AI_ALTER_PATTERN.source}|${AI_ADD_PATTERN.source}`, "gi");
 }
 
-// Wrapped in a Private-Use-Area character (U+E000) on both sides: not valid CommonMark
-// syntax, so it always survives markdown parsing as plain text, and the wrapper makes
-// collisions with real note content (e.g. "Vitamin D3", "Room A0") effectively impossible.
-const PUA = String.fromCharCode(0xe000);
-const ALTER_SENTINEL = (i: number) => `${PUA}A${i}${PUA}`;
-const ADD_SENTINEL = (i: number) => `${PUA}D${i}${PUA}`;
-export const SENTINEL_PATTERN = new RegExp(`${PUA}([AD])(\\d+)${PUA}`, "g");
+// <aialter> and <aiadd> become an open sentinel that carries the number of the tag (the same
+// number findAlterations()/findAdditions() give it) and a close sentinel. Both sit between two
+// rare punctuation marks, like the highlight sentinels below.
+export type ReviewKind = "A" | "D";
+const REVIEW_OPEN_SENTINEL = (kind: ReviewKind, index: number) => `\u2e24${String.fromCharCode(0xe005)}${kind}${index}\u2e24`;
+const REVIEW_CLOSE_SENTINEL = (kind: ReviewKind) => `\u2e25${String.fromCharCode(0xe006)}${kind}\u2e25`;
+export const REVIEW_SENTINEL_PATTERN = new RegExp(
+  `\u2e24${String.fromCharCode(0xe005)}[AD]\\d+\u2e24|\u2e25${String.fromCharCode(0xe006)}[AD]\u2e25`,
+  "g"
+);
+
+// What a review sentinel found in text stands for.
+export function parseReviewSentinel(sentinel: string): { kind: ReviewKind; open: boolean; index: number } {
+  const open = sentinel.charAt(0) === "\u2e24";
+  return { kind: sentinel.charAt(2) as ReviewKind, open, index: open ? Number(sentinel.slice(3, -1)) : -1 };
+}
 
 export type HighlightColor = "yellow" | "blue" | "green" | "red" | "purple" | "orange";
 
@@ -99,26 +109,28 @@ export function findAdditions(markdown: string): AiAddition[] {
   return results;
 }
 
-// Swaps every <aialter>/<aiadd> tag for a plain-text sentinel, indexed in the same left-to-right
-// order findAlterations()/findAdditions() use, so they stay in sync. <highlight> tags become open
-// and close sentinels (an unmatched tag is dropped), nested to any depth - the colour of the
-// innermost one applies.
+// Swaps every <aialter>/<aiadd> tag for an open and a close sentinel, numbered in the same
+// left-to-right order findAlterations()/findAdditions() use, so they stay in sync. <highlight>
+// tags become open and close sentinels too (an unmatched tag is dropped), nested to any depth -
+// the colour of the innermost one applies.
 //
-// The <notest> tags are different from the review markers too: they wrap ordinary Markdown
-// (bold, math, several paragraphs) instead of holding plain text, so the opening and the
-// closing tag each become their own sentinel and the text between them is parsed as usual.
+// The <notest> tags work the same way: the opening and the closing tag each become their own
+// sentinel and the text between them is parsed as usual.
 export function prepareContentForRendering(markdown: string): string {
-  let alterI = 0;
-  let addI = 0;
-  return convertHighlightTags(
-    markdown.replace(combinedPattern(), (_match, alterOriginal, _alterCorrected, addText) => {
-      if (alterOriginal !== undefined) return ALTER_SENTINEL(alterI++);
-      if (addText !== undefined) return ADD_SENTINEL(addI++);
-      return "";
-    })
-  )
+  return convertHighlightTags(convertReviewTags(markdown, { alter: 0, add: 0 }))
     .replace(NO_TEST_OPEN_PATTERN, NO_TEST_OPEN_SENTINEL)
     .replace(NO_TEST_CLOSE_PATTERN, NO_TEST_CLOSE_SENTINEL);
+}
+
+function convertReviewTags(markdown: string, counters: { alter: number; add: number }): string {
+  return markdown.replace(combinedPattern(), (_match, alterOriginal, alterInner, addInner) => {
+    if (alterOriginal !== undefined) {
+      const index = counters.alter++;
+      return REVIEW_OPEN_SENTINEL("A", index) + convertReviewTags(alterInner, counters) + REVIEW_CLOSE_SENTINEL("A");
+    }
+    const index = counters.add++;
+    return REVIEW_OPEN_SENTINEL("D", index) + convertReviewTags(addInner, counters) + REVIEW_CLOSE_SENTINEL("D");
+  });
 }
 
 function convertHighlightTags(markdown: string): string {

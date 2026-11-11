@@ -1,5 +1,5 @@
 import { Check, Pencil, Undo2, X } from "lucide-react";
-import { type KeyboardEvent, useState } from "react";
+import { type KeyboardEvent, type ReactNode, useState } from "react";
 import { usePressMenu } from "@/components/shared/PressMenu";
 import type { AlterationAction } from "@/lib/aiMarkup";
 import { cn } from "@/lib/utils";
@@ -9,15 +9,19 @@ const markButton =
 
 interface AiAlterSpanProps {
   original: string;
+  /** The corrected text as written in the note (Markdown), the starting point of a manual correction. */
   corrected: string;
+  /** The corrected text, rendered. */
+  children?: ReactNode;
   onResolve?: (action: AlterationAction, manualText?: string) => void;
 }
 
-// A correction the AI made to garbled/misread text. Shows both versions side by side -
+// A correction the AI made to garbled/misread text (the corrected text can be formatted like any
+// other text in the note). Shows both versions side by side -
 // once the user accepts, rejects, or manually retypes it (here or via the note's bulk
 // review banner), the caller rewrites the note's Markdown so this unwraps into plain
 // text permanently.
-export function AiAlterSpan({ original, corrected, onResolve }: AiAlterSpanProps) {
+export function AiAlterSpan({ original, corrected, children, onResolve }: AiAlterSpanProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState(corrected);
 
@@ -72,7 +76,7 @@ export function AiAlterSpan({ original, corrected, onResolve }: AiAlterSpanProps
     <span className="inline whitespace-normal align-baseline">
       <span className="text-fg-faint line-through decoration-bad/60">{original}</span>{" "}
       <span className="rounded-xs bg-warn/15 px-[0.2em] text-fg underline decoration-warn/70 decoration-dotted underline-offset-4">
-        {corrected}
+        {children ?? corrected}
       </span>
       {onResolve && (
         <span className="ml-1 inline-flex items-center align-middle">
@@ -100,7 +104,7 @@ export function AiAlterSpan({ original, corrected, onResolve }: AiAlterSpanProps
 }
 
 interface AiAddSpanProps {
-  text: string;
+  children?: ReactNode;
   onRemove?: () => void;
 }
 
@@ -108,7 +112,7 @@ interface AiAddSpanProps {
 // all. Stays visibly marked permanently (by design) so it's never mistaken for the
 // student's own original notes, even after review. Removing it is in a menu opened by
 // right-click or a long press, never a button on the text that's easy to hit by accident.
-export function AiAddSpan({ text, onRemove }: AiAddSpanProps) {
+export function AiAddSpan({ children, onRemove }: AiAddSpanProps) {
   const { handlers, menu } = usePressMenu([onRemove && { label: "Remove AI-added text", onSelect: onRemove, destructive: true }]);
   return (
     <span className="inline align-baseline [-webkit-touch-callout:none] pointer-coarse:select-none" {...(onRemove ? handlers : {})}>
@@ -119,7 +123,7 @@ export function AiAddSpan({ text, onRemove }: AiAddSpanProps) {
         className="text-fg underline decoration-accent/60 decoration-dashed underline-offset-4"
         title={onRemove ? "Added by the AI. Right-click or long-press for options." : undefined}
       >
-        {text}
+        {children}
       </span>
       {menu}
     </span>

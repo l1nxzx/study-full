@@ -4,14 +4,13 @@ import remarkParse from "remark-parse";
 import { unified } from "unified";
 import type { Blockquote, Content, List, PhrasingContent, Root, Table, TableRow, Text } from "mdast";
 import {
-  findAdditions,
   HIGHLIGHT_SENTINEL_PATTERN,
   NO_TEST_OPEN_SENTINEL,
   NO_TEST_SENTINEL_PATTERN,
   parseHighlightSentinel,
+  parseReviewSentinel,
   prepareContentForRendering,
-  SENTINEL_PATTERN,
-  type AiAddition,
+  REVIEW_SENTINEL_PATTERN,
   type HighlightColor,
 } from "@/lib/aiMarkup";
 import { collectTexts, EQUALS_TOKEN, equalsRoles, type EqualsRole } from "@/lib/highlightSyntax";
@@ -34,9 +33,13 @@ const processor = unified().use(remarkParse).use(remarkGfm).use(remarkMath);
 
 // Converts this app's Markdown dialect into a Tiptap/ProseMirror JSON document. Assumes
 // the caller has already ruled out pending <aialter> corrections (see the "Format visually"
-// guard in NotePage.tsx) - those are never modeled here. <aiadd> additions become the
-// aiAdd mark and are written back out by tiptapToMarkdown.ts.
-let currentAdditions: AiAddition[] = [];
+// guard in NotePage.tsx) - those are never modeled here. What is inside <aiadd>...</aiadd> becomes
+// text with the aiAdd mark (and any other marks it has) and is written back out by
+// tiptapToMarkdown.ts.
+//
+// How many <aiadd> tags are open around the text being converted - they carry on from block to
+// block like the regions below.
+let openAiAdds = 0;
 
 // Whether the conversion is currently between a <notest> and its </notest>. The blocks are
 // converted in reading order, so a region may start in one block and end in a later one;
@@ -69,6 +72,7 @@ function withRegions(marks: TiptapMark[]): TiptapMark[] {
   const all = marks.filter((m) => m.type !== "highlight" || !openHighlights.length);
   const color = openHighlights[openHighlights.length - 1]?.color;
   if (color) all.push({ type: "highlight", attrs: { color } });
+  if (openAiAdds > 0) all.push({ type: "aiAdd" });
   if (insideNoTest) all.push({ type: "noTest" });
   return all;
 }
@@ -86,7 +90,7 @@ function convertInlineContainer(children: PhrasingContent[]): TiptapNode[] {
 }
 
 export function markdownToTiptap(markdown: string): TiptapNode {
-  currentAdditions = findAdditions(markdown);
+  openAiAdds = 0;
   insideNoTest = false;
   openHighlights = [];
   const sentinelSource = prepareContentForRendering(markdown);
@@ -201,12 +205,12 @@ function convertBlock(node: Content): TiptapNode[] {
 
 // Splits a text value on the open/close sentinels left by prepareContentForRendering() for
 // <highlight color="..."> tags, on "==" (paired up beforehand - see highlightSyntax.ts) and on the
-// review and <notest> sentinels, applying any marks already active from an enclosing
+// <aiadd> and <notest> sentinels, applying any marks already active from an enclosing
 // strong/emphasis/etc. Mirrors remarkHighlight.ts, remarkAiMarkup.ts and remarkNoTest.ts.
 function convertText(value: string, marks: TiptapMark[]): TiptapNode[] {
   const equalsOf = equalsOfParagraph[equalsTextIndex++] ?? [];
   const combined = new RegExp(
-    `${SENTINEL_PATTERN.source}|${HIGHLIGHT_SENTINEL_PATTERN.source}|${NO_TEST_SENTINEL_PATTERN.source}|${EQUALS_TOKEN}`,
+    `${REVIEW_SENTINEL_PATTERN.source}|${HIGHLIGHT_SENTINEL_PATTERN.source}|${NO_TEST_SENTINEL_PATTERN.source}|${EQUALS_TOKEN}`,
     "g"
   );
   const result: TiptapNode[] = [];
@@ -223,12 +227,9 @@ function convertText(value: string, marks: TiptapMark[]): TiptapNode[] {
     lastEnd = combined.lastIndex;
     const token = match[0];
 
-    const review = /^\ue000([AD])(\d+)\ue000$/.exec(token);
-    if (review) {
-      if (review[1] === "D") {
-        const addition = currentAdditions.find((a) => a.index === Number(review[2]));
-        if (addition?.text) result.push({ type: "text", text: addition.text, marks: withRegions([...marks, { type: "aiAdd" }]) });
-      }
+    if (token.charAt(0) === "\u2e24" || token.charAt(0) === "\u2e25") {
+      const { kind, open } = parseReviewSentinel(token);
+      if (kind === "D") openAiAdds = Math.max(0, openAiAdds + (open ? 1 : -1));
     } else if (token === NO_TEST_OPEN_SENTINEL) {
       insideNoTest = true;
     } else if (token === EQUALS_TOKEN) {

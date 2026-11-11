@@ -79,17 +79,18 @@ export function MarkdownRenderer({
                       ? (action, manualText) => onResolveAlteration(item.index, action, manualText)
                       : undefined
                   }
-                />
+                >
+                  {props.children}
+                </AiAlterSpan>
               );
             },
             aiAdd: (props: any) => {
               const item = additions[props.index ?? props.node?.properties?.index];
               if (!item) return null;
               return (
-                <AiAddSpan
-                  text={item.text}
-                  onRemove={onRemoveAddition ? () => onRemoveAddition(item.index) : undefined}
-                />
+                <AiAddSpan onRemove={onRemoveAddition ? () => onRemoveAddition(item.index) : undefined}>
+                  {props.children}
+                </AiAddSpan>
               );
             },
           } as any

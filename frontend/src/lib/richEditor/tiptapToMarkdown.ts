@@ -19,13 +19,14 @@ function wrapInlineCode(text: string): string {
 }
 
 // Marks that wrap text in Markdown, as a key (what a piece of text carries) with what opens and
-// closes it. Bold, italic, strike, highlight, "not in tests" and links nest in any order, and
+// closes it. Bold, italic, strike, highlight, AI-added, "not in tests" and links nest in any order, and
 // the read pipeline parses what is inside every one of them as ordinary Markdown.
 function markKeysOf(marks: TiptapMark[]): string[] {
   const keys: string[] = [];
   for (const mark of marks) {
     if (mark.type === "link") keys.push(`link:${(mark.attrs?.href as string) || ""}`);
     else if (mark.type === "noTest") keys.push("noTest");
+    else if (mark.type === "aiAdd") keys.push("aiAdd");
     else if (mark.type === "highlight") keys.push(`highlight:${(mark.attrs?.color as string) || "blue"}`);
     else if (mark.type === "bold") keys.push("bold");
     else if (mark.type === "italic") keys.push("italic");
@@ -42,6 +43,7 @@ function openMarker(key: string): string {
   if (key === "italic") return "*";
   if (key === "strike") return "~~";
   if (key === "noTest") return NO_TEST_OPEN_TAG;
+  if (key === "aiAdd") return "<aiadd>";
   if (key === "highlight:blue") return "==";
   if (key.startsWith("highlight:")) return `<highlight color="${key.slice("highlight:".length)}">`;
   return "[";
@@ -49,13 +51,14 @@ function openMarker(key: string): string {
 
 function closeMarker(key: string): string {
   if (key === "noTest") return NO_TEST_CLOSE_TAG;
+  if (key === "aiAdd") return "</aiadd>";
   if (key.startsWith("highlight:") && key !== "highlight:blue") return "</highlight>";
   if (key.startsWith("link:")) return `](${key.slice("link:".length).replace(/[()\s]/g, (c) => encodeURIComponent(c))})`;
   return openMarker(key);
 }
 
 // Outermost first when two marks start at the same place and cover the same stretch.
-const KEY_ORDER = ["link", "noTest", "highlight", "bold", "italic", "strike"];
+const KEY_ORDER = ["link", "noTest", "aiAdd", "highlight", "bold", "italic", "strike"];
 const keyRank = (key: string) => KEY_ORDER.indexOf(key.split(":")[0]);
 
 interface Piece {
@@ -94,11 +97,6 @@ function piecesOf(nodes: TiptapNode[]): Piece[] {
       raw = true;
     } else if (node.type === "text" && marks.some((m) => m.type === "code")) {
       text = wrapInlineCode(node.text || "");
-      raw = true;
-    } else if (node.type === "text" && marks.some((m) => m.type === "aiAdd")) {
-      // AI-added text is read back as opaque plain text (see aiMarkup.ts), so it isn't escaped;
-      // only a literal closing tag inside it would break the marker.
-      text = `<aiadd>${(node.text || "").replace(/<\/aiadd>/gi, "")}</aiadd>`;
       raw = true;
     } else if (node.type === "text") {
       text = node.text || "";
@@ -148,6 +146,16 @@ function serializeInline(nodes: TiptapNode[]): string {
 
   const isFlanking = (key: string) => FLANKING_KEYS.includes(key);
 
+  // A space that was written inside bold/italic/strike (one between two pieces that share it) is
+  // moved after the closing marker when that marker comes next: Markdown doesn't close it after a space.
+  const movePendingSpacesOutOfClosing = (closing: string[]) => {
+    if (closing.length === 0 || !isFlanking(closing[0])) return;
+    const spaces = /\s+$/.exec(out);
+    if (!spaces || spaces.index === 0) return;
+    pendingTrail = spaces[0] + pendingTrail;
+    out = out.slice(0, spaces.index);
+  };
+
   pieces.forEach((piece, i) => {
     // Keep the marks already open that this piece still has, up to the first that it doesn't.
     let keep = 0;
@@ -171,6 +179,7 @@ function serializeInline(nodes: TiptapNode[]): string {
 
     // The previous piece's trailing space goes after the last bold/italic/strike that closes here,
     // never straight after one: Markdown doesn't close emphasis next to a space.
+    movePendingSpacesOutOfClosing(toClose);
     const lastFlankingClose = toClose.map(isFlanking).lastIndexOf(true);
     out += toClose.slice(0, lastFlankingClose + 1).map(closeMarker).join("");
     out += pendingTrail;
@@ -190,6 +199,7 @@ function serializeInline(nodes: TiptapNode[]): string {
   });
 
   const rest = active.splice(0).reverse();
+  movePendingSpacesOutOfClosing(rest);
   const lastFlankingClose = rest.map(isFlanking).lastIndexOf(true);
   out += rest.slice(0, lastFlankingClose + 1).map(closeMarker).join("") + pendingTrail;
   return out + rest.slice(lastFlankingClose + 1).map(closeMarker).join("");
