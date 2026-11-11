@@ -28,7 +28,7 @@ export function remarkAiMarkup() {
 
         const kind = match[1];
         const itemIndex = Number(match[2]);
-        const hName = kind === "A" ? "aiAlter" : kind === "D" ? "aiAdd" : "aiCustomHighlight";
+        const hName = kind === "A" ? "aiAlter" : "aiAdd";
         replacement.push({
           type: hName,
           data: { hName, hProperties: { index: itemIndex } },

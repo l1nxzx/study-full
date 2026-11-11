@@ -1,6 +1,6 @@
 import { Mark, mergeAttributes } from "@tiptap/core";
 import type { HighlightColor } from "@/lib/aiMarkup";
-import { HIGHLIGHT_COLOR_CLASSES, HIGHLIGHT_MARK_CLASSES, resolveHighlightColor } from "@/lib/highlightColors";
+import { HIGHLIGHT_COLOR_CLASSES, HIGHLIGHT_MARK_CLASSES, HIGHLIGHT_WHOLE_CLASSES, resolveHighlightColor } from "@/lib/highlightColors";
 
 export interface HighlightMarkOptions {
   HTMLAttributes: Record<string, unknown>;
@@ -45,7 +45,7 @@ export const HighlightMark = Mark.create<HighlightMarkOptions>({
     return [
       "mark",
       mergeAttributes(this.options.HTMLAttributes, HTMLAttributes, {
-        class: `${HIGHLIGHT_MARK_CLASSES} ${HIGHLIGHT_COLOR_CLASSES[color]}`,
+        class: `${HIGHLIGHT_MARK_CLASSES} ${HIGHLIGHT_WHOLE_CLASSES} ${HIGHLIGHT_COLOR_CLASSES[color]}`,
       }),
       0,
     ];

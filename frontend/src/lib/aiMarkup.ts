@@ -14,11 +14,12 @@
 
 export const AI_ALTER_PATTERN = /<aialter\s+original="([^"]*)"\s*>([\s\S]*?)<\/aialter>/gi;
 export const AI_ADD_PATTERN = /<aiadd>([\s\S]*?)<\/aiadd>/gi;
-export const HIGHLIGHT_TAG_PATTERN =
-  /<highlight\s+color="(yellow|blue|green|red|purple|orange)"\s*>([\s\S]*?)<\/highlight>/gi;
+const HIGHLIGHT_TAG_PATTERN = /<highlight\s+color="(yellow|blue|green|red|purple|orange)"\s*>|<\/highlight>/gi;
 
+// Only the two review markers hold opaque text. <highlight> (like ==...==) holds ordinary
+// Markdown, so its tags are turned into open/close sentinels instead (see below).
 function combinedPattern(): RegExp {
-  return new RegExp(`${AI_ALTER_PATTERN.source}|${AI_ADD_PATTERN.source}|${HIGHLIGHT_TAG_PATTERN.source}`, "gi");
+  return new RegExp(`${AI_ALTER_PATTERN.source}|${AI_ADD_PATTERN.source}`, "gi");
 }
 
 // Wrapped in a Private-Use-Area character (U+E000) on both sides: not valid CommonMark
@@ -27,8 +28,28 @@ function combinedPattern(): RegExp {
 const PUA = String.fromCharCode(0xe000);
 const ALTER_SENTINEL = (i: number) => `${PUA}A${i}${PUA}`;
 const ADD_SENTINEL = (i: number) => `${PUA}D${i}${PUA}`;
-const HIGHLIGHT_SENTINEL = (i: number) => `${PUA}H${i}${PUA}`;
-export const SENTINEL_PATTERN = new RegExp(`${PUA}([ADH])(\\d+)${PUA}`, "g");
+export const SENTINEL_PATTERN = new RegExp(`${PUA}([AD])(\\d+)${PUA}`, "g");
+
+export type HighlightColor = "yellow" | "blue" | "green" | "red" | "purple" | "orange";
+
+// <highlight color="...">...</highlight> and ==...== hold ordinary Markdown (bold, italic, code,
+// math, AI-added text, another highlight), so each tag becomes an open or a close sentinel and
+// the text between them is parsed as usual. The sentinels are private-use characters between
+// two rare punctuation marks: Markdown only opens or closes **bold** next to a tag when the tag
+// looks like punctuation to it, e.g. in <highlight color="red">**"quoted"**</highlight>.
+const HIGHLIGHT_LETTERS: Record<HighlightColor, string> = { yellow: "Y", blue: "B", green: "G", red: "R", purple: "P", orange: "O" };
+const HIGHLIGHT_BY_LETTER = Object.fromEntries(Object.entries(HIGHLIGHT_LETTERS).map(([color, letter]) => [letter, color])) as Record<string, HighlightColor>;
+const HIGHLIGHT_OPEN_SENTINEL = (color: HighlightColor) => `\u2e22${String.fromCharCode(0xe003)}${HIGHLIGHT_LETTERS[color]}\u2e22`;
+const HIGHLIGHT_CLOSE_SENTINEL = `\u2e23${String.fromCharCode(0xe004)}\u2e23`;
+export const HIGHLIGHT_SENTINEL_PATTERN = new RegExp(
+  `\u2e22${String.fromCharCode(0xe003)}[YBGRPO]\u2e22|${HIGHLIGHT_CLOSE_SENTINEL}`,
+  "g"
+);
+
+// What a highlight sentinel found in text stands for: the colour it starts, or "close".
+export function parseHighlightSentinel(sentinel: string): HighlightColor | "close" {
+  return sentinel === HIGHLIGHT_CLOSE_SENTINEL ? "close" : (HIGHLIGHT_BY_LETTER[sentinel.charAt(2)] ?? "blue");
+}
 
 // <notest>...</notest> marks text that stays in the note but is left out of everything that
 // tests knowledge: quizzes, flashcards, tests (the backend removes it before the AI sees the
@@ -56,14 +77,6 @@ export interface AiAddition {
   text: string;
 }
 
-export type HighlightColor = "yellow" | "blue" | "green" | "red" | "purple" | "orange";
-
-export interface AiHighlight {
-  index: number;
-  color: HighlightColor;
-  text: string;
-}
-
 export function findAlterations(markdown: string): AiAlteration[] {
   const results: AiAlteration[] = [];
   let match: RegExpExecArray | null;
@@ -86,37 +99,52 @@ export function findAdditions(markdown: string): AiAddition[] {
   return results;
 }
 
-export function findHighlights(markdown: string): AiHighlight[] {
-  const results: AiHighlight[] = [];
-  let match: RegExpExecArray | null;
-  const re = new RegExp(HIGHLIGHT_TAG_PATTERN.source, "gi");
-  let i = 0;
-  while ((match = re.exec(markdown))) {
-    results.push({ index: i++, color: match[1] as HighlightColor, text: match[2] });
-  }
-  return results;
-}
-
-// Swaps every <aialter>/<aiadd>/<highlight> tag for a plain-text sentinel, indexed in
-// the same left-to-right order findAlterations()/findAdditions()/findHighlights() use,
-// so they all stay in sync.
+// Swaps every <aialter>/<aiadd> tag for a plain-text sentinel, indexed in the same left-to-right
+// order findAlterations()/findAdditions() use, so they stay in sync. <highlight> tags become open
+// and close sentinels (an unmatched tag is dropped), nested to any depth - the colour of the
+// innermost one applies.
 //
-// The <notest> tags are different: they wrap ordinary Markdown (bold, math, several paragraphs)
-// instead of holding plain text, so the opening and the closing tag each become their own
-// sentinel and the text between them is parsed as usual.
+// The <notest> tags are different from the review markers too: they wrap ordinary Markdown
+// (bold, math, several paragraphs) instead of holding plain text, so the opening and the
+// closing tag each become their own sentinel and the text between them is parsed as usual.
 export function prepareContentForRendering(markdown: string): string {
   let alterI = 0;
   let addI = 0;
-  let highlightI = 0;
-  return markdown
-    .replace(combinedPattern(), (_match, alterOriginal, _alterCorrected, addText, highlightColor) => {
+  return convertHighlightTags(
+    markdown.replace(combinedPattern(), (_match, alterOriginal, _alterCorrected, addText) => {
       if (alterOriginal !== undefined) return ALTER_SENTINEL(alterI++);
       if (addText !== undefined) return ADD_SENTINEL(addI++);
-      if (highlightColor !== undefined) return HIGHLIGHT_SENTINEL(highlightI++);
       return "";
     })
+  )
     .replace(NO_TEST_OPEN_PATTERN, NO_TEST_OPEN_SENTINEL)
     .replace(NO_TEST_CLOSE_PATTERN, NO_TEST_CLOSE_SENTINEL);
+}
+
+function convertHighlightTags(markdown: string): string {
+  const tags = [...markdown.matchAll(new RegExp(HIGHLIGHT_TAG_PATTERN.source, "gi"))];
+  if (tags.length === 0) return markdown;
+
+  const open: number[] = [];
+  const pairs = new Map<number, "open" | "close">();
+  tags.forEach((tag, i) => {
+    if (tag[1] !== undefined) open.push(i);
+    else if (open.length > 0) {
+      pairs.set(open.pop()!, "open");
+      pairs.set(i, "close");
+    }
+  });
+
+  let result = "";
+  let last = 0;
+  tags.forEach((tag, i) => {
+    result += markdown.slice(last, tag.index);
+    const role = pairs.get(i);
+    if (role === "open") result += HIGHLIGHT_OPEN_SENTINEL(tag[1].toLowerCase() as HighlightColor);
+    else if (role === "close") result += HIGHLIGHT_CLOSE_SENTINEL;
+    last = tag.index! + tag[0].length;
+  });
+  return result + markdown.slice(last);
 }
 
 export type AlterationAction = "accept" | "reject" | "manual";

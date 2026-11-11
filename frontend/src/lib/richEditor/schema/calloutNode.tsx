@@ -51,7 +51,7 @@ function CalloutNodeView({ node, updateAttributes }: ReactNodeViewProps) {
 export const CalloutNode = Node.create<CalloutNodeOptions>({
   name: "callout",
   group: "block",
-  content: "paragraph+",
+  content: "block+",
   defining: true,
 
   addOptions() {
